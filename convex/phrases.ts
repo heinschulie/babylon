@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
 
 // List phrases for a session
@@ -41,13 +42,28 @@ export const create = mutation({
 			throw new Error('Not authorized to add phrases to this session');
 		}
 
-		return await ctx.db.insert('phrases', {
+		const phraseId = await ctx.db.insert('phrases', {
 			sessionId: args.sessionId,
 			userId,
 			english: args.english,
 			translation: args.translation,
 			createdAt: Date.now()
 		});
+
+		// Schedule notifications for this phrase (if user has push subscription)
+		const prefs = await ctx.db
+			.query('userPreferences')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.unique();
+
+		if (prefs?.pushSubscription) {
+			await ctx.scheduler.runAfter(0, internal.notifications.scheduleForPhrase, {
+				phraseId,
+				userId
+			});
+		}
+
+		return phraseId;
 	}
 });
 

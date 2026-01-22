@@ -105,7 +105,7 @@ Status: NOT STARTED
 - [x] PRD-006-008: Send action
 - [x] PRD-006-009: Mark sent mutation
 - [x] PRD-006-010: Internal queries
-- [ ] PRD-006-011: Phrase create hook
+- [x] PRD-006-011: Phrase create hook
 - [ ] PRD-006-012: Reveal page
 - [ ] PRD-006-013: Settings enable button
 - [ ] PRD-006-014: Notification tests
@@ -467,6 +467,11 @@ Status: NOT STARTED
   - getPhraseById, getPreferencesByUserId, getNotificationById
   - All in convex/notifications.ts for simplicity
   - Files: convex/notifications.ts
+
+- PRD-006-011 DONE: Phrase create hook
+  - scheduler.runAfter in phrases.create
+  - Only schedules if user has pushSubscription
+  - Files: convex/phrases.ts
 
 ---
 
