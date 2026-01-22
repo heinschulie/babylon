@@ -500,7 +500,7 @@
 						"RUN: test -f src/routes/session/[id]/+page.svelte -- expect file exists",
 						"RUN: grep -q 'Phrases' src/routes/session/[id]/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-005",

@@ -354,6 +354,13 @@ Status: NOT STARTED
   - Error/loading states, validation
   - Files: src/routes/+page.svelte
 
+- PRD-005-004 DONE: Session detail page structure
+  - Created src/routes/session/[id]/+page.svelte
+  - "Phrases" section heading
+  - "Add Phrase" button, back link
+  - Empty state placeholder
+  - Files: src/routes/session/[id]/+page.svelte
+
 ---
 
 ## Notes
