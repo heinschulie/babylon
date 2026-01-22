@@ -574,7 +574,7 @@
 						"RUN: grep -q 'Settings' src/lib/components/Header.svelte -- expect match",
 						"RUN: grep -q 'Logout' src/lib/components/Header.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-012",

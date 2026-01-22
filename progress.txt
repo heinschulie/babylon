@@ -399,6 +399,12 @@ Status: NOT STARTED
   - 2s saved feedback indicator
   - Files: src/routes/settings/+page.svelte
 
+- PRD-005-011 DONE: Header component
+  - Recall logo/link, Settings link, Logout button
+  - Shows user name/email when authenticated
+  - handleLogout calls authClient.signOut
+  - Files: src/lib/components/Header.svelte
+
 ---
 
 ## Notes
