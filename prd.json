@@ -209,7 +209,7 @@
 						"RUN: grep -q 'name' src/routes/register/+page.svelte -- expect match",
 						"RUN: grep -q 'email' src/routes/register/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-010",

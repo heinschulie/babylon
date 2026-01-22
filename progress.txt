@@ -34,7 +34,7 @@ Status: IN PROGRESS
 - [x] PRD-002-006: Create auth-client.ts
 - [x] PRD-002-007: Create auth store
 - [x] PRD-002-008: Create login page
-- [ ] PRD-002-009: Create register page
+- [x] PRD-002-009: Create register page
 - [ ] PRD-002-010: Write auth tests
 - [ ] PRD-002-011: Verify auth setup
 
@@ -258,6 +258,12 @@ Status: NOT STARTED
   - Svelte 5 $state() for reactive form fields
   - shadcn Card, Input, Label, Button components
   - Files: src/routes/login/+page.svelte, src/routes/register/+page.svelte
+
+- PRD-002-009 DONE: Create register page
+  - Completed src/routes/register/+page.svelte
+  - Uses authClient.signUp.email() with name, email, password
+  - Same pattern as login: resolve(), $state(), shadcn components
+  - Files: src/routes/register/+page.svelte
 
 ---
 
