@@ -24,7 +24,7 @@ Status: COMPLETE
 ---
 
 ## Phase 2: Authentication with BetterAuth (11 items)
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] PRD-002-001: Install auth dependencies
 - [x] PRD-002-002: Create convex.config.ts
@@ -36,7 +36,7 @@ Status: IN PROGRESS
 - [x] PRD-002-008: Create login page
 - [x] PRD-002-009: Create register page
 - [x] PRD-002-010: Write auth tests
-- [ ] PRD-002-011: Verify auth setup
+- [x] PRD-002-011: Verify auth setup
 
 ---
 
@@ -271,6 +271,11 @@ Status: NOT STARTED
   - Tests: session export, isAuthenticated (null/exists/undefined), isLoading, user
   - Mocks $lib/auth-client with writable store
   - Files: package.json, src/lib/stores/auth.test.ts
+
+- PRD-002-011 DONE: Verify auth setup
+  - pnpm build: succeeds
+  - pnpm check: 0 errors, 0 warnings
+  - Phase 2 complete!
 
 ---
 
