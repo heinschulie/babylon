@@ -361,6 +361,13 @@ Status: NOT STARTED
   - Empty state placeholder
   - Files: src/routes/session/[id]/+page.svelte
 
+- PRD-005-005 DONE: Session detail query
+  - Integrated useQuery with api.phrases.listBySession
+  - sessionId from page.params cast to Id<'sessions'>
+  - Loading/error/empty/data states handled
+  - Phrase cards with english + translation
+  - Files: src/routes/session/[id]/+page.svelte
+
 ---
 
 ## Notes
