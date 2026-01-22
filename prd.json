@@ -120,7 +120,7 @@
 						"RUN: grep -q 'better-auth' package.json -- expect match",
 						"RUN: grep -q '@convex-dev/better-auth' package.json -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-002",

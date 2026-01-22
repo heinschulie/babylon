@@ -24,9 +24,9 @@ Status: COMPLETE
 ---
 
 ## Phase 2: Authentication with BetterAuth (11 items)
-Status: NOT STARTED
+Status: IN PROGRESS
 
-- [ ] PRD-002-001: Install auth dependencies
+- [x] PRD-002-001: Install auth dependencies
 - [ ] PRD-002-002: Create convex.config.ts
 - [ ] PRD-002-003: Create auth.ts config
 - [ ] PRD-002-004: Create auth.config.ts
@@ -204,6 +204,12 @@ Status: NOT STARTED
   - pnpm build: succeeds
   - pnpm check: 0 errors, 0 warnings
   - Phase 1 complete!
+
+- PRD-002-001 DONE: Install auth dependencies
+  - Installed better-auth@1.4.9 + @convex-dev/better-auth@0.10.10
+  - Used 1.4.9 to match peer dep requirement
+  - Minor peer dep warnings for internal transitive deps (non-blocking)
+  - Files: package.json, pnpm-lock.yaml
 
 ---
 
