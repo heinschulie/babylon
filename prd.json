@@ -85,7 +85,7 @@
 						"RUN: grep -q 'setContext' src/routes/+layout.svelte -- expect match",
 						"RUN: grep -q 'convex' src/routes/+layout.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-008",
