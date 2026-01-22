@@ -339,6 +339,13 @@ Status: NOT STARTED
   - Empty state placeholder text
   - Files: src/routes/+page.svelte
 
+- PRD-005-002 DONE: Home page query
+  - Integrated useQuery from convex-svelte
+  - Subscribe to api.sessions.list
+  - Loading/error/empty/data states handled
+  - Session cards with date + targetLanguage
+  - Files: src/routes/+page.svelte
+
 ---
 
 ## Notes

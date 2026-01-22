@@ -479,7 +479,7 @@
 						"RUN: grep -q 'useQuery' src/routes/+page.svelte -- expect match",
 						"RUN: grep -q 'api.sessions.list' src/routes/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-003",
