@@ -627,7 +627,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'VITE_VAPID_PUBLIC_KEY' .env.example || grep -q 'VITE_VAPID_PUBLIC_KEY' .env.local -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-003",

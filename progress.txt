@@ -96,7 +96,7 @@ Status: COMPLETE
 Status: NOT STARTED
 
 - [x] PRD-006-001: Install web-push
-- [ ] PRD-006-002: Generate VAPID keys
+- [x] PRD-006-002: Generate VAPID keys
 - [ ] PRD-006-003: Create service worker
 - [ ] PRD-006-004: Create notification helper
 - [ ] PRD-006-005: URL Base64 helper
@@ -423,6 +423,10 @@ Status: NOT STARTED
 - PRD-006-001 DONE: Install web-push
   - Added web-push 3.6.7 dependency
   - Files: package.json
+
+- PRD-006-002 DONE: Generate VAPID keys
+  - Added VITE_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to .env.example
+  - Files: .env.example
 
 ---
 
