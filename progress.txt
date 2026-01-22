@@ -95,7 +95,7 @@ Status: COMPLETE
 ## Phase 6: Push Notifications & Scheduling (15 items)
 Status: NOT STARTED
 
-- [ ] PRD-006-001: Install web-push
+- [x] PRD-006-001: Install web-push
 - [ ] PRD-006-002: Generate VAPID keys
 - [ ] PRD-006-003: Create service worker
 - [ ] PRD-006-004: Create notification helper
@@ -419,6 +419,10 @@ Status: NOT STARTED
   - pnpm build: succeeds
   - pnpm check: 0 errors, 0 warnings
   - Phase 5 complete!
+
+- PRD-006-001 DONE: Install web-push
+  - Added web-push 3.6.7 dependency
+  - Files: package.json
 
 ---
 

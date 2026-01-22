@@ -618,7 +618,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'web-push' package.json -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-002",
