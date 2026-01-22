@@ -65,7 +65,7 @@ Status: IN PROGRESS
 - [x] PRD-004-007: Phrases create mutation
 - [x] PRD-004-008: Phrases update mutation
 - [x] PRD-004-009: Phrases remove mutation
-- [ ] PRD-004-010: Phrases tests
+- [x] PRD-004-010: Phrases tests
 - [x] PRD-004-011: Preferences get query
 - [x] PRD-004-012: Preferences upsert mutation
 - [ ] PRD-004-013: CRUD verification
@@ -316,6 +316,16 @@ Status: NOT STARTED
   - Updated eslint.config.js to ignore convex/_generated/
   - All tests pass, typecheck clean, lint clean, build passes
   - Files: convex/sessions.test.ts, convex/lib/auth.ts, convex/_generated/*, vitest.config.ts, eslint.config.js, package.json
+
+- PRD-004-010 DONE: Phrases tests
+  - Created convex/phrases.test.ts with 15 tests covering:
+    - listBySession: empty, create+list, auth check (other user's session)
+    - create: owned session, cannot create phrase for other users session, non-existent session
+    - update: english, translation, not authorized, not found
+    - remove: basic, not authorized, not found
+    - authentication: requires auth for listBySession/create
+  - All tests pass, typecheck clean, lint clean, build passes
+  - Files: convex/phrases.test.ts
 
 ---
 

@@ -420,7 +420,7 @@
 						"RUN: grep -q 'cannot create phrase for other' convex/phrases.test.ts -- expect match",
 						"RUN: pnpm test:run convex/phrases.test.ts -- tests pass"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-011",
