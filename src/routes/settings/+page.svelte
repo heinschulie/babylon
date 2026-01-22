@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { useQuery } from 'convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '../../../convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 
+	const client = useConvexClient();
 	const preferences = useQuery(api.preferences.get, {});
 
 	let quietStart = $state(22);
 	let quietEnd = $state(8);
 	let perPhrase = $state(3);
+	let saving = $state(false);
+	let saved = $state(false);
 
 	$effect(() => {
 		if (preferences.data) {
@@ -20,6 +23,29 @@
 			perPhrase = preferences.data.notificationsPerPhrase;
 		}
 	});
+
+	async function handleSave() {
+		saving = true;
+		saved = false;
+
+		try {
+			await updatePreferences();
+			saved = true;
+			setTimeout(() => (saved = false), 2000);
+		} catch (e) {
+			console.error('Failed to save preferences:', e);
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function updatePreferences() {
+		await client.mutation(api.preferences.upsert, {
+			quietHoursStart: quietStart,
+			quietHoursEnd: quietEnd,
+			notificationsPerPhrase: perPhrase
+		});
+	}
 </script>
 
 <div class="container mx-auto max-w-4xl p-4">
@@ -83,8 +109,13 @@
 				</div>
 			{/if}
 		</Card.Content>
-		<Card.Footer>
-			<Button disabled={preferences.isLoading}>Save Settings</Button>
+		<Card.Footer class="flex items-center gap-4">
+			<Button onclick={handleSave} disabled={preferences.isLoading || saving}>
+				{saving ? 'Saving...' : 'Save Settings'}
+			</Button>
+			{#if saved}
+				<span class="text-sm text-green-600">Saved!</span>
+			{/if}
 		</Card.Footer>
 	</Card.Root>
 </div>

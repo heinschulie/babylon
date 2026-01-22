@@ -393,6 +393,12 @@ Status: NOT STARTED
   - $effect syncs data to form state
   - Files: src/routes/settings/+page.svelte
 
+- PRD-005-010 DONE: Settings save
+  - handleSave with saving/saved state
+  - updatePreferences calls api.preferences.upsert
+  - 2s saved feedback indicator
+  - Files: src/routes/settings/+page.svelte
+
 ---
 
 ## Notes

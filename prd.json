@@ -562,7 +562,7 @@
 						"RUN: grep -q 'updatePreferences' src/routes/settings/+page.svelte -- expect match",
 						"RUN: grep -q 'handleSave' src/routes/settings/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-011",
