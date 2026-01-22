@@ -74,7 +74,7 @@
 						"RUN: grep -q 'ConvexClient' src/lib/convex.ts -- expect match",
 						"RUN: grep -q 'VITE_CONVEX_URL' src/lib/convex.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-007",

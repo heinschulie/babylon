@@ -16,7 +16,7 @@ Status: NOT STARTED
 - [x] PRD-001-003: Initialize shadcn-svelte
 - [x] PRD-001-004: Add shadcn components
 - [x] PRD-001-005: Install and init Convex
-- [ ] PRD-001-006: Create Convex client config
+- [x] PRD-001-006: Create Convex client config
 - [ ] PRD-001-007: Configure root layout
 - [ ] PRD-001-008: Create env template
 - [ ] PRD-001-009: Verify dev server
@@ -184,6 +184,12 @@ Status: NOT STARTED
   - convex-svelte provides Svelte 5 hooks: setupConvex, useQuery, useConvexClient
   - New deps: convex, convex-svelte
   - Files: convex/tsconfig.json, convex.json, package.json
+
+- PRD-001-006 DONE: Create Convex client config
+  - Created src/lib/convex.ts with ConvexClient
+  - Reads VITE_CONVEX_URL from env, throws if missing
+  - Exports convexClient singleton + CONVEX_URL constant
+  - Files: src/lib/convex.ts
 
 ---
 
