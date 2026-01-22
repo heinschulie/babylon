@@ -1,0 +1,161 @@
+# Language Recall App - Implementation Progress
+
+## Overview
+Project: Language Recall PWA
+Created: 2026-01-22
+Total Steps: 78
+Phases: 8
+
+---
+
+## Phase 1: Project Setup & Infrastructure (9 items)
+Status: NOT STARTED
+
+- [x] PRD-001-001: Initialize SvelteKit project
+- [ ] PRD-001-002: Add Tailwind CSS
+- [ ] PRD-001-003: Initialize shadcn-svelte
+- [ ] PRD-001-004: Add shadcn components
+- [ ] PRD-001-005: Install and init Convex
+- [ ] PRD-001-006: Create Convex client config
+- [ ] PRD-001-007: Configure root layout
+- [ ] PRD-001-008: Create env template
+- [ ] PRD-001-009: Verify dev server
+
+---
+
+## Phase 2: Authentication with BetterAuth (11 items)
+Status: NOT STARTED
+
+- [ ] PRD-002-001: Install auth dependencies
+- [ ] PRD-002-002: Create convex.config.ts
+- [ ] PRD-002-003: Create auth.ts config
+- [ ] PRD-002-004: Create auth.config.ts
+- [ ] PRD-002-005: Create http.ts routes
+- [ ] PRD-002-006: Create auth-client.ts
+- [ ] PRD-002-007: Create auth store
+- [ ] PRD-002-008: Create login page
+- [ ] PRD-002-009: Create register page
+- [ ] PRD-002-010: Write auth tests
+- [ ] PRD-002-011: Verify auth setup
+
+---
+
+## Phase 3: Data Model & Schema (7 items)
+Status: NOT STARTED
+
+- [ ] PRD-003-001: Define sessions table
+- [ ] PRD-003-002: Add sessions indexes
+- [ ] PRD-003-003: Define phrases table
+- [ ] PRD-003-004: Add phrases indexes
+- [ ] PRD-003-005: Define userPreferences table
+- [ ] PRD-003-006: Define scheduledNotifications table
+- [ ] PRD-003-007: Verify schema
+
+---
+
+## Phase 4: Core CRUD Operations (13 items)
+Status: NOT STARTED
+
+- [ ] PRD-004-001: Sessions list query
+- [ ] PRD-004-002: Sessions getByDate query
+- [ ] PRD-004-003: Sessions create mutation
+- [ ] PRD-004-004: Sessions remove mutation
+- [ ] PRD-004-005: Sessions tests
+- [ ] PRD-004-006: Phrases listBySession query
+- [ ] PRD-004-007: Phrases create mutation
+- [ ] PRD-004-008: Phrases update mutation
+- [ ] PRD-004-009: Phrases remove mutation
+- [ ] PRD-004-010: Phrases tests
+- [ ] PRD-004-011: Preferences get query
+- [ ] PRD-004-012: Preferences upsert mutation
+- [ ] PRD-004-013: CRUD verification
+
+---
+
+## Phase 5: Frontend UI (14 items)
+Status: NOT STARTED
+
+- [ ] PRD-005-001: Home page structure
+- [ ] PRD-005-002: Home page query
+- [ ] PRD-005-003: New session dialog
+- [ ] PRD-005-004: Session detail page
+- [ ] PRD-005-005: Session detail query
+- [ ] PRD-005-006: Add phrase dialog
+- [ ] PRD-005-007: Delete phrase
+- [ ] PRD-005-008: Settings page structure
+- [ ] PRD-005-009: Settings preferences
+- [ ] PRD-005-010: Settings save
+- [ ] PRD-005-011: Header component
+- [ ] PRD-005-012: Header integration
+- [ ] PRD-005-013: Auth redirect
+- [ ] PRD-005-014: UI verification
+
+---
+
+## Phase 6: Push Notifications & Scheduling (15 items)
+Status: NOT STARTED
+
+- [ ] PRD-006-001: Install web-push
+- [ ] PRD-006-002: Generate VAPID keys
+- [ ] PRD-006-003: Create service worker
+- [ ] PRD-006-004: Create notification helper
+- [ ] PRD-006-005: URL Base64 helper
+- [ ] PRD-006-006: Schedule function
+- [ ] PRD-006-007: Random times generator
+- [ ] PRD-006-008: Send action
+- [ ] PRD-006-009: Mark sent mutation
+- [ ] PRD-006-010: Internal queries
+- [ ] PRD-006-011: Phrase create hook
+- [ ] PRD-006-012: Reveal page
+- [ ] PRD-006-013: Settings enable button
+- [ ] PRD-006-014: Notification tests
+- [ ] PRD-006-015: Notification verification
+
+---
+
+## Phase 7: PWA Configuration (6 items)
+Status: NOT STARTED
+
+- [ ] PRD-007-001: Create manifest.json
+- [ ] PRD-007-002: Create 192x192 icon
+- [ ] PRD-007-003: Create 512x512 icon
+- [ ] PRD-007-004: Add HTML meta tags
+- [ ] PRD-007-005: Create badge icon
+- [ ] PRD-007-006: PWA verification
+
+---
+
+## Phase 8: Testing (8 items)
+Status: NOT STARTED
+
+- [ ] PRD-008-001: Install test dependencies
+- [ ] PRD-008-002: Create vitest config
+- [ ] PRD-008-003: Install convex-test
+- [ ] PRD-008-004: Sessions tests
+- [ ] PRD-008-005: Phrases tests
+- [ ] PRD-008-006: Package scripts
+- [ ] PRD-008-007: All tests pass
+- [ ] PRD-008-008: Final verification
+
+---
+
+## Progress Log
+
+### 2026-01-22
+- Created prd.json with 78 implementation steps across 8 phases
+- Created progress.txt tracking file
+- Ready to begin Phase 1: Project Setup & Infrastructure
+
+- PRD-001-001 DONE: Init SvelteKit with TS/ESLint/Prettier
+  - Used sv create for Svelte 5 skeleton project
+  - Added eslint + prettier + plugins manually
+  - Created eslint.config.js, .prettierrc, .prettierignore
+  - All feedback loops pass (typecheck, lint, build)
+
+---
+
+## Notes
+- Each step has verification commands in prd.json
+- Mark items with [x] when completed
+- Update phase status when all items complete
+- Add log entries with date for each work session

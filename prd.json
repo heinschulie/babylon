@@ -1,0 +1,941 @@
+{
+	"project": "Language Recall App",
+	"version": "1.0.0",
+	"created": "2026-01-22",
+	"phases": [
+		{
+			"phase": 1,
+			"name": "Project Setup & Infrastructure",
+			"items": [
+				{
+					"id": "PRD-001-001",
+					"category": "Setup - SvelteKit",
+					"description": "Initialize SvelteKit project with TypeScript, ESLint, Prettier",
+					"steps_to_verify": [
+						"RUN: test -f package.json -- expect file exists",
+						"RUN: test -f svelte.config.js -- expect file exists",
+						"RUN: test -f tsconfig.json -- expect file exists",
+						"RUN: grep -q 'svelte' package.json -- expect match"
+					],
+					"passes": true
+				},
+				{
+					"id": "PRD-001-002",
+					"category": "Setup - Tailwind",
+					"description": "Add Tailwind CSS to project",
+					"steps_to_verify": [
+						"RUN: test -f tailwind.config.js || test -f tailwind.config.ts -- expect file exists",
+						"RUN: grep -q 'tailwindcss' package.json -- expect match",
+						"RUN: test -f src/app.css -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-003",
+					"category": "Setup - shadcn-svelte",
+					"description": "Initialize shadcn-svelte with default style",
+					"steps_to_verify": [
+						"RUN: test -f components.json -- expect file exists",
+						"RUN: test -d src/lib/components/ui -- expect directory exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-004",
+					"category": "Setup - shadcn Components",
+					"description": "Add required shadcn components: button, card, input, label, form, dialog, alert",
+					"steps_to_verify": [
+						"RUN: test -d src/lib/components/ui/button -- expect directory exists",
+						"RUN: test -d src/lib/components/ui/card -- expect directory exists",
+						"RUN: test -d src/lib/components/ui/input -- expect directory exists",
+						"RUN: test -d src/lib/components/ui/label -- expect directory exists",
+						"RUN: test -d src/lib/components/ui/dialog -- expect directory exists",
+						"RUN: test -d src/lib/components/ui/alert -- expect directory exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-005",
+					"category": "Setup - Convex",
+					"description": "Install and initialize Convex",
+					"steps_to_verify": [
+						"RUN: grep -q 'convex' package.json -- expect match",
+						"RUN: test -d convex -- expect directory exists",
+						"RUN: test -f convex/tsconfig.json -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-006",
+					"category": "Setup - Convex Client",
+					"description": "Create Convex client configuration at src/lib/convex.ts",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/convex.ts -- expect file exists",
+						"RUN: grep -q 'ConvexClient' src/lib/convex.ts -- expect match",
+						"RUN: grep -q 'VITE_CONVEX_URL' src/lib/convex.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-007",
+					"category": "Setup - Layout",
+					"description": "Configure root layout with Convex context",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/+layout.svelte -- expect file exists",
+						"RUN: grep -q 'setContext' src/routes/+layout.svelte -- expect match",
+						"RUN: grep -q 'convex' src/routes/+layout.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-008",
+					"category": "Setup - Environment",
+					"description": "Create .env.local template with required variables",
+					"steps_to_verify": [
+						"RUN: test -f .env.example || test -f .env.local -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-001-009",
+					"category": "Setup - Verification",
+					"description": "Verify dev server starts without errors",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 2,
+			"name": "Authentication with BetterAuth",
+			"items": [
+				{
+					"id": "PRD-002-001",
+					"category": "Auth - Dependencies",
+					"description": "Install better-auth and @convex-dev/better-auth packages",
+					"steps_to_verify": [
+						"RUN: grep -q 'better-auth' package.json -- expect match",
+						"RUN: grep -q '@convex-dev/better-auth' package.json -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-002",
+					"category": "Auth - Convex Config",
+					"description": "Create convex/convex.config.ts with BetterAuth integration",
+					"steps_to_verify": [
+						"RUN: test -f convex/convex.config.ts -- expect file exists",
+						"RUN: grep -q 'betterAuth' convex/convex.config.ts -- expect match",
+						"RUN: grep -q 'defineApp' convex/convex.config.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-003",
+					"category": "Auth - Server Config",
+					"description": "Create convex/auth.ts with BetterAuth configuration",
+					"steps_to_verify": [
+						"RUN: test -f convex/auth.ts -- expect file exists",
+						"RUN: grep -q 'betterAuth' convex/auth.ts -- expect match",
+						"RUN: grep -q 'emailAndPassword' convex/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-004",
+					"category": "Auth - Auth Config Provider",
+					"description": "Create convex/auth.config.ts with auth config provider",
+					"steps_to_verify": [
+						"RUN: test -f convex/auth.config.ts -- expect file exists",
+						"RUN: grep -q 'getAuthConfigProvider' convex/auth.config.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-005",
+					"category": "Auth - HTTP Routes",
+					"description": "Create convex/http.ts with auth routes registration",
+					"steps_to_verify": [
+						"RUN: test -f convex/http.ts -- expect file exists",
+						"RUN: grep -q 'httpRouter' convex/http.ts -- expect match",
+						"RUN: grep -q 'registerRoutes' convex/http.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-006",
+					"category": "Auth - Client Setup",
+					"description": "Create src/lib/auth-client.ts with createAuthClient",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/auth-client.ts -- expect file exists",
+						"RUN: grep -q 'createAuthClient' src/lib/auth-client.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-007",
+					"category": "Auth - Store",
+					"description": "Create src/lib/stores/auth.ts with session and user stores",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/stores/auth.ts -- expect file exists",
+						"RUN: grep -q 'writable' src/lib/stores/auth.ts -- expect match",
+						"RUN: grep -q 'session' src/lib/stores/auth.ts -- expect match",
+						"RUN: grep -q 'isAuthenticated' src/lib/stores/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-008",
+					"category": "Auth - Login Page",
+					"description": "Create src/routes/login/+page.svelte with login form",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/login/+page.svelte -- expect file exists",
+						"RUN: grep -q 'signIn' src/routes/login/+page.svelte -- expect match",
+						"RUN: grep -q 'email' src/routes/login/+page.svelte -- expect match",
+						"RUN: grep -q 'password' src/routes/login/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-009",
+					"category": "Auth - Register Page",
+					"description": "Create src/routes/register/+page.svelte with registration form",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/register/+page.svelte -- expect file exists",
+						"RUN: grep -q 'signUp' src/routes/register/+page.svelte -- expect match",
+						"RUN: grep -q 'name' src/routes/register/+page.svelte -- expect match",
+						"RUN: grep -q 'email' src/routes/register/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-010",
+					"category": "Auth - Tests",
+					"description": "Write failing tests for auth functionality",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/stores/auth.test.ts -- expect file exists",
+						"RUN: pnpm test:run src/lib/stores/auth.test.ts -- tests pass"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-002-011",
+					"category": "Auth - Verification",
+					"description": "Verify auth setup compiles and Convex deploys",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 3,
+			"name": "Data Model & Schema",
+			"items": [
+				{
+					"id": "PRD-003-001",
+					"category": "Schema - Sessions Table",
+					"description": "Define sessions table with userId, date, targetLanguage, createdAt fields",
+					"steps_to_verify": [
+						"RUN: test -f convex/schema.ts -- expect file exists",
+						"RUN: grep -q 'sessions' convex/schema.ts -- expect match",
+						"RUN: grep -q 'userId' convex/schema.ts -- expect match",
+						"RUN: grep -q 'targetLanguage' convex/schema.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-003-002",
+					"category": "Schema - Sessions Indexes",
+					"description": "Add by_user and by_user_date indexes to sessions table",
+					"steps_to_verify": [
+						"RUN: grep -q 'by_user' convex/schema.ts -- expect match",
+						"RUN: grep -q 'by_user_date' convex/schema.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-003-003",
+					"category": "Schema - Phrases Table",
+					"description": "Define phrases table with sessionId, userId, english, translation, createdAt",
+					"steps_to_verify": [
+						"RUN: grep -q 'phrases' convex/schema.ts -- expect match",
+						"RUN: grep -q 'sessionId' convex/schema.ts -- expect match",
+						"RUN: grep -q 'english' convex/schema.ts -- expect match",
+						"RUN: grep -q 'translation' convex/schema.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-003-004",
+					"category": "Schema - Phrases Indexes",
+					"description": "Add by_session and by_user indexes to phrases table",
+					"steps_to_verify": [
+						"RUN: grep -E 'by_session|by_user' convex/schema.ts | wc -l -- expect >= 2"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-003-005",
+					"category": "Schema - UserPreferences Table",
+					"description": "Define userPreferences table with notification settings",
+					"steps_to_verify": [
+						"RUN: grep -q 'userPreferences' convex/schema.ts -- expect match",
+						"RUN: grep -q 'quietHoursStart' convex/schema.ts -- expect match",
+						"RUN: grep -q 'quietHoursEnd' convex/schema.ts -- expect match",
+						"RUN: grep -q 'notificationsPerPhrase' convex/schema.ts -- expect match",
+						"RUN: grep -q 'pushSubscription' convex/schema.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-003-006",
+					"category": "Schema - ScheduledNotifications Table",
+					"description": "Define scheduledNotifications table for tracking sent notifications",
+					"steps_to_verify": [
+						"RUN: grep -q 'scheduledNotifications' convex/schema.ts -- expect match",
+						"RUN: grep -q 'phraseId' convex/schema.ts -- expect match",
+						"RUN: grep -q 'scheduledFor' convex/schema.ts -- expect match",
+						"RUN: grep -q 'sent' convex/schema.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-003-007",
+					"category": "Schema - Verification",
+					"description": "Verify schema compiles and is valid",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 4,
+			"name": "Core CRUD Operations",
+			"items": [
+				{
+					"id": "PRD-004-001",
+					"category": "CRUD - Sessions List Query",
+					"description": "Implement sessions.list query to fetch user's sessions",
+					"steps_to_verify": [
+						"RUN: test -f convex/sessions.ts -- expect file exists",
+						"RUN: grep -q 'export const list' convex/sessions.ts -- expect match",
+						"RUN: grep -q 'getAuthUserId' convex/sessions.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-002",
+					"category": "CRUD - Sessions GetByDate Query",
+					"description": "Implement sessions.getByDate query",
+					"steps_to_verify": [
+						"RUN: grep -q 'getByDate' convex/sessions.ts -- expect match",
+						"RUN: grep -q 'by_user_date' convex/sessions.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-003",
+					"category": "CRUD - Sessions Create Mutation",
+					"description": "Implement sessions.create mutation with duplicate check",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const create' convex/sessions.ts -- expect match",
+						"RUN: grep -q 'mutation' convex/sessions.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-004",
+					"category": "CRUD - Sessions Remove Mutation",
+					"description": "Implement sessions.remove mutation with cascade delete",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const remove' convex/sessions.ts -- expect match",
+						"RUN: grep -q 'delete' convex/sessions.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-005",
+					"category": "CRUD - Sessions Tests",
+					"description": "Write tests for sessions CRUD operations",
+					"steps_to_verify": [
+						"RUN: test -f convex/sessions.test.ts -- expect file exists",
+						"RUN: pnpm test:run convex/sessions.test.ts -- tests pass"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-006",
+					"category": "CRUD - Phrases ListBySession Query",
+					"description": "Implement phrases.listBySession query",
+					"steps_to_verify": [
+						"RUN: test -f convex/phrases.ts -- expect file exists",
+						"RUN: grep -q 'listBySession' convex/phrases.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-007",
+					"category": "CRUD - Phrases Create Mutation",
+					"description": "Implement phrases.create mutation with session ownership check",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const create' convex/phrases.ts -- expect match",
+						"RUN: grep -q 'session.userId !== userId' convex/phrases.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-008",
+					"category": "CRUD - Phrases Update Mutation",
+					"description": "Implement phrases.update mutation",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const update' convex/phrases.ts -- expect match",
+						"RUN: grep -q 'patch' convex/phrases.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-009",
+					"category": "CRUD - Phrases Remove Mutation",
+					"description": "Implement phrases.remove mutation",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const remove' convex/phrases.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-010",
+					"category": "CRUD - Phrases Tests",
+					"description": "Write tests for phrases CRUD including authorization",
+					"steps_to_verify": [
+						"RUN: test -f convex/phrases.test.ts -- expect file exists",
+						"RUN: grep -q 'cannot create phrase for other' convex/phrases.test.ts -- expect match",
+						"RUN: pnpm test:run convex/phrases.test.ts -- tests pass"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-011",
+					"category": "CRUD - Preferences Get Query",
+					"description": "Implement preferences.get query with defaults",
+					"steps_to_verify": [
+						"RUN: test -f convex/preferences.ts -- expect file exists",
+						"RUN: grep -q 'export const get' convex/preferences.ts -- expect match",
+						"RUN: grep -q 'quietHoursStart: 22' convex/preferences.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-012",
+					"category": "CRUD - Preferences Upsert Mutation",
+					"description": "Implement preferences.upsert mutation",
+					"steps_to_verify": [
+						"RUN: grep -q 'upsert' convex/preferences.ts -- expect match",
+						"RUN: grep -q 'patch' convex/preferences.ts -- expect match",
+						"RUN: grep -q 'insert' convex/preferences.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-004-013",
+					"category": "CRUD - Verification",
+					"description": "Verify all CRUD operations compile and pass tests",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors",
+						"RUN: pnpm test:run -- all tests pass"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 5,
+			"name": "Frontend UI",
+			"items": [
+				{
+					"id": "PRD-005-001",
+					"category": "UI - Home Page Structure",
+					"description": "Create src/routes/+page.svelte with sessions list layout",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/+page.svelte -- expect file exists",
+						"RUN: grep -q 'Learning Sessions' src/routes/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-002",
+					"category": "UI - Home Page Query",
+					"description": "Integrate sessions.list query in home page",
+					"steps_to_verify": [
+						"RUN: grep -q 'useQuery' src/routes/+page.svelte -- expect match",
+						"RUN: grep -q 'api.sessions.list' src/routes/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-003",
+					"category": "UI - New Session Dialog",
+					"description": "Implement new session creation dialog",
+					"steps_to_verify": [
+						"RUN: grep -q 'Dialog' src/routes/+page.svelte -- expect match",
+						"RUN: grep -q 'createSession' src/routes/+page.svelte -- expect match",
+						"RUN: grep -q 'targetLanguage' src/routes/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-004",
+					"category": "UI - Session Detail Page Structure",
+					"description": "Create src/routes/session/[id]/+page.svelte",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/session/[id]/+page.svelte -- expect file exists",
+						"RUN: grep -q 'Phrases' src/routes/session/[id]/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-005",
+					"category": "UI - Session Detail Query",
+					"description": "Integrate phrases.listBySession query",
+					"steps_to_verify": [
+						"RUN: grep -q 'useQuery' src/routes/session/[id]/+page.svelte -- expect match",
+						"RUN: grep -q 'listBySession' src/routes/session/[id]/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-006",
+					"category": "UI - Add Phrase Dialog",
+					"description": "Implement add phrase dialog with english/translation inputs",
+					"steps_to_verify": [
+						"RUN: grep -q 'english' src/routes/session/[id]/+page.svelte -- expect match",
+						"RUN: grep -q 'translation' src/routes/session/[id]/+page.svelte -- expect match",
+						"RUN: grep -q 'createPhrase' src/routes/session/[id]/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-007",
+					"category": "UI - Delete Phrase",
+					"description": "Implement phrase deletion with confirmation",
+					"steps_to_verify": [
+						"RUN: grep -q 'removePhrase' src/routes/session/[id]/+page.svelte -- expect match",
+						"RUN: grep -q 'confirm' src/routes/session/[id]/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-008",
+					"category": "UI - Settings Page Structure",
+					"description": "Create src/routes/settings/+page.svelte",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/settings/+page.svelte -- expect file exists",
+						"RUN: grep -q 'Settings' src/routes/settings/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-009",
+					"category": "UI - Settings Preferences",
+					"description": "Implement quiet hours and notifications per phrase settings",
+					"steps_to_verify": [
+						"RUN: grep -q 'quietStart' src/routes/settings/+page.svelte -- expect match",
+						"RUN: grep -q 'quietEnd' src/routes/settings/+page.svelte -- expect match",
+						"RUN: grep -q 'perPhrase' src/routes/settings/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-010",
+					"category": "UI - Settings Save",
+					"description": "Implement save preferences functionality",
+					"steps_to_verify": [
+						"RUN: grep -q 'updatePreferences' src/routes/settings/+page.svelte -- expect match",
+						"RUN: grep -q 'handleSave' src/routes/settings/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-011",
+					"category": "UI - Header Component",
+					"description": "Create src/lib/components/Header.svelte with navigation",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/components/Header.svelte -- expect file exists",
+						"RUN: grep -q 'Recall' src/lib/components/Header.svelte -- expect match",
+						"RUN: grep -q 'Settings' src/lib/components/Header.svelte -- expect match",
+						"RUN: grep -q 'Logout' src/lib/components/Header.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-012",
+					"category": "UI - Header Integration",
+					"description": "Add Header component to layout",
+					"steps_to_verify": [
+						"RUN: grep -q 'Header' src/routes/+layout.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-013",
+					"category": "UI - Auth Redirect",
+					"description": "Implement redirect to login when not authenticated",
+					"steps_to_verify": [
+						"RUN: grep -q 'isAuthenticated' src/routes/+page.svelte -- expect match",
+						"RUN: grep -q 'goto.*login' src/routes/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-005-014",
+					"category": "UI - Verification",
+					"description": "Verify all UI components compile",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 6,
+			"name": "Push Notifications & Scheduling",
+			"items": [
+				{
+					"id": "PRD-006-001",
+					"category": "Notifications - Dependencies",
+					"description": "Install web-push package",
+					"steps_to_verify": [
+						"RUN: grep -q 'web-push' package.json -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-002",
+					"category": "Notifications - VAPID Keys",
+					"description": "Generate VAPID keys and add to environment",
+					"steps_to_verify": [
+						"RUN: grep -q 'VITE_VAPID_PUBLIC_KEY' .env.example || grep -q 'VITE_VAPID_PUBLIC_KEY' .env.local -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-003",
+					"category": "Notifications - Service Worker",
+					"description": "Create static/sw.js with push and notificationclick handlers",
+					"steps_to_verify": [
+						"RUN: test -f static/sw.js -- expect file exists",
+						"RUN: grep -q 'push' static/sw.js -- expect match",
+						"RUN: grep -q 'notificationclick' static/sw.js -- expect match",
+						"RUN: grep -q 'showNotification' static/sw.js -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-004",
+					"category": "Notifications - Client Helper",
+					"description": "Create src/lib/notifications.ts with permission request",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/notifications.ts -- expect file exists",
+						"RUN: grep -q 'requestNotificationPermission' src/lib/notifications.ts -- expect match",
+						"RUN: grep -q 'PushManager' src/lib/notifications.ts -- expect match",
+						"RUN: grep -q 'subscribe' src/lib/notifications.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-005",
+					"category": "Notifications - URL Base64 Helper",
+					"description": "Implement urlBase64ToUint8Array helper function",
+					"steps_to_verify": [
+						"RUN: grep -q 'urlBase64ToUint8Array' src/lib/notifications.ts -- expect match",
+						"RUN: grep -q 'Uint8Array' src/lib/notifications.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-006",
+					"category": "Notifications - Schedule Function",
+					"description": "Create convex/notifications.ts with scheduleForPhrase mutation",
+					"steps_to_verify": [
+						"RUN: test -f convex/notifications.ts -- expect file exists",
+						"RUN: grep -q 'scheduleForPhrase' convex/notifications.ts -- expect match",
+						"RUN: grep -q 'scheduler.runAt' convex/notifications.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-007",
+					"category": "Notifications - Random Times Generator",
+					"description": "Implement generateRandomTimes function respecting quiet hours",
+					"steps_to_verify": [
+						"RUN: grep -q 'generateRandomTimes' convex/notifications.ts -- expect match",
+						"RUN: grep -q 'quietStart' convex/notifications.ts -- expect match",
+						"RUN: grep -q 'quietEnd' convex/notifications.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-008",
+					"category": "Notifications - Send Action",
+					"description": "Implement notifications.send internal action",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const send' convex/notifications.ts -- expect match",
+						"RUN: grep -q 'internalAction' convex/notifications.ts -- expect match",
+						"RUN: grep -q 'sendNotification' convex/notifications.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-009",
+					"category": "Notifications - Mark Sent Mutation",
+					"description": "Implement markSent internal mutation",
+					"steps_to_verify": [
+						"RUN: grep -q 'markSent' convex/notifications.ts -- expect match",
+						"RUN: grep -q 'sent: true' convex/notifications.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-010",
+					"category": "Notifications - Internal Queries",
+					"description": "Add getById internal queries to phrases, sessions, preferences",
+					"steps_to_verify": [
+						"RUN: grep -q 'internalQuery' convex/phrases.ts -- expect match",
+						"RUN: grep -q 'internalQuery' convex/sessions.ts -- expect match",
+						"RUN: grep -q 'getByUserId' convex/preferences.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-011",
+					"category": "Notifications - Phrase Create Hook",
+					"description": "Update phrases.create to trigger notification scheduling",
+					"steps_to_verify": [
+						"RUN: grep -q 'scheduler.runAfter' convex/phrases.ts -- expect match",
+						"RUN: grep -q 'scheduleForPhrase' convex/phrases.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-012",
+					"category": "Notifications - Reveal Page",
+					"description": "Create src/routes/reveal/[id]/+page.svelte",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/reveal/[id]/+page.svelte -- expect file exists",
+						"RUN: grep -q 'revealed' src/routes/reveal/[id]/+page.svelte -- expect match",
+						"RUN: grep -q 'Reveal Answer' src/routes/reveal/[id]/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-013",
+					"category": "Notifications - Settings Enable Button",
+					"description": "Add enable notifications button to settings page",
+					"steps_to_verify": [
+						"RUN: grep -q 'enableNotifications' src/routes/settings/+page.svelte -- expect match",
+						"RUN: grep -q 'requestNotificationPermission' src/routes/settings/+page.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-014",
+					"category": "Notifications - Tests",
+					"description": "Write tests for notification scheduling logic",
+					"steps_to_verify": [
+						"RUN: test -f convex/notifications.test.ts -- expect file exists",
+						"RUN: pnpm test:run convex/notifications.test.ts -- tests pass"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-006-015",
+					"category": "Notifications - Verification",
+					"description": "Verify notification system compiles",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 7,
+			"name": "PWA Configuration",
+			"items": [
+				{
+					"id": "PRD-007-001",
+					"category": "PWA - Manifest",
+					"description": "Create static/manifest.json with app metadata",
+					"steps_to_verify": [
+						"RUN: test -f static/manifest.json -- expect file exists",
+						"RUN: grep -q 'Recall' static/manifest.json -- expect match",
+						"RUN: grep -q 'standalone' static/manifest.json -- expect match",
+						"RUN: grep -q 'icons' static/manifest.json -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-007-002",
+					"category": "PWA - Icons 192",
+					"description": "Create 192x192 app icon",
+					"steps_to_verify": [
+						"RUN: test -f static/icon-192.png -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-007-003",
+					"category": "PWA - Icons 512",
+					"description": "Create 512x512 app icon",
+					"steps_to_verify": [
+						"RUN: test -f static/icon-512.png -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-007-004",
+					"category": "PWA - HTML Meta Tags",
+					"description": "Add manifest link and meta tags to src/app.html",
+					"steps_to_verify": [
+						"RUN: grep -q 'manifest.json' src/app.html -- expect match",
+						"RUN: grep -q 'theme-color' src/app.html -- expect match",
+						"RUN: grep -q 'apple-mobile-web-app-capable' src/app.html -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-007-005",
+					"category": "PWA - Badge Icon",
+					"description": "Create badge icon for notifications (72x72)",
+					"steps_to_verify": [
+						"RUN: test -f static/badge-72.png -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-007-006",
+					"category": "PWA - Verification",
+					"description": "Verify PWA configuration",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: test -f build/manifest.json || test -f .svelte-kit/output/client/manifest.json -- manifest in build"
+					],
+					"passes": false
+				}
+			]
+		},
+		{
+			"phase": 8,
+			"name": "Testing",
+			"items": [
+				{
+					"id": "PRD-008-001",
+					"category": "Testing - Dependencies",
+					"description": "Install vitest, @testing-library/svelte, jsdom",
+					"steps_to_verify": [
+						"RUN: grep -q 'vitest' package.json -- expect match",
+						"RUN: grep -q '@testing-library/svelte' package.json -- expect match",
+						"RUN: grep -q 'jsdom' package.json -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-002",
+					"category": "Testing - Vitest Config",
+					"description": "Create vitest.config.ts with svelte and jsdom",
+					"steps_to_verify": [
+						"RUN: test -f vitest.config.ts -- expect file exists",
+						"RUN: grep -q 'jsdom' vitest.config.ts -- expect match",
+						"RUN: grep -q 'svelte' vitest.config.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-003",
+					"category": "Testing - Convex Test Setup",
+					"description": "Install convex-test package",
+					"steps_to_verify": [
+						"RUN: grep -q 'convex-test' package.json -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-004",
+					"category": "Testing - Sessions Tests",
+					"description": "Implement comprehensive sessions tests",
+					"steps_to_verify": [
+						"RUN: grep -q 'create and list sessions' convex/sessions.test.ts -- expect match",
+						"RUN: grep -q 'duplicate date returns existing' convex/sessions.test.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-005",
+					"category": "Testing - Phrases Tests",
+					"description": "Implement comprehensive phrases tests with auth checks",
+					"steps_to_verify": [
+						"RUN: grep -q 'create and list phrases' convex/phrases.test.ts -- expect match",
+						"RUN: grep -q 'cannot create phrase for other' convex/phrases.test.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-006",
+					"category": "Testing - Package Scripts",
+					"description": "Add test and test:run scripts to package.json",
+					"steps_to_verify": [
+						"RUN: grep -q '\"test\"' package.json -- expect match",
+						"RUN: grep -q '\"test:run\"' package.json -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-007",
+					"category": "Testing - All Tests Pass",
+					"description": "Verify all tests pass",
+					"steps_to_verify": [
+						"RUN: pnpm test:run -- all tests pass"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-008-008",
+					"category": "Testing - Final Verification",
+					"description": "Final build and type check",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds",
+						"RUN: pnpm check -- no type errors",
+						"RUN: pnpm test:run -- all tests pass"
+					],
+					"passes": false
+				}
+			]
+		}
+	],
+	"summary": {
+		"total_items": 78,
+		"phases": 8,
+		"categories": [
+			"Setup",
+			"Auth",
+			"Schema",
+			"CRUD",
+			"UI",
+			"Notifications",
+			"PWA",
+			"Testing"
+		]
+	}
+}
