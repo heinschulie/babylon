@@ -552,7 +552,7 @@
 						"RUN: grep -q 'quietEnd' src/routes/settings/+page.svelte -- expect match",
 						"RUN: grep -q 'perPhrase' src/routes/settings/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-010",

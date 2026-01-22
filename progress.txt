@@ -387,6 +387,12 @@ Status: NOT STARTED
   - Save button placeholder
   - Files: src/routes/settings/+page.svelte
 
+- PRD-005-009 DONE: Settings preferences
+  - quietStart, quietEnd, perPhrase inputs
+  - Load from api.preferences.get
+  - $effect syncs data to form state
+  - Files: src/routes/settings/+page.svelte
+
 ---
 
 ## Notes
