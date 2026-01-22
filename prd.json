@@ -849,7 +849,7 @@
 						"RUN: grep -q '@testing-library/svelte' package.json -- expect match",
 						"RUN: grep -q 'jsdom' package.json -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-002",
@@ -860,7 +860,7 @@
 						"RUN: grep -q 'jsdom' vitest.config.ts -- expect match",
 						"RUN: grep -q 'svelte' vitest.config.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-003",
@@ -869,7 +869,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'convex-test' package.json -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-004",
@@ -879,7 +879,7 @@
 						"RUN: grep -q 'create and list sessions' convex/sessions.test.ts -- expect match",
 						"RUN: grep -q 'duplicate date returns existing' convex/sessions.test.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-005",
@@ -889,7 +889,7 @@
 						"RUN: grep -q 'create and list phrases' convex/phrases.test.ts -- expect match",
 						"RUN: grep -q 'cannot create phrase for other' convex/phrases.test.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-006",
@@ -899,7 +899,7 @@
 						"RUN: grep -q '\"test\"' package.json -- expect match",
 						"RUN: grep -q '\"test:run\"' package.json -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-007",
@@ -908,7 +908,7 @@
 					"steps_to_verify": [
 						"RUN: pnpm test:run -- all tests pass"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-008-008",
@@ -919,7 +919,7 @@
 						"RUN: pnpm check -- no type errors",
 						"RUN: pnpm test:run -- all tests pass"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		}

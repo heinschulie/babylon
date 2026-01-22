@@ -93,7 +93,7 @@ describe('sessions', () => {
 			expect(sessions[0].targetLanguage).toBe('French');
 		});
 
-		it('should return existing session ID for duplicate date', async () => {
+		it('duplicate date returns existing session', async () => {
 			const t = convexTest(schema, modules);
 			const asUser = t.withIdentity({ subject: 'user1' });
 
