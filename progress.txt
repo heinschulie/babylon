@@ -35,7 +35,7 @@ Status: IN PROGRESS
 - [x] PRD-002-007: Create auth store
 - [x] PRD-002-008: Create login page
 - [x] PRD-002-009: Create register page
-- [ ] PRD-002-010: Write auth tests
+- [x] PRD-002-010: Write auth tests
 - [ ] PRD-002-011: Verify auth setup
 
 ---
@@ -264,6 +264,13 @@ Status: NOT STARTED
   - Uses authClient.signUp.email() with name, email, password
   - Same pattern as login: resolve(), $state(), shadcn components
   - Files: src/routes/register/+page.svelte
+
+- PRD-002-010 DONE: Write auth tests
+  - Installed vitest, added test/test:run scripts
+  - Created src/lib/stores/auth.test.ts with 8 tests
+  - Tests: session export, isAuthenticated (null/exists/undefined), isLoading, user
+  - Mocks $lib/auth-client with writable store
+  - Files: package.json, src/lib/stores/auth.test.ts
 
 ---
 

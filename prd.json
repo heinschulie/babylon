@@ -219,7 +219,7 @@
 						"RUN: test -f src/lib/stores/auth.test.ts -- expect file exists",
 						"RUN: pnpm test:run src/lib/stores/auth.test.ts -- tests pass"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-011",
