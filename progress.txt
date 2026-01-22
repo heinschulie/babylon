@@ -14,7 +14,7 @@ Status: NOT STARTED
 - [x] PRD-001-001: Initialize SvelteKit project
 - [x] PRD-001-002: Add Tailwind CSS
 - [x] PRD-001-003: Initialize shadcn-svelte
-- [ ] PRD-001-004: Add shadcn components
+- [x] PRD-001-004: Add shadcn components
 - [ ] PRD-001-005: Install and init Convex
 - [ ] PRD-001-006: Create Convex client config
 - [ ] PRD-001-007: Configure root layout
@@ -169,6 +169,13 @@ Status: NOT STARTED
   - Created src/lib/components/ui dir (empty, components added in PRD-001-004)
   - New deps: @lucide/svelte, clsx, tailwind-merge, tailwind-variants, tw-animate-css
   - Files: components.json, src/lib/utils.ts, src/app.css, src/lib/components/ui/
+
+- PRD-001-004 DONE: Add shadcn components
+  - Ran pnpm dlx shadcn-svelte@latest add button card input label dialog alert
+  - Formatted with prettier
+  - Added ESLint override to disable svelte/no-navigation-without-resolve for ui/
+  - New deps: bits-ui, @internationalized/date
+  - Files: src/lib/components/ui/*, eslint.config.js
 
 ---
 

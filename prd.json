@@ -52,7 +52,7 @@
 						"RUN: test -d src/lib/components/ui/dialog -- expect directory exists",
 						"RUN: test -d src/lib/components/ui/alert -- expect directory exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-005",
