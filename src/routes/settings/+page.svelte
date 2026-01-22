@@ -6,6 +6,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { requestNotificationPermission } from '$lib/notifications';
 
 	const client = useConvexClient();
 	const preferences = useQuery(api.preferences.get, {});
@@ -15,6 +16,8 @@
 	let perPhrase = $state(3);
 	let saving = $state(false);
 	let saved = $state(false);
+	let enabling = $state(false);
+	let notificationsEnabled = $derived(!!preferences.data?.pushSubscription);
 
 	$effect(() => {
 		if (preferences.data) {
@@ -46,6 +49,22 @@
 			notificationsPerPhrase: perPhrase
 		});
 	}
+
+	async function enableNotifications() {
+		enabling = true;
+		try {
+			const subscription = await requestNotificationPermission();
+			if (subscription) {
+				await client.mutation(api.preferences.upsert, {
+					pushSubscription: JSON.stringify(subscription.toJSON())
+				});
+			}
+		} catch (e) {
+			console.error('Failed to enable notifications:', e);
+		} finally {
+			enabling = false;
+		}
+	}
 </script>
 
 <div class="container mx-auto max-w-4xl p-4">
@@ -55,6 +74,23 @@
 		>
 		<h1 class="mt-2 text-2xl font-bold">Settings</h1>
 	</div>
+
+	<Card.Root class="mb-6">
+		<Card.Header>
+			<Card.Title>Push Notifications</Card.Title>
+			<Card.Description>Enable push notifications to receive vocabulary reminders.</Card.Description
+			>
+		</Card.Header>
+		<Card.Content>
+			{#if notificationsEnabled}
+				<p class="text-sm text-green-600">Notifications are enabled!</p>
+			{:else}
+				<Button onclick={enableNotifications} disabled={enabling}>
+					{enabling ? 'Enabling...' : 'Enable Notifications'}
+				</Button>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>

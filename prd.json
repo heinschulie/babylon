@@ -746,7 +746,7 @@
 						"RUN: grep -q 'enableNotifications' src/routes/settings/+page.svelte -- expect match",
 						"RUN: grep -q 'requestNotificationPermission' src/routes/settings/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-014",

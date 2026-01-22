@@ -107,7 +107,7 @@ Status: NOT STARTED
 - [x] PRD-006-010: Internal queries
 - [x] PRD-006-011: Phrase create hook
 - [x] PRD-006-012: Reveal page
-- [ ] PRD-006-013: Settings enable button
+- [x] PRD-006-013: Settings enable button
 - [ ] PRD-006-014: Notification tests
 - [ ] PRD-006-015: Notification verification
 
@@ -478,6 +478,12 @@ Status: NOT STARTED
   - revealed state toggle, "Reveal Answer" button
   - Added phrases.get query
   - Files: src/routes/reveal/[id]/+page.svelte, convex/phrases.ts, convex/_generated/api.d.ts
+
+- PRD-006-013 DONE: Settings enable button
+  - enableNotifications function
+  - requestNotificationPermission from notifications helper
+  - Saves pushSubscription to preferences
+  - Files: src/routes/settings/+page.svelte
 
 ---
 
