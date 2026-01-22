@@ -19,6 +19,7 @@ export declare const api: {
 		remove: FunctionReference<'mutation', 'public', { id: Id<'sessions'> }, void>;
 	};
 	phrases: {
+		get: FunctionReference<'query', 'public', { id: Id<'phrases'> }, Doc<'phrases'> | null>;
 		listBySession: FunctionReference<
 			'query',
 			'public',

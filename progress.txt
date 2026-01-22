@@ -106,7 +106,7 @@ Status: NOT STARTED
 - [x] PRD-006-009: Mark sent mutation
 - [x] PRD-006-010: Internal queries
 - [x] PRD-006-011: Phrase create hook
-- [ ] PRD-006-012: Reveal page
+- [x] PRD-006-012: Reveal page
 - [ ] PRD-006-013: Settings enable button
 - [ ] PRD-006-014: Notification tests
 - [ ] PRD-006-015: Notification verification
@@ -472,6 +472,12 @@ Status: NOT STARTED
   - scheduler.runAfter in phrases.create
   - Only schedules if user has pushSubscription
   - Files: convex/phrases.ts
+
+- PRD-006-012 DONE: Reveal page
+  - /reveal/[id] route with phrase lookup
+  - revealed state toggle, "Reveal Answer" button
+  - Added phrases.get query
+  - Files: src/routes/reveal/[id]/+page.svelte, convex/phrases.ts, convex/_generated/api.d.ts
 
 ---
 

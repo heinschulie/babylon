@@ -3,6 +3,21 @@ import { mutation, query } from './_generated/server';
 import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
 
+// Get a single phrase by ID
+export const get = query({
+	args: { id: v.id('phrases') },
+	handler: async (ctx, args) => {
+		const userId = await getAuthUserId(ctx);
+		const phrase = await ctx.db.get(args.id);
+
+		if (!phrase || phrase.userId !== userId) {
+			return null;
+		}
+
+		return phrase;
+	}
+});
+
 // List phrases for a session
 export const listBySession = query({
 	args: { sessionId: v.id('sessions') },
