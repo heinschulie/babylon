@@ -73,22 +73,22 @@ Status: COMPLETE
 ---
 
 ## Phase 5: Frontend UI (14 items)
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] PRD-005-001: Home page structure
-- [ ] PRD-005-002: Home page query
-- [ ] PRD-005-003: New session dialog
-- [ ] PRD-005-004: Session detail page
-- [ ] PRD-005-005: Session detail query
-- [ ] PRD-005-006: Add phrase dialog
-- [ ] PRD-005-007: Delete phrase
-- [ ] PRD-005-008: Settings page structure
-- [ ] PRD-005-009: Settings preferences
-- [ ] PRD-005-010: Settings save
-- [ ] PRD-005-011: Header component
-- [ ] PRD-005-012: Header integration
-- [ ] PRD-005-013: Auth redirect
-- [ ] PRD-005-014: UI verification
+- [x] PRD-005-001: Home page structure
+- [x] PRD-005-002: Home page query
+- [x] PRD-005-003: New session dialog
+- [x] PRD-005-004: Session detail page
+- [x] PRD-005-005: Session detail query
+- [x] PRD-005-006: Add phrase dialog
+- [x] PRD-005-007: Delete phrase
+- [x] PRD-005-008: Settings page structure
+- [x] PRD-005-009: Settings preferences
+- [x] PRD-005-010: Settings save
+- [x] PRD-005-011: Header component
+- [x] PRD-005-012: Header integration
+- [x] PRD-005-013: Auth redirect
+- [x] PRD-005-014: UI verification
 
 ---
 
@@ -414,6 +414,11 @@ Status: NOT STARTED
   - $effect watches isLoading/isAuthenticated
   - Redirects to /login when not authenticated
   - Files: src/routes/+page.svelte
+
+- PRD-005-014 DONE: UI verification
+  - pnpm build: succeeds
+  - pnpm check: 0 errors, 0 warnings
+  - Phase 5 complete!
 
 ---
 
