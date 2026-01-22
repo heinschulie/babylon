@@ -104,7 +104,7 @@
 						"RUN: pnpm build -- build succeeds",
 						"RUN: pnpm check -- no type errors"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
