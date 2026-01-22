@@ -381,6 +381,12 @@ Status: NOT STARTED
   - Calls api.phrases.remove
   - Files: src/routes/session/[id]/+page.svelte
 
+- PRD-005-008 DONE: Settings page structure
+  - Created src/routes/settings/+page.svelte
+  - "Settings" heading, notification prefs card
+  - Save button placeholder
+  - Files: src/routes/settings/+page.svelte
+
 ---
 
 ## Notes

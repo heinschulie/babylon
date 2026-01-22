@@ -541,7 +541,7 @@
 						"RUN: test -f src/routes/settings/+page.svelte -- expect file exists",
 						"RUN: grep -q 'Settings' src/routes/settings/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-009",
