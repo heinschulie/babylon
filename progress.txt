@@ -54,20 +54,20 @@ Status: COMPLETE
 ---
 
 ## Phase 4: Core CRUD Operations (13 items)
-Status: NOT STARTED
+Status: IN PROGRESS
 
-- [ ] PRD-004-001: Sessions list query
-- [ ] PRD-004-002: Sessions getByDate query
-- [ ] PRD-004-003: Sessions create mutation
-- [ ] PRD-004-004: Sessions remove mutation
+- [x] PRD-004-001: Sessions list query
+- [x] PRD-004-002: Sessions getByDate query
+- [x] PRD-004-003: Sessions create mutation
+- [x] PRD-004-004: Sessions remove mutation
 - [ ] PRD-004-005: Sessions tests
-- [ ] PRD-004-006: Phrases listBySession query
-- [ ] PRD-004-007: Phrases create mutation
-- [ ] PRD-004-008: Phrases update mutation
-- [ ] PRD-004-009: Phrases remove mutation
+- [x] PRD-004-006: Phrases listBySession query
+- [x] PRD-004-007: Phrases create mutation
+- [x] PRD-004-008: Phrases update mutation
+- [x] PRD-004-009: Phrases remove mutation
 - [ ] PRD-004-010: Phrases tests
-- [ ] PRD-004-011: Preferences get query
-- [ ] PRD-004-012: Preferences upsert mutation
+- [x] PRD-004-011: Preferences get query
+- [x] PRD-004-012: Preferences upsert mutation
 - [ ] PRD-004-013: CRUD verification
 
 ---
@@ -283,6 +283,22 @@ Status: NOT STARTED
   - All indexes defined: by_user, by_user_date, by_session, etc.
   - Build and typecheck pass
   - Phase 3 complete!
+
+- PRD-004-001 to PRD-004-004 DONE: Sessions CRUD
+  - convex/sessions.ts: list, getByDate, create, remove
+  - getAuthUserId helper using authComponent.getAuthUser
+  - Cascade delete phrases on session remove
+  - Files: convex/sessions.ts
+
+- PRD-004-006 to PRD-004-009 DONE: Phrases CRUD
+  - convex/phrases.ts: listBySession, create, update, remove
+  - Session ownership check on create
+  - Files: convex/phrases.ts
+
+- PRD-004-011 to PRD-004-012 DONE: Preferences CRUD
+  - convex/preferences.ts: get (with defaults), upsert
+  - Default: quietHoursStart=22, quietHoursEnd=8, notificationsPerPhrase=3
+  - Files: convex/preferences.ts
 
 ---
 

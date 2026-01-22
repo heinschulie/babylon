@@ -330,7 +330,7 @@
 						"RUN: grep -q 'export const list' convex/sessions.ts -- expect match",
 						"RUN: grep -q 'getAuthUserId' convex/sessions.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-002",
@@ -340,7 +340,7 @@
 						"RUN: grep -q 'getByDate' convex/sessions.ts -- expect match",
 						"RUN: grep -q 'by_user_date' convex/sessions.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-003",
@@ -350,7 +350,7 @@
 						"RUN: grep -q 'export const create' convex/sessions.ts -- expect match",
 						"RUN: grep -q 'mutation' convex/sessions.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-004",
@@ -360,7 +360,7 @@
 						"RUN: grep -q 'export const remove' convex/sessions.ts -- expect match",
 						"RUN: grep -q 'delete' convex/sessions.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-005",
@@ -380,7 +380,7 @@
 						"RUN: test -f convex/phrases.ts -- expect file exists",
 						"RUN: grep -q 'listBySession' convex/phrases.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-007",
@@ -390,7 +390,7 @@
 						"RUN: grep -q 'export const create' convex/phrases.ts -- expect match",
 						"RUN: grep -q 'session.userId !== userId' convex/phrases.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-008",
@@ -400,7 +400,7 @@
 						"RUN: grep -q 'export const update' convex/phrases.ts -- expect match",
 						"RUN: grep -q 'patch' convex/phrases.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-009",
@@ -409,7 +409,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'export const remove' convex/phrases.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-010",
@@ -431,7 +431,7 @@
 						"RUN: grep -q 'export const get' convex/preferences.ts -- expect match",
 						"RUN: grep -q 'quietHoursStart: 22' convex/preferences.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-012",
@@ -442,7 +442,7 @@
 						"RUN: grep -q 'patch' convex/preferences.ts -- expect match",
 						"RUN: grep -q 'insert' convex/preferences.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-013",
