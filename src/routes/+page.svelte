@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '../../convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
@@ -6,9 +8,16 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { isAuthenticated, isLoading } from '$lib/stores/auth';
 
 	const client = useConvexClient();
 	const sessions = useQuery(api.sessions.list, {});
+
+	$effect(() => {
+		if (!$isLoading && !$isAuthenticated) {
+			goto(resolve('/login'));
+		}
+	});
 
 	let dialogOpen = $state(false);
 	let targetLanguage = $state('');

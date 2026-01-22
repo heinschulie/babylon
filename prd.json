@@ -593,7 +593,7 @@
 						"RUN: grep -q 'isAuthenticated' src/routes/+page.svelte -- expect match",
 						"RUN: grep -q 'goto.*login' src/routes/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-014",

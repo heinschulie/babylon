@@ -410,6 +410,11 @@ Status: NOT STARTED
   - Render above page content
   - Files: src/routes/+layout.svelte
 
+- PRD-005-013 DONE: Auth redirect
+  - $effect watches isLoading/isAuthenticated
+  - Redirects to /login when not authenticated
+  - Files: src/routes/+page.svelte
+
 ---
 
 ## Notes
