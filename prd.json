@@ -583,7 +583,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'Header' src/routes/+layout.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-013",

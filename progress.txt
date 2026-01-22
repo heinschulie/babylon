@@ -405,6 +405,11 @@ Status: NOT STARTED
   - handleLogout calls authClient.signOut
   - Files: src/lib/components/Header.svelte
 
+- PRD-005-012 DONE: Header integration
+  - Import Header in +layout.svelte
+  - Render above page content
+  - Files: src/routes/+layout.svelte
+
 ---
 
 ## Notes
