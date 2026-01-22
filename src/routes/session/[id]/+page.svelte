@@ -44,6 +44,18 @@
 			creating = false;
 		}
 	}
+
+	async function removePhrase(phraseId: Id<'phrases'>) {
+		if (!confirm('Are you sure you want to delete this phrase?')) {
+			return;
+		}
+
+		try {
+			await client.mutation(api.phrases.remove, { id: phraseId });
+		} catch (e) {
+			console.error('Failed to delete phrase:', e);
+		}
+	}
 </script>
 
 <div class="container mx-auto max-w-4xl p-4">
@@ -102,9 +114,19 @@
 		{:else}
 			{#each phrases.data as phrase (phrase._id)}
 				<Card.Root>
-					<Card.Header>
-						<Card.Title>{phrase.english}</Card.Title>
-						<Card.Description>{phrase.translation}</Card.Description>
+					<Card.Header class="flex flex-row items-start justify-between">
+						<div>
+							<Card.Title>{phrase.english}</Card.Title>
+							<Card.Description>{phrase.translation}</Card.Description>
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="text-destructive hover:text-destructive"
+							onclick={() => removePhrase(phrase._id)}
+						>
+							Delete
+						</Button>
 					</Card.Header>
 				</Card.Root>
 			{/each}

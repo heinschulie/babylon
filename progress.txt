@@ -375,6 +375,12 @@ Status: NOT STARTED
   - Error/loading states
   - Files: src/routes/session/[id]/+page.svelte
 
+- PRD-005-007 DONE: Delete phrase
+  - removePhrase with browser confirm()
+  - Delete button per phrase card
+  - Calls api.phrases.remove
+  - Files: src/routes/session/[id]/+page.svelte
+
 ---
 
 ## Notes
