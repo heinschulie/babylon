@@ -32,7 +32,7 @@ Status: IN PROGRESS
 - [x] PRD-002-004: Create auth.config.ts
 - [x] PRD-002-005: Create http.ts routes
 - [x] PRD-002-006: Create auth-client.ts
-- [ ] PRD-002-007: Create auth store
+- [x] PRD-002-007: Create auth store
 - [ ] PRD-002-008: Create login page
 - [ ] PRD-002-009: Create register page
 - [ ] PRD-002-010: Write auth tests
@@ -242,6 +242,13 @@ Status: NOT STARTED
   - baseURL points to VITE_CONVEX_SITE_URL (Convex HTTP site)
   - Added VITE_CONVEX_SITE_URL to .env.example
   - Files: src/lib/auth-client.ts, .env.example
+
+- PRD-002-007 DONE: Create auth store
+  - Created src/lib/stores/auth.ts
+  - Wraps better-auth's useSession() hook
+  - Exports: writable (re-exported), session, isAuthenticated, isLoading, user
+  - isAuthenticated is derived store checking session.data !== null
+  - Files: src/lib/stores/auth.ts
 
 ---
 
