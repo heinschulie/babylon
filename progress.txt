@@ -31,7 +31,7 @@ Status: IN PROGRESS
 - [x] PRD-002-003: Create auth.ts config
 - [x] PRD-002-004: Create auth.config.ts
 - [x] PRD-002-005: Create http.ts routes
-- [ ] PRD-002-006: Create auth-client.ts
+- [x] PRD-002-006: Create auth-client.ts
 - [ ] PRD-002-007: Create auth store
 - [ ] PRD-002-008: Create login page
 - [ ] PRD-002-009: Create register page
@@ -235,6 +235,13 @@ Status: NOT STARTED
   - Uses { cors: true } for client-side SvelteKit SPA
   - Registers BetterAuth endpoints on Convex HTTP router
   - Files: convex/http.ts
+
+- PRD-002-006 DONE: Create auth-client.ts
+  - Created src/lib/auth-client.ts with createAuthClient from better-auth/svelte
+  - Uses convexClient plugin from @convex-dev/better-auth/client/plugins
+  - baseURL points to VITE_CONVEX_SITE_URL (Convex HTTP site)
+  - Added VITE_CONVEX_SITE_URL to .env.example
+  - Files: src/lib/auth-client.ts, .env.example
 
 ---
 

@@ -173,7 +173,7 @@
 						"RUN: test -f src/lib/auth-client.ts -- expect file exists",
 						"RUN: grep -q 'createAuthClient' src/lib/auth-client.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-007",
