@@ -469,7 +469,7 @@
 						"RUN: test -f src/routes/+page.svelte -- expect file exists",
 						"RUN: grep -q 'Learning Sessions' src/routes/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-002",

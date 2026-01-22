@@ -333,6 +333,12 @@ Status: NOT STARTED
   - pnpm test:run: 36 tests pass (auth, sessions, phrases)
   - Phase 4 complete!
 
+- PRD-005-001 DONE: Home page structure
+  - Created src/routes/+page.svelte with sessions list layout
+  - "Learning Sessions" heading + "New Session" button
+  - Empty state placeholder text
+  - Files: src/routes/+page.svelte
+
 ---
 
 ## Notes
