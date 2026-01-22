@@ -41,15 +41,15 @@ Status: COMPLETE
 ---
 
 ## Phase 3: Data Model & Schema (7 items)
-Status: NOT STARTED
+Status: COMPLETE
 
-- [ ] PRD-003-001: Define sessions table
-- [ ] PRD-003-002: Add sessions indexes
-- [ ] PRD-003-003: Define phrases table
-- [ ] PRD-003-004: Add phrases indexes
-- [ ] PRD-003-005: Define userPreferences table
-- [ ] PRD-003-006: Define scheduledNotifications table
-- [ ] PRD-003-007: Verify schema
+- [x] PRD-003-001: Define sessions table
+- [x] PRD-003-002: Add sessions indexes
+- [x] PRD-003-003: Define phrases table
+- [x] PRD-003-004: Add phrases indexes
+- [x] PRD-003-005: Define userPreferences table
+- [x] PRD-003-006: Define scheduledNotifications table
+- [x] PRD-003-007: Verify schema
 
 ---
 
@@ -276,6 +276,13 @@ Status: NOT STARTED
   - pnpm build: succeeds
   - pnpm check: 0 errors, 0 warnings
   - Phase 2 complete!
+
+- PRD-003-001 to PRD-003-007 DONE: Create Convex schema
+  - Created convex/schema.ts with full data model
+  - Tables: sessions, phrases, userPreferences, scheduledNotifications
+  - All indexes defined: by_user, by_user_date, by_session, etc.
+  - Build and typecheck pass
+  - Phase 3 complete!
 
 ---
 

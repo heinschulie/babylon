@@ -247,7 +247,7 @@
 						"RUN: grep -q 'userId' convex/schema.ts -- expect match",
 						"RUN: grep -q 'targetLanguage' convex/schema.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-002",
@@ -257,7 +257,7 @@
 						"RUN: grep -q 'by_user' convex/schema.ts -- expect match",
 						"RUN: grep -q 'by_user_date' convex/schema.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-003",
@@ -269,7 +269,7 @@
 						"RUN: grep -q 'english' convex/schema.ts -- expect match",
 						"RUN: grep -q 'translation' convex/schema.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-004",
@@ -278,7 +278,7 @@
 					"steps_to_verify": [
 						"RUN: grep -E 'by_session|by_user' convex/schema.ts | wc -l -- expect >= 2"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-005",
@@ -291,7 +291,7 @@
 						"RUN: grep -q 'notificationsPerPhrase' convex/schema.ts -- expect match",
 						"RUN: grep -q 'pushSubscription' convex/schema.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-006",
@@ -303,7 +303,7 @@
 						"RUN: grep -q 'scheduledFor' convex/schema.ts -- expect match",
 						"RUN: grep -q 'sent' convex/schema.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-007",
@@ -313,7 +313,7 @@
 						"RUN: pnpm build -- build succeeds",
 						"RUN: pnpm check -- no type errors"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
