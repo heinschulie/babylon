@@ -94,7 +94,7 @@
 					"steps_to_verify": [
 						"RUN: test -f .env.example || test -f .env.local -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-009",

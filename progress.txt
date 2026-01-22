@@ -18,7 +18,7 @@ Status: NOT STARTED
 - [x] PRD-001-005: Install and init Convex
 - [x] PRD-001-006: Create Convex client config
 - [x] PRD-001-007: Configure root layout
-- [ ] PRD-001-008: Create env template
+- [x] PRD-001-008: Create env template
 - [ ] PRD-001-009: Verify dev server
 
 ---
@@ -195,6 +195,10 @@ Status: NOT STARTED
   - Added setupConvex() from convex-svelte
   - Added setContext('convex', convexClient) for manual access
   - Files: src/routes/+layout.svelte
+
+- PRD-001-008 DONE: Create env template
+  - Created .env.example with VITE_CONVEX_URL
+  - Files: .env.example
 
 ---
 
