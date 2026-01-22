@@ -33,6 +33,14 @@ export default ts.config(
 		}
 	},
 	{
+		files: ['static/sw.js'],
+		languageOptions: {
+			globals: {
+				...globals.serviceworker
+			}
+		}
+	},
+	{
 		ignores: ['build/', '.svelte-kit/', 'dist/', 'convex/_generated/']
 	}
 );

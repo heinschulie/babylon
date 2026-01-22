@@ -97,7 +97,7 @@ Status: NOT STARTED
 
 - [x] PRD-006-001: Install web-push
 - [x] PRD-006-002: Generate VAPID keys
-- [ ] PRD-006-003: Create service worker
+- [x] PRD-006-003: Create service worker
 - [ ] PRD-006-004: Create notification helper
 - [ ] PRD-006-005: URL Base64 helper
 - [ ] PRD-006-006: Schedule function
@@ -427,6 +427,12 @@ Status: NOT STARTED
 - PRD-006-002 DONE: Generate VAPID keys
   - Added VITE_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to .env.example
   - Files: .env.example
+
+- PRD-006-003 DONE: Create service worker
+  - push event handler with showNotification
+  - notificationclick handler navigates to url
+  - Added serviceworker globals to eslint config
+  - Files: static/sw.js, eslint.config.js
 
 ---
 
