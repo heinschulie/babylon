@@ -13,7 +13,7 @@ Status: NOT STARTED
 
 - [x] PRD-001-001: Initialize SvelteKit project
 - [x] PRD-001-002: Add Tailwind CSS
-- [ ] PRD-001-003: Initialize shadcn-svelte
+- [x] PRD-001-003: Initialize shadcn-svelte
 - [ ] PRD-001-004: Add shadcn components
 - [ ] PRD-001-005: Install and init Convex
 - [ ] PRD-001-006: Create Convex client config
@@ -160,6 +160,15 @@ Status: NOT STARTED
   - Added tailwind.config.ts for shadcn compat
   - Added prd.json/progress.txt to .prettierignore
   - Files: vite.config.ts, src/app.css, src/routes/+layout.svelte, tailwind.config.ts, .prettierignore, package.json
+
+- PRD-001-003 DONE: Initialize shadcn-svelte
+  - Ran pnpm dlx shadcn-svelte@latest init with slate base color
+  - Created components.json with path aliases
+  - Created src/lib/utils.ts with cn() helper
+  - Updated src/app.css with OKLCH color vars + tw-animate-css
+  - Created src/lib/components/ui dir (empty, components added in PRD-001-004)
+  - New deps: @lucide/svelte, clsx, tailwind-merge, tailwind-variants, tw-animate-css
+  - Files: components.json, src/lib/utils.ts, src/app.css, src/lib/components/ui/
 
 ---
 

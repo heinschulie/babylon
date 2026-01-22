@@ -38,7 +38,7 @@
 						"RUN: test -f components.json -- expect file exists",
 						"RUN: test -d src/lib/components/ui -- expect directory exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-004",
