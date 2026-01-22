@@ -108,7 +108,7 @@ Status: NOT STARTED
 - [x] PRD-006-011: Phrase create hook
 - [x] PRD-006-012: Reveal page
 - [x] PRD-006-013: Settings enable button
-- [ ] PRD-006-014: Notification tests
+- [x] PRD-006-014: Notification tests
 - [ ] PRD-006-015: Notification verification
 
 ---
@@ -484,6 +484,11 @@ Status: NOT STARTED
   - requestNotificationPermission from notifications helper
   - Saves pushSubscription to preferences
   - Files: src/routes/settings/+page.svelte
+
+- PRD-006-014 DONE: Notification tests
+  - Tests for generateRandomTimes function
+  - Covers quiet hours, sorting, time window
+  - Files: convex/notifications.test.ts
 
 ---
 
