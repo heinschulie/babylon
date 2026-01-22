@@ -784,7 +784,7 @@
 						"RUN: grep -q 'standalone' static/manifest.json -- expect match",
 						"RUN: grep -q 'icons' static/manifest.json -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-002",
@@ -793,7 +793,7 @@
 					"steps_to_verify": [
 						"RUN: test -f static/icon-192.png -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-003",
@@ -802,7 +802,7 @@
 					"steps_to_verify": [
 						"RUN: test -f static/icon-512.png -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-004",
@@ -813,7 +813,7 @@
 						"RUN: grep -q 'theme-color' src/app.html -- expect match",
 						"RUN: grep -q 'apple-mobile-web-app-capable' src/app.html -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-005",
@@ -822,7 +822,7 @@
 					"steps_to_verify": [
 						"RUN: test -f static/badge-72.png -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-006",
@@ -832,7 +832,7 @@
 						"RUN: pnpm build -- build succeeds",
 						"RUN: test -f build/manifest.json || test -f .svelte-kit/output/client/manifest.json -- manifest in build"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
