@@ -651,7 +651,7 @@
 						"RUN: grep -q 'PushManager' src/lib/notifications.ts -- expect match",
 						"RUN: grep -q 'subscribe' src/lib/notifications.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-005",
@@ -661,7 +661,7 @@
 						"RUN: grep -q 'urlBase64ToUint8Array' src/lib/notifications.ts -- expect match",
 						"RUN: grep -q 'Uint8Array' src/lib/notifications.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-006",

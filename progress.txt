@@ -98,8 +98,8 @@ Status: NOT STARTED
 - [x] PRD-006-001: Install web-push
 - [x] PRD-006-002: Generate VAPID keys
 - [x] PRD-006-003: Create service worker
-- [ ] PRD-006-004: Create notification helper
-- [ ] PRD-006-005: URL Base64 helper
+- [x] PRD-006-004: Create notification helper
+- [x] PRD-006-005: URL Base64 helper
 - [ ] PRD-006-006: Schedule function
 - [ ] PRD-006-007: Random times generator
 - [ ] PRD-006-008: Send action
@@ -433,6 +433,15 @@ Status: NOT STARTED
   - notificationclick handler navigates to url
   - Added serviceworker globals to eslint config
   - Files: static/sw.js, eslint.config.js
+
+- PRD-006-004 DONE: Create notification helper
+  - requestNotificationPermission with PushManager.subscribe
+  - getSubscription helper
+  - Files: src/lib/notifications.ts
+
+- PRD-006-005 DONE: URL Base64 helper
+  - urlBase64ToUint8Array for applicationServerKey
+  - Files: src/lib/notifications.ts
 
 ---
 
