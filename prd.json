@@ -28,7 +28,7 @@
 						"RUN: grep -q 'tailwindcss' package.json -- expect match",
 						"RUN: test -f src/app.css -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-003",

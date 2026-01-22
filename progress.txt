@@ -12,7 +12,7 @@ Phases: 8
 Status: NOT STARTED
 
 - [x] PRD-001-001: Initialize SvelteKit project
-- [ ] PRD-001-002: Add Tailwind CSS
+- [x] PRD-001-002: Add Tailwind CSS
 - [ ] PRD-001-003: Initialize shadcn-svelte
 - [ ] PRD-001-004: Add shadcn components
 - [ ] PRD-001-005: Install and init Convex
@@ -151,6 +151,15 @@ Status: NOT STARTED
   - Added eslint + prettier + plugins manually
   - Created eslint.config.js, .prettierrc, .prettierignore
   - All feedback loops pass (typecheck, lint, build)
+
+- PRD-001-002 DONE: Add Tailwind CSS
+  - Installed tailwindcss@4.1.18 + @tailwindcss/vite
+  - Configured vite.config.ts with tailwindcss plugin
+  - Created src/app.css with @import 'tailwindcss'
+  - Imported app.css in +layout.svelte
+  - Added tailwind.config.ts for shadcn compat
+  - Added prd.json/progress.txt to .prettierignore
+  - Files: vite.config.ts, src/app.css, src/routes/+layout.svelte, tailwind.config.ts, .prettierignore, package.json
 
 ---
 

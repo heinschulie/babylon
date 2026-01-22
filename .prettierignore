@@ -7,3 +7,7 @@ yarn.lock
 build/
 .svelte-kit/
 dist/
+
+# Data files
+prd.json
+progress.txt
