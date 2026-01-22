@@ -368,6 +368,13 @@ Status: NOT STARTED
   - Phrase cards with english + translation
   - Files: src/routes/session/[id]/+page.svelte
 
+- PRD-005-006 DONE: Add phrase dialog
+  - Dialog with english + translation inputs
+  - createPhrase calls api.phrases.create
+  - Validation for empty fields
+  - Error/loading states
+  - Files: src/routes/session/[id]/+page.svelte
+
 ---
 
 ## Notes

@@ -521,7 +521,7 @@
 						"RUN: grep -q 'translation' src/routes/session/[id]/+page.svelte -- expect match",
 						"RUN: grep -q 'createPhrase' src/routes/session/[id]/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-007",
