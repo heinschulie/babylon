@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"allowJs": true,
+		"strict": true,
+		"moduleResolution": "Bundler",
+		"module": "ESNext",
+		"target": "ESNext",
+		"jsx": "preserve",
+		"skipLibCheck": true,
+		"noEmit": true,
+		"customConditions": ["@convex-dev/component-source"]
+	},
+	"include": ["./**/*"],
+	"exclude": ["_generated"]
+}

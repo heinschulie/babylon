@@ -15,7 +15,7 @@ Status: NOT STARTED
 - [x] PRD-001-002: Add Tailwind CSS
 - [x] PRD-001-003: Initialize shadcn-svelte
 - [x] PRD-001-004: Add shadcn components
-- [ ] PRD-001-005: Install and init Convex
+- [x] PRD-001-005: Install and init Convex
 - [ ] PRD-001-006: Create Convex client config
 - [ ] PRD-001-007: Configure root layout
 - [ ] PRD-001-008: Create env template
@@ -176,6 +176,14 @@ Status: NOT STARTED
   - Added ESLint override to disable svelte/no-navigation-without-resolve for ui/
   - New deps: bits-ui, @internationalized/date
   - Files: src/lib/components/ui/*, eslint.config.js
+
+- PRD-001-005 DONE: Install and init Convex
+  - Installed convex + convex-svelte packages
+  - Created convex/ dir with tsconfig.json
+  - Created convex.json config pointing to convex/
+  - convex-svelte provides Svelte 5 hooks: setupConvex, useQuery, useConvexClient
+  - New deps: convex, convex-svelte
+  - Files: convex/tsconfig.json, convex.json, package.json
 
 ---
 

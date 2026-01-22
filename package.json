@@ -44,5 +44,9 @@
 		"onlyBuiltDependencies": [
 			"esbuild"
 		]
+	},
+	"dependencies": {
+		"convex": "^1.31.6",
+		"convex-svelte": "^0.0.12"
 	}
 }

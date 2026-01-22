@@ -63,7 +63,7 @@
 						"RUN: test -d convex -- expect directory exists",
 						"RUN: test -f convex/tsconfig.json -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-006",
