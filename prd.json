@@ -453,7 +453,7 @@
 						"RUN: pnpm check -- no type errors",
 						"RUN: pnpm test:run -- all tests pass"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

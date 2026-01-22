@@ -54,7 +54,7 @@ Status: COMPLETE
 ---
 
 ## Phase 4: Core CRUD Operations (13 items)
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] PRD-004-001: Sessions list query
 - [x] PRD-004-002: Sessions getByDate query
@@ -68,7 +68,7 @@ Status: IN PROGRESS
 - [x] PRD-004-010: Phrases tests
 - [x] PRD-004-011: Preferences get query
 - [x] PRD-004-012: Preferences upsert mutation
-- [ ] PRD-004-013: CRUD verification
+- [x] PRD-004-013: CRUD verification
 
 ---
 
@@ -326,6 +326,12 @@ Status: NOT STARTED
     - authentication: requires auth for listBySession/create
   - All tests pass, typecheck clean, lint clean, build passes
   - Files: convex/phrases.test.ts
+
+- PRD-004-013 DONE: CRUD verification
+  - pnpm build: succeeds
+  - pnpm check: 0 errors, 0 warnings
+  - pnpm test:run: 36 tests pass (auth, sessions, phrases)
+  - Phase 4 complete!
 
 ---
 
