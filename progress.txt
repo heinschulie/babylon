@@ -30,7 +30,7 @@ Status: IN PROGRESS
 - [x] PRD-002-002: Create convex.config.ts
 - [x] PRD-002-003: Create auth.ts config
 - [x] PRD-002-004: Create auth.config.ts
-- [ ] PRD-002-005: Create http.ts routes
+- [x] PRD-002-005: Create http.ts routes
 - [ ] PRD-002-006: Create auth-client.ts
 - [ ] PRD-002-007: Create auth store
 - [ ] PRD-002-008: Create login page
@@ -229,6 +229,12 @@ Status: NOT STARTED
   - Required by auth.ts for convex plugin
   - Added @types/node devDep for process.env
   - Files: convex/auth.config.ts, package.json
+
+- PRD-002-005 DONE: Create http.ts routes
+  - Created convex/http.ts with httpRouter + registerRoutes
+  - Uses { cors: true } for client-side SvelteKit SPA
+  - Registers BetterAuth endpoints on Convex HTTP router
+  - Files: convex/http.ts
 
 ---
 
