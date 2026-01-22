@@ -346,6 +346,14 @@ Status: NOT STARTED
   - Session cards with date + targetLanguage
   - Files: src/routes/+page.svelte
 
+- PRD-005-003 DONE: New session dialog
+  - shadcn Dialog with targetLanguage input
+  - useConvexClient for mutations
+  - createSession calls api.sessions.create
+  - Auto-generates today's date (YYYY-MM-DD)
+  - Error/loading states, validation
+  - Files: src/routes/+page.svelte
+
 ---
 
 ## Notes
