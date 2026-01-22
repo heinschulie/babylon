@@ -100,11 +100,11 @@ Status: NOT STARTED
 - [x] PRD-006-003: Create service worker
 - [x] PRD-006-004: Create notification helper
 - [x] PRD-006-005: URL Base64 helper
-- [ ] PRD-006-006: Schedule function
-- [ ] PRD-006-007: Random times generator
-- [ ] PRD-006-008: Send action
-- [ ] PRD-006-009: Mark sent mutation
-- [ ] PRD-006-010: Internal queries
+- [x] PRD-006-006: Schedule function
+- [x] PRD-006-007: Random times generator
+- [x] PRD-006-008: Send action
+- [x] PRD-006-009: Mark sent mutation
+- [x] PRD-006-010: Internal queries
 - [ ] PRD-006-011: Phrase create hook
 - [ ] PRD-006-012: Reveal page
 - [ ] PRD-006-013: Settings enable button
@@ -442,6 +442,31 @@ Status: NOT STARTED
 - PRD-006-005 DONE: URL Base64 helper
   - urlBase64ToUint8Array for applicationServerKey
   - Files: src/lib/notifications.ts
+
+- PRD-006-006 DONE: Schedule function
+  - scheduleForPhrase internalMutation
+  - scheduler.runAt for each notification time
+  - Files: convex/notifications.ts
+
+- PRD-006-007 DONE: Random times generator
+  - generateRandomTimes respects quiet hours
+  - Handles midnight wraparound (22-8)
+  - Files: convex/notifications.ts
+
+- PRD-006-008 DONE: Send action
+  - send internalAction with web-push
+  - Fetches phrase, prefs, sends notification
+  - Files: convex/notifications.ts
+
+- PRD-006-009 DONE: Mark sent mutation
+  - markSent internalMutation
+  - Sets sent: true on notification
+  - Files: convex/notifications.ts
+
+- PRD-006-010 DONE: Internal queries
+  - getPhraseById, getPreferencesByUserId, getNotificationById
+  - All in convex/notifications.ts for simplicity
+  - Files: convex/notifications.ts
 
 ---
 

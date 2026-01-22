@@ -672,7 +672,7 @@
 						"RUN: grep -q 'scheduleForPhrase' convex/notifications.ts -- expect match",
 						"RUN: grep -q 'scheduler.runAt' convex/notifications.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-007",
@@ -683,7 +683,7 @@
 						"RUN: grep -q 'quietStart' convex/notifications.ts -- expect match",
 						"RUN: grep -q 'quietEnd' convex/notifications.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-008",
@@ -694,7 +694,7 @@
 						"RUN: grep -q 'internalAction' convex/notifications.ts -- expect match",
 						"RUN: grep -q 'sendNotification' convex/notifications.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-009",
@@ -704,7 +704,7 @@
 						"RUN: grep -q 'markSent' convex/notifications.ts -- expect match",
 						"RUN: grep -q 'sent: true' convex/notifications.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-010",
@@ -715,7 +715,7 @@
 						"RUN: grep -q 'internalQuery' convex/sessions.ts -- expect match",
 						"RUN: grep -q 'getByUserId' convex/preferences.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-011",
