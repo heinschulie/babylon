@@ -370,7 +370,7 @@
 						"RUN: test -f convex/sessions.test.ts -- expect file exists",
 						"RUN: pnpm test:run convex/sessions.test.ts -- tests pass"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-006",

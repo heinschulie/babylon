@@ -60,7 +60,7 @@ Status: IN PROGRESS
 - [x] PRD-004-002: Sessions getByDate query
 - [x] PRD-004-003: Sessions create mutation
 - [x] PRD-004-004: Sessions remove mutation
-- [ ] PRD-004-005: Sessions tests
+- [x] PRD-004-005: Sessions tests
 - [x] PRD-004-006: Phrases listBySession query
 - [x] PRD-004-007: Phrases create mutation
 - [x] PRD-004-008: Phrases update mutation
@@ -299,6 +299,23 @@ Status: NOT STARTED
   - convex/preferences.ts: get (with defaults), upsert
   - Default: quietHoursStart=22, quietHoursEnd=8, notificationsPerPhrase=3
   - Files: convex/preferences.ts
+
+- PRD-004-005 DONE: Sessions tests
+  - Installed convex-test@0.0.41 + @edge-runtime/vm
+  - Created vitest.config.ts with environmentMatchGlobs for edge-runtime (convex) + jsdom (svelte)
+  - Created convex/_generated/ stub files (api.js/d.ts, server.js/d.ts, dataModel.d.ts)
+  - Created convex/lib/auth.ts shared auth helper with test support
+  - Refactored sessions.ts, phrases.ts, preferences.ts to use shared auth helper
+  - Auth helper uses Convex identity first (tests), falls back to BetterAuth (production)
+  - Created convex/sessions.test.ts with 13 tests covering:
+    - list: empty, create+list, user isolation
+    - getByDate: null for missing, returns existing
+    - create: new session, duplicate returns existing, multi-user same date
+    - remove: cascade deletes phrases, not found error, auth check
+    - authentication: requires auth for list/create
+  - Updated eslint.config.js to ignore convex/_generated/
+  - All tests pass, typecheck clean, lint clean, build passes
+  - Files: convex/sessions.test.ts, convex/lib/auth.ts, convex/_generated/*, vitest.config.ts, eslint.config.js, package.json
 
 ---
 

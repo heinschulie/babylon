@@ -1,15 +1,6 @@
 import { v } from 'convex/values';
-import { mutation, query, type QueryCtx, type MutationCtx } from './_generated/server';
-import { authComponent } from './auth';
-
-// Helper to get authenticated user ID
-async function getAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
-	const user = await authComponent.getAuthUser(ctx);
-	if (!user) {
-		throw new Error('Not authenticated');
-	}
-	return user.id;
-}
+import { mutation, query } from './_generated/server';
+import { getAuthUserId } from './lib/auth';
 
 // List all sessions for the current user
 export const list = query({

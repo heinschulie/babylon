@@ -1,0 +1,20 @@
+// Auto-generated. DO NOT EDIT.
+// Run `npx convex dev` to regenerate.
+
+import {
+	queryGeneric,
+	mutationGeneric,
+	actionGeneric,
+	internalQueryGeneric,
+	internalMutationGeneric,
+	internalActionGeneric,
+	httpActionGeneric
+} from 'convex/server';
+
+export const query = queryGeneric;
+export const mutation = mutationGeneric;
+export const action = actionGeneric;
+export const internalQuery = internalQueryGeneric;
+export const internalMutation = internalMutationGeneric;
+export const internalAction = internalActionGeneric;
+export const httpAction = httpActionGeneric;

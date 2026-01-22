@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
-import { mutation, query, type QueryCtx, type MutationCtx } from './_generated/server';
-import { authComponent } from './auth';
+import { mutation, query } from './_generated/server';
+import { getAuthUserId } from './lib/auth';
 
 // Default preferences
 const DEFAULT_PREFERENCES = {
@@ -8,15 +8,6 @@ const DEFAULT_PREFERENCES = {
 	quietHoursEnd: 8, // 8 AM
 	notificationsPerPhrase: 3
 };
-
-// Helper to get authenticated user ID
-async function getAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
-	const user = await authComponent.getAuthUser(ctx);
-	if (!user) {
-		throw new Error('Not authenticated');
-	}
-	return user.id;
-}
 
 // Get user preferences (with defaults)
 export const get = query({
