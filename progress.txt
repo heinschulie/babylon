@@ -33,7 +33,7 @@ Status: IN PROGRESS
 - [x] PRD-002-005: Create http.ts routes
 - [x] PRD-002-006: Create auth-client.ts
 - [x] PRD-002-007: Create auth store
-- [ ] PRD-002-008: Create login page
+- [x] PRD-002-008: Create login page
 - [ ] PRD-002-009: Create register page
 - [ ] PRD-002-010: Write auth tests
 - [ ] PRD-002-011: Verify auth setup
@@ -249,6 +249,15 @@ Status: NOT STARTED
   - Exports: writable (re-exported), session, isAuthenticated, isLoading, user
   - isAuthenticated is derived store checking session.data !== null
   - Files: src/lib/stores/auth.ts
+
+- PRD-002-008 DONE: Create login page
+  - Created src/routes/login/+page.svelte
+  - Uses authClient.signIn.email() for authentication
+  - Uses resolve() from $app/paths for type-safe navigation (eslint rule)
+  - Created placeholder src/routes/register/+page.svelte for route type resolution
+  - Svelte 5 $state() for reactive form fields
+  - shadcn Card, Input, Label, Button components
+  - Files: src/routes/login/+page.svelte, src/routes/register/+page.svelte
 
 ---
 

@@ -197,7 +197,7 @@
 						"RUN: grep -q 'email' src/routes/login/+page.svelte -- expect match",
 						"RUN: grep -q 'password' src/routes/login/+page.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-009",
