@@ -536,8 +536,8 @@ Status: IN PROGRESS
 - [x] PRD-009-012: Implement isAuthenticated derived store
 - [x] PRD-009-013: Implement isLoading derived store
 - [x] PRD-009-014: Implement user derived store
-- [ ] PRD-009-015: Add PUBLIC_ prefixed env vars
-- [ ] PRD-009-016: Add SITE_URL variable
+- [x] PRD-009-015: Add PUBLIC_ prefixed env vars
+- [x] PRD-009-016: Add SITE_URL variable
 - [ ] PRD-009-017: Update convex/http.ts CORS
 - [ ] PRD-009-018: Verify trustedOrigins
 - [ ] PRD-009-019: TypeScript check

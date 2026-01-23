@@ -1074,7 +1074,7 @@
 						"RUN: grep -q 'PUBLIC_CONVEX_URL' .env || grep -q 'PUBLIC_CONVEX_URL' .env.local -- expect match",
 						"RUN: grep -q 'PUBLIC_CONVEX_SITE_URL' .env || grep -q 'PUBLIC_CONVEX_SITE_URL' .env.local -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-016",
@@ -1083,7 +1083,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'SITE_URL' .env || grep -q 'SITE_URL' .env.local -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-017",
