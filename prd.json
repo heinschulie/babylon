@@ -1025,7 +1025,7 @@
 						"RUN: grep -q 'createSvelteAuthClient' src/routes/+layout.svelte -- expect match",
 						"RUN: grep -q '@mmailaender/convex-better-auth-svelte' src/routes/+layout.svelte -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-011",
