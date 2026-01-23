@@ -17,6 +17,8 @@
 	let saving = $state(false);
 	let saved = $state(false);
 	let enabling = $state(false);
+	let testing = $state(false);
+	let testResult = $state<{ success: boolean; message: string } | null>(null);
 	let notificationsEnabled = $derived(!!preferences.data?.pushSubscription);
 
 	$effect(() => {
@@ -65,6 +67,24 @@
 			enabling = false;
 		}
 	}
+
+	async function sendTestNotification() {
+		testing = true;
+		testResult = null;
+
+		try {
+			await client.action(api.notificationsNode.sendTest, {});
+			testResult = { success: true, message: 'Test notification sent!' };
+		} catch (e) {
+			testResult = {
+				success: false,
+				message: e instanceof Error ? e.message : 'Failed to send test notification'
+			};
+		} finally {
+			testing = false;
+			setTimeout(() => (testResult = null), 5000);
+		}
+	}
 </script>
 
 <div class="container mx-auto max-w-4xl p-4">
@@ -81,9 +101,22 @@
 			<Card.Description>Enable push notifications to receive vocabulary reminders.</Card.Description
 			>
 		</Card.Header>
-		<Card.Content>
+		<Card.Content class="space-y-4">
 			{#if notificationsEnabled}
 				<p class="text-sm text-green-600">Notifications are enabled!</p>
+				<div class="flex items-center gap-4 flex-wrap">
+					<Button onclick={sendTestNotification} disabled={testing} variant="outline">
+						{testing ? 'Sending...' : 'Test Notification'}
+					</Button>
+					<Button onclick={enableNotifications} disabled={enabling} variant="ghost" size="sm">
+						{enabling ? 'Refreshing...' : 'Refresh Subscription'}
+					</Button>
+					{#if testResult}
+						<span class="text-sm {testResult.success ? 'text-green-600' : 'text-destructive'}">
+							{testResult.message}
+						</span>
+					{/if}
+				</div>
 			{:else}
 				<Button onclick={enableNotifications} disabled={enabling}>
 					{enabling ? 'Enabling...' : 'Enable Notifications'}

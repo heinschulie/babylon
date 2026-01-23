@@ -34,6 +34,12 @@ export async function requestNotificationPermission(): Promise<PushSubscription 
 	const registration = await navigator.serviceWorker.register('/sw.js');
 	await navigator.serviceWorker.ready;
 
+	// Unsubscribe from any existing subscription (may have different VAPID key)
+	const existingSubscription = await registration.pushManager.getSubscription();
+	if (existingSubscription) {
+		await existingSubscription.unsubscribe();
+	}
+
 	const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
 	const subscription = await registration.pushManager.subscribe({
 		userVisibleOnly: true,

@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
-import { internalMutation, internalAction, internalQuery } from './_generated/server';
+import { internalMutation, internalQuery } from './_generated/server';
 import { internal } from './_generated/api';
+import { getAuthUserId } from './lib/auth';
 
 /**
  * Generate random notification times within allowed hours, respecting quiet hours.
@@ -87,8 +88,8 @@ export const scheduleForPhrase = internalMutation({
 				sent: false
 			});
 
-			// Schedule the action to send the notification
-			await ctx.scheduler.runAt(scheduledFor, internal.notifications.send, {
+			// Schedule the action to send the notification (runs in Node.js runtime)
+			await ctx.scheduler.runAt(scheduledFor, internal.notificationsNode.send, {
 				notificationId
 			});
 		}
@@ -119,76 +120,6 @@ export const getPreferencesByUserId = internalQuery({
 });
 
 /**
- * Send a push notification.
- */
-export const send = internalAction({
-	args: {
-		notificationId: v.id('scheduledNotifications')
-	},
-	handler: async (ctx, { notificationId }) => {
-		// Get the notification record
-		const notification = await ctx.runQuery(internal.notifications.getNotificationById, {
-			notificationId
-		});
-
-		if (!notification || notification.sent) {
-			return;
-		}
-
-		// Get the phrase
-		const phrase = await ctx.runQuery(internal.notifications.getPhraseById, {
-			phraseId: notification.phraseId
-		});
-
-		if (!phrase) {
-			return;
-		}
-
-		// Get user's push subscription
-		const prefs = await ctx.runQuery(internal.notifications.getPreferencesByUserId, {
-			userId: notification.userId
-		});
-
-		if (!prefs?.pushSubscription) {
-			return;
-		}
-
-		try {
-			const webpush = await import('web-push');
-
-			const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY;
-			const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-			const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
-
-			if (!vapidPublicKey || !vapidPrivateKey) {
-				console.error('VAPID keys not configured');
-				return;
-			}
-
-			webpush.setVapidDetails(
-				`mailto:noreply@${new URL(siteUrl).hostname}`,
-				vapidPublicKey,
-				vapidPrivateKey
-			);
-
-			const payload = JSON.stringify({
-				title: 'Time to Recall!',
-				body: phrase.english,
-				url: `/reveal/${phrase._id}`,
-				tag: `phrase-${phrase._id}`
-			});
-
-			await webpush.sendNotification(JSON.parse(prefs.pushSubscription), payload);
-
-			// Mark as sent
-			await ctx.runMutation(internal.notifications.markSent, { notificationId });
-		} catch (error) {
-			console.error('Failed to send notification:', error);
-		}
-	}
-});
-
-/**
  * Get notification by ID (internal).
  */
 export const getNotificationById = internalQuery({
@@ -205,5 +136,15 @@ export const markSent = internalMutation({
 	args: { notificationId: v.id('scheduledNotifications') },
 	handler: async (ctx, { notificationId }) => {
 		await ctx.db.patch(notificationId, { sent: true });
+	}
+});
+
+/**
+ * Get current authenticated user ID. Used by actions that need auth.
+ */
+export const getCurrentUserId = internalQuery({
+	args: {},
+	handler: async (ctx) => {
+		return await getAuthUserId(ctx);
 	}
 });

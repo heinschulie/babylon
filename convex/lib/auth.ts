@@ -17,7 +17,7 @@ export async function getAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string
 		const { authComponent } = await import('../auth');
 		const user = await authComponent.getAuthUser(ctx);
 		if (user) {
-			return user.id;
+			return user.userId ?? user._id;
 		}
 	} catch {
 		// BetterAuth not available (e.g., in tests without auth module)

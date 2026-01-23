@@ -92,12 +92,14 @@
 			<p class="text-muted-foreground">No sessions yet. Create your first learning session!</p>
 		{:else}
 			{#each sessions.data as session (session._id)}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>{session.date}</Card.Title>
-						<Card.Description>{session.targetLanguage}</Card.Description>
-					</Card.Header>
-				</Card.Root>
+				<a href={resolve(`/session/${session._id}`)} class="block">
+					<Card.Root class="transition-colors hover:bg-muted/50">
+						<Card.Header>
+							<Card.Title>{session.date}</Card.Title>
+							<Card.Description>{session.targetLanguage}</Card.Description>
+						</Card.Header>
+					</Card.Root>
+				</a>
 			{/each}
 		{/if}
 	</div>
