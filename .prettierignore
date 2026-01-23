@@ -11,3 +11,6 @@ dist/
 # Data files
 prd.json
 progress.txt
+
+# Convex generated files
+convex/_generated/

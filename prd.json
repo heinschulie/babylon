@@ -922,11 +922,221 @@
 					"passes": true
 				}
 			]
+		},
+		{
+			"phase": 9,
+			"name": "Cross-Origin Auth Fix",
+			"items": [
+				{
+					"id": "PRD-009-001",
+					"category": "CrossAuth - Dependency",
+					"description": "Install @mmailaender/convex-better-auth-svelte package",
+					"steps_to_verify": [
+						"RUN: grep -q '@mmailaender/convex-better-auth-svelte' package.json -- expect match",
+						"RUN: pnpm install -- no peer dependency warnings for better-auth"
+					],
+					"passes": true
+				},
+				{
+					"id": "PRD-009-002",
+					"category": "CrossAuth - API Route File",
+					"description": "Create auth API route handler file structure",
+					"steps_to_verify": [
+						"RUN: test -f src/routes/api/auth/[...all]/+server.ts -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-003",
+					"category": "CrossAuth - API Route Handler",
+					"description": "Implement SvelteKit handler using createSvelteKitHandler",
+					"steps_to_verify": [
+						"RUN: grep -q 'createSvelteKitHandler' src/routes/api/auth/[...all]/+server.ts -- expect match",
+						"RUN: grep -q 'GET' src/routes/api/auth/[...all]/+server.ts -- expect match",
+						"RUN: grep -q 'POST' src/routes/api/auth/[...all]/+server.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-004",
+					"category": "CrossAuth - Server Hooks File",
+					"description": "Create server hooks file",
+					"steps_to_verify": [
+						"RUN: test -f src/hooks.server.ts -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-005",
+					"category": "CrossAuth - Server Hooks Handle",
+					"description": "Implement handle function with token extraction",
+					"steps_to_verify": [
+						"RUN: grep -q 'Handle' src/hooks.server.ts -- expect match",
+						"RUN: grep -q 'getToken' src/hooks.server.ts -- expect match",
+						"RUN: grep -q 'event.locals.token' src/hooks.server.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-006",
+					"category": "CrossAuth - Server Auth Helper File",
+					"description": "Create server-side auth helper file",
+					"steps_to_verify": [
+						"RUN: test -f src/lib/server/auth.ts -- expect file exists"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-007",
+					"category": "CrossAuth - Server Auth createAuth",
+					"description": "Implement createAuth function for server-side token extraction",
+					"steps_to_verify": [
+						"RUN: grep -q 'createAuth' src/lib/server/auth.ts -- expect match",
+						"RUN: grep -q 'betterAuth' src/lib/server/auth.ts -- expect match",
+						"RUN: grep -q 'baseURL' src/lib/server/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-008",
+					"category": "CrossAuth - App Types Locals",
+					"description": "Update App.Locals interface with token type",
+					"steps_to_verify": [
+						"RUN: grep -q 'Locals' src/app.d.ts -- expect match",
+						"RUN: grep -q 'token' src/app.d.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-009",
+					"category": "CrossAuth - Client baseURL Removal",
+					"description": "Update auth-client.ts to remove baseURL (use local API)",
+					"steps_to_verify": [
+						"RUN: grep -q 'createAuthClient' src/lib/auth-client.ts -- expect match",
+						"RUN: ! grep -q 'baseURL' src/lib/auth-client.ts -- expect no baseURL"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-010",
+					"category": "CrossAuth - Layout Auth Client",
+					"description": "Add createSvelteAuthClient to root layout",
+					"steps_to_verify": [
+						"RUN: grep -q 'createSvelteAuthClient' src/routes/+layout.svelte -- expect match",
+						"RUN: grep -q '@mmailaender/convex-better-auth-svelte' src/routes/+layout.svelte -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-011",
+					"category": "CrossAuth - Auth Store useSession",
+					"description": "Update auth store to use adapter's useSession hook",
+					"steps_to_verify": [
+						"RUN: grep -q 'useSession' src/lib/stores/auth.ts -- expect match",
+						"RUN: grep -q 'derived' src/lib/stores/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-012",
+					"category": "CrossAuth - Auth Store isAuthenticated",
+					"description": "Implement isAuthenticated derived store",
+					"steps_to_verify": [
+						"RUN: grep -q 'isAuthenticated' src/lib/stores/auth.ts -- expect match",
+						"RUN: grep -q 'data !== null' src/lib/stores/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-013",
+					"category": "CrossAuth - Auth Store isLoading",
+					"description": "Implement isLoading derived store",
+					"steps_to_verify": [
+						"RUN: grep -q 'isLoading' src/lib/stores/auth.ts -- expect match",
+						"RUN: grep -q 'isPending' src/lib/stores/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-014",
+					"category": "CrossAuth - Auth Store user",
+					"description": "Implement user derived store",
+					"steps_to_verify": [
+						"RUN: grep -q 'export const user' src/lib/stores/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-015",
+					"category": "CrossAuth - Env PUBLIC Variables",
+					"description": "Add PUBLIC_ prefixed Convex variables to .env",
+					"steps_to_verify": [
+						"RUN: grep -q 'PUBLIC_CONVEX_URL' .env || grep -q 'PUBLIC_CONVEX_URL' .env.local -- expect match",
+						"RUN: grep -q 'PUBLIC_CONVEX_SITE_URL' .env || grep -q 'PUBLIC_CONVEX_SITE_URL' .env.local -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-016",
+					"category": "CrossAuth - Env SITE_URL",
+					"description": "Add SITE_URL variable for auth callbacks",
+					"steps_to_verify": [
+						"RUN: grep -q 'SITE_URL' .env || grep -q 'SITE_URL' .env.local -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-017",
+					"category": "CrossAuth - Convex HTTP CORS",
+					"description": "Update convex/http.ts to use cors: true",
+					"steps_to_verify": [
+						"RUN: grep -q 'cors: true' convex/http.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-018",
+					"category": "CrossAuth - Convex trustedOrigins",
+					"description": "Verify trustedOrigins includes localhost in convex/auth.ts",
+					"steps_to_verify": [
+						"RUN: grep -q 'trustedOrigins' convex/auth.ts -- expect match",
+						"RUN: grep -q 'localhost' convex/auth.ts -- expect match"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-019",
+					"category": "CrossAuth - TypeScript Check",
+					"description": "Verify TypeScript compiles without errors",
+					"steps_to_verify": [
+						"RUN: pnpm check -- no type errors"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-020",
+					"category": "CrossAuth - Build Verification",
+					"description": "Verify build succeeds",
+					"steps_to_verify": [
+						"RUN: pnpm build -- build succeeds"
+					],
+					"passes": false
+				},
+				{
+					"id": "PRD-009-021",
+					"category": "CrossAuth - Tests Pass",
+					"description": "Verify existing tests still pass",
+					"steps_to_verify": [
+						"RUN: pnpm test:run -- all tests pass"
+					],
+					"passes": false
+				}
+			]
 		}
 	],
 	"summary": {
-		"total_items": 78,
-		"phases": 8,
+		"total_items": 99,
+		"phases": 9,
 		"categories": [
 			"Setup",
 			"Auth",
@@ -935,7 +1145,8 @@
 			"UI",
 			"Notifications",
 			"PWA",
-			"Testing"
+			"Testing",
+			"CrossAuth"
 		]
 	}
 }

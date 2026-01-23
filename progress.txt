@@ -519,6 +519,40 @@ Status: COMPLETE
 
 ---
 
+## Phase 9: Cross-Origin Auth Fix (21 items)
+Status: IN PROGRESS
+
+- [x] PRD-009-001: Install @mmailaender/convex-better-auth-svelte
+- [ ] PRD-009-002: Create auth API route file
+- [ ] PRD-009-003: Implement API route handler
+- [ ] PRD-009-004: Create server hooks file
+- [ ] PRD-009-005: Implement handle function
+- [ ] PRD-009-006: Create server auth helper file
+- [ ] PRD-009-007: Implement createAuth function
+- [ ] PRD-009-008: Update App.Locals interface
+- [ ] PRD-009-009: Remove baseURL from auth-client
+- [ ] PRD-009-010: Add createSvelteAuthClient to layout
+- [ ] PRD-009-011: Update auth store useSession
+- [ ] PRD-009-012: Implement isAuthenticated derived store
+- [ ] PRD-009-013: Implement isLoading derived store
+- [ ] PRD-009-014: Implement user derived store
+- [ ] PRD-009-015: Add PUBLIC_ prefixed env vars
+- [ ] PRD-009-016: Add SITE_URL variable
+- [ ] PRD-009-017: Update convex/http.ts CORS
+- [ ] PRD-009-018: Verify trustedOrigins
+- [ ] PRD-009-019: TypeScript check
+- [ ] PRD-009-020: Build verification
+- [ ] PRD-009-021: Tests pass
+
+### 2026-01-23
+- PRD-009-001 DONE: Install @mmailaender/convex-better-auth-svelte
+  - Added @mmailaender/convex-better-auth-svelte@0.5.0
+  - Added @types/web-push for existing type error
+  - Added convex/_generated/ to .prettierignore
+  - Files: package.json, .prettierignore
+
+---
+
 ## Notes
 - Each step has verification commands in prd.json
 - Mark items with [x] when completed
