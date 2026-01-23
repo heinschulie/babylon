@@ -538,8 +538,8 @@ Status: IN PROGRESS
 - [x] PRD-009-014: Implement user derived store
 - [x] PRD-009-015: Add PUBLIC_ prefixed env vars
 - [x] PRD-009-016: Add SITE_URL variable
-- [ ] PRD-009-017: Update convex/http.ts CORS
-- [ ] PRD-009-018: Verify trustedOrigins
+- [x] PRD-009-017: Update convex/http.ts CORS
+- [x] PRD-009-018: Verify trustedOrigins
 - [ ] PRD-009-019: TypeScript check
 - [ ] PRD-009-020: Build verification
 - [ ] PRD-009-021: Tests pass

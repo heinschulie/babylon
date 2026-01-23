@@ -1092,7 +1092,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'cors: true' convex/http.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-018",
@@ -1102,7 +1102,7 @@
 						"RUN: grep -q 'trustedOrigins' convex/auth.ts -- expect match",
 						"RUN: grep -q 'localhost' convex/auth.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-019",
