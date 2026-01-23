@@ -4,9 +4,3 @@
 
 [build.environment]
   NODE_VERSION = "20"
-
-# SvelteKit adapter-auto will detect Netlify
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
