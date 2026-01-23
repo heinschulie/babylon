@@ -520,7 +520,7 @@ Status: COMPLETE
 ---
 
 ## Phase 9: Cross-Origin Auth Fix (21 items)
-Status: IN PROGRESS
+Status: COMPLETE
 
 - [x] PRD-009-001: Install @mmailaender/convex-better-auth-svelte
 - [x] PRD-009-002: Create auth API route file
@@ -540,9 +540,9 @@ Status: IN PROGRESS
 - [x] PRD-009-016: Add SITE_URL variable
 - [x] PRD-009-017: Update convex/http.ts CORS
 - [x] PRD-009-018: Verify trustedOrigins
-- [ ] PRD-009-019: TypeScript check
-- [ ] PRD-009-020: Build verification
-- [ ] PRD-009-021: Tests pass
+- [x] PRD-009-019: TypeScript check
+- [x] PRD-009-020: Build verification
+- [x] PRD-009-021: Tests pass
 
 ### 2026-01-23
 - PRD-009-001 DONE: Install @mmailaender/convex-better-auth-svelte
@@ -562,6 +562,15 @@ Status: IN PROGRESS
   - Created src/lib/server/auth.ts with createAuth for token extraction
   - Updated App.Locals interface with token?: string
   - Files: src/hooks.server.ts, src/lib/server/auth.ts, src/app.d.ts
+
+- PRD-009-009 to PRD-009-021 DONE: Cross-origin auth complete
+  - Removed baseURL from auth-client (uses local /api/auth)
+  - Added createSvelteAuthClient to layout
+  - Auth store already had correct patterns
+  - Added PUBLIC_CONVEX_URL and PUBLIC_CONVEX_SITE_URL env vars
+  - Simplified CORS to cors: true
+  - All verifications pass: typecheck, build, tests
+  - Phase 9 complete!
 
 ---
 

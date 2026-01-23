@@ -1111,7 +1111,7 @@
 					"steps_to_verify": [
 						"RUN: pnpm check -- no type errors"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-020",
@@ -1120,7 +1120,7 @@
 					"steps_to_verify": [
 						"RUN: pnpm build -- build succeeds"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-021",
@@ -1129,7 +1129,7 @@
 					"steps_to_verify": [
 						"RUN: pnpm test:run -- all tests pass"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		}
