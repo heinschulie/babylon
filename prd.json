@@ -1035,7 +1035,7 @@
 						"RUN: grep -q 'useSession' src/lib/stores/auth.ts -- expect match",
 						"RUN: grep -q 'derived' src/lib/stores/auth.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-012",
@@ -1045,7 +1045,7 @@
 						"RUN: grep -q 'isAuthenticated' src/lib/stores/auth.ts -- expect match",
 						"RUN: grep -q 'data !== null' src/lib/stores/auth.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-013",
@@ -1055,7 +1055,7 @@
 						"RUN: grep -q 'isLoading' src/lib/stores/auth.ts -- expect match",
 						"RUN: grep -q 'isPending' src/lib/stores/auth.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-014",
@@ -1064,7 +1064,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'export const user' src/lib/stores/auth.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-015",

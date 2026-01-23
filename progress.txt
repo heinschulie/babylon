@@ -532,10 +532,10 @@ Status: IN PROGRESS
 - [x] PRD-009-008: Update App.Locals interface
 - [x] PRD-009-009: Remove baseURL from auth-client
 - [x] PRD-009-010: Add createSvelteAuthClient to layout
-- [ ] PRD-009-011: Update auth store useSession
-- [ ] PRD-009-012: Implement isAuthenticated derived store
-- [ ] PRD-009-013: Implement isLoading derived store
-- [ ] PRD-009-014: Implement user derived store
+- [x] PRD-009-011: Update auth store useSession
+- [x] PRD-009-012: Implement isAuthenticated derived store
+- [x] PRD-009-013: Implement isLoading derived store
+- [x] PRD-009-014: Implement user derived store
 - [ ] PRD-009-015: Add PUBLIC_ prefixed env vars
 - [ ] PRD-009-016: Add SITE_URL variable
 - [ ] PRD-009-017: Update convex/http.ts CORS
