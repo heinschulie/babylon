@@ -530,7 +530,7 @@ Status: IN PROGRESS
 - [x] PRD-009-006: Create server auth helper file
 - [x] PRD-009-007: Implement createAuth function
 - [x] PRD-009-008: Update App.Locals interface
-- [ ] PRD-009-009: Remove baseURL from auth-client
+- [x] PRD-009-009: Remove baseURL from auth-client
 - [ ] PRD-009-010: Add createSvelteAuthClient to layout
 - [ ] PRD-009-011: Update auth store useSession
 - [ ] PRD-009-012: Implement isAuthenticated derived store
