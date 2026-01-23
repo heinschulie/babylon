@@ -523,8 +523,8 @@ Status: COMPLETE
 Status: IN PROGRESS
 
 - [x] PRD-009-001: Install @mmailaender/convex-better-auth-svelte
-- [ ] PRD-009-002: Create auth API route file
-- [ ] PRD-009-003: Implement API route handler
+- [x] PRD-009-002: Create auth API route file
+- [x] PRD-009-003: Implement API route handler
 - [ ] PRD-009-004: Create server hooks file
 - [ ] PRD-009-005: Implement handle function
 - [ ] PRD-009-006: Create server auth helper file
@@ -550,6 +550,12 @@ Status: IN PROGRESS
   - Added @types/web-push for existing type error
   - Added convex/_generated/ to .prettierignore
   - Files: package.json, .prettierignore
+
+- PRD-009-002 + PRD-009-003 DONE: Create auth API route
+  - Created src/routes/api/auth/[...all]/+server.ts
+  - Uses createSvelteKitHandler from adapter
+  - Exports GET and POST handlers
+  - Files: src/routes/api/auth/[...all]/+server.ts
 
 ---
 

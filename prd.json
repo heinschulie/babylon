@@ -944,7 +944,7 @@
 					"steps_to_verify": [
 						"RUN: test -f src/routes/api/auth/[...all]/+server.ts -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-003",
@@ -955,7 +955,7 @@
 						"RUN: grep -q 'GET' src/routes/api/auth/[...all]/+server.ts -- expect match",
 						"RUN: grep -q 'POST' src/routes/api/auth/[...all]/+server.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-004",
