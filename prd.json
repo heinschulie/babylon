@@ -964,7 +964,7 @@
 					"steps_to_verify": [
 						"RUN: test -f src/hooks.server.ts -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-005",
@@ -975,7 +975,7 @@
 						"RUN: grep -q 'getToken' src/hooks.server.ts -- expect match",
 						"RUN: grep -q 'event.locals.token' src/hooks.server.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-006",
@@ -984,7 +984,7 @@
 					"steps_to_verify": [
 						"RUN: test -f src/lib/server/auth.ts -- expect file exists"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-007",
@@ -995,7 +995,7 @@
 						"RUN: grep -q 'betterAuth' src/lib/server/auth.ts -- expect match",
 						"RUN: grep -q 'baseURL' src/lib/server/auth.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-008",
@@ -1005,7 +1005,7 @@
 						"RUN: grep -q 'Locals' src/app.d.ts -- expect match",
 						"RUN: grep -q 'token' src/app.d.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-009-009",

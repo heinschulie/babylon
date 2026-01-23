@@ -525,11 +525,11 @@ Status: IN PROGRESS
 - [x] PRD-009-001: Install @mmailaender/convex-better-auth-svelte
 - [x] PRD-009-002: Create auth API route file
 - [x] PRD-009-003: Implement API route handler
-- [ ] PRD-009-004: Create server hooks file
-- [ ] PRD-009-005: Implement handle function
-- [ ] PRD-009-006: Create server auth helper file
-- [ ] PRD-009-007: Implement createAuth function
-- [ ] PRD-009-008: Update App.Locals interface
+- [x] PRD-009-004: Create server hooks file
+- [x] PRD-009-005: Implement handle function
+- [x] PRD-009-006: Create server auth helper file
+- [x] PRD-009-007: Implement createAuth function
+- [x] PRD-009-008: Update App.Locals interface
 - [ ] PRD-009-009: Remove baseURL from auth-client
 - [ ] PRD-009-010: Add createSvelteAuthClient to layout
 - [ ] PRD-009-011: Update auth store useSession
@@ -556,6 +556,12 @@ Status: IN PROGRESS
   - Uses createSvelteKitHandler from adapter
   - Exports GET and POST handlers
   - Files: src/routes/api/auth/[...all]/+server.ts
+
+- PRD-009-004 to PRD-009-008 DONE: Server hooks + auth helper
+  - Created src/hooks.server.ts with Handle + getToken
+  - Created src/lib/server/auth.ts with createAuth for token extraction
+  - Updated App.Locals interface with token?: string
+  - Files: src/hooks.server.ts, src/lib/server/auth.ts, src/app.d.ts
 
 ---
 
