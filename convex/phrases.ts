@@ -18,7 +18,7 @@ export const get = query({
 	}
 });
 
-// List phrases for a session
+// List phrases for a session (includes session metadata)
 export const listBySession = query({
 	args: { sessionId: v.id('sessions') },
 	handler: async (ctx, args) => {
@@ -30,11 +30,20 @@ export const listBySession = query({
 			throw new Error('Session not found or not authorized');
 		}
 
-		return await ctx.db
+		const phrases = await ctx.db
 			.query('phrases')
 			.withIndex('by_session', (q) => q.eq('sessionId', args.sessionId))
 			.order('desc')
 			.collect();
+
+		return {
+			phrases,
+			session: {
+				_id: session._id,
+				date: session.date,
+				targetLanguage: session.targetLanguage
+			}
+		};
 	}
 });
 

@@ -12,8 +12,11 @@
 
 	const client = useConvexClient();
 	const sessionId = $derived(page.params.id as Id<'sessions'>);
-	const session = useQuery(api.sessions.get, () => ({ id: sessionId }));
-	const phrases = useQuery(api.phrases.listBySession, () => ({ sessionId }));
+	const sessionData = useQuery(api.phrases.listBySession, () => ({ sessionId }));
+
+	// Derived values from the combined query
+	const session = $derived(sessionData.data?.session);
+	const phrases = $derived(sessionData.data?.phrases);
 
 	let dialogOpen = $state(false);
 	let english = $state('');
@@ -37,7 +40,7 @@
 			return;
 		}
 
-		if (!session.data?.targetLanguage) {
+		if (!session?.targetLanguage) {
 			error = 'Session language not found';
 			return;
 		}
@@ -50,7 +53,7 @@
 			const result = await client.action(api.translateNode.verifyTranslation, {
 				english: english.trim(),
 				userTranslation: translation.trim(),
-				targetLanguage: session.data.targetLanguage
+				targetLanguage: session.targetLanguage
 			});
 			verificationResult = result;
 			showVerification = true;
@@ -125,14 +128,14 @@
 				>&larr; Back to sessions</a
 			>
 			<h1 class="mt-2 text-2xl font-bold">
-				{#if session.data}
-					{session.data.targetLanguage} Session
+				{#if session}
+					{session.targetLanguage} Session
 				{:else}
 					Session Details
 				{/if}
 			</h1>
-			{#if session.data}
-				<p class="text-sm text-muted-foreground">{session.data.date}</p>
+			{#if session}
+				<p class="text-sm text-muted-foreground">{session.date}</p>
 			{/if}
 		</div>
 		<Dialog.Root bind:open={dialogOpen}>
@@ -145,7 +148,7 @@
 				<Dialog.Header>
 					<Dialog.Title>Add New Phrase</Dialog.Title>
 					<Dialog.Description>
-						Enter an English phrase and your {session.data?.targetLanguage || 'target language'} translation.
+						Enter an English phrase and your {session?.targetLanguage || 'target language'} translation.
 					</Dialog.Description>
 				</Dialog.Header>
 				<div class="space-y-4 py-4">
@@ -154,7 +157,7 @@
 						<Input id="english" placeholder="Enter English phrase" bind:value={english} />
 					</div>
 					<div class="space-y-2">
-						<Label for="translation">Your Translation ({session.data?.targetLanguage || 'target'})</Label>
+						<Label for="translation">Your Translation ({session?.targetLanguage || 'target'})</Label>
 						<Input id="translation" placeholder="Enter your translation" bind:value={translation} />
 					</div>
 
@@ -209,14 +212,14 @@
 	</div>
 
 	<div class="space-y-4">
-		{#if phrases.isLoading}
+		{#if sessionData.isLoading}
 			<p class="text-muted-foreground">Loading phrases...</p>
-		{:else if phrases.error}
-			<p class="text-destructive">Error loading phrases: {phrases.error.message}</p>
-		{:else if !phrases.data || phrases.data.length === 0}
+		{:else if sessionData.error}
+			<p class="text-destructive">Error loading phrases: {sessionData.error.message}</p>
+		{:else if !phrases || phrases.length === 0}
 			<p class="text-muted-foreground">No phrases yet. Add your first phrase!</p>
 		{:else}
-			{#each phrases.data as phrase (phrase._id)}
+			{#each phrases as phrase (phrase._id)}
 				<Card.Root>
 					<Card.Header class="flex flex-row items-start justify-between">
 						<div>
