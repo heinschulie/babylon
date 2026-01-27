@@ -2,6 +2,21 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
 
+// Get a single session by ID
+export const get = query({
+	args: { id: v.id('sessions') },
+	handler: async (ctx, args) => {
+		const userId = await getAuthUserId(ctx);
+		const session = await ctx.db.get(args.id);
+
+		if (!session || session.userId !== userId) {
+			return null;
+		}
+
+		return session;
+	}
+});
+
 // List all sessions for the current user
 export const list = query({
 	args: {},
