@@ -15,8 +15,17 @@
 	const sessionData = useQuery(api.phrases.listBySession, () => ({ sessionId }));
 
 	// Derived values from the combined query
-	const session = $derived(sessionData.data?.session);
-	const phrases = $derived(sessionData.data?.phrases);
+	// Handle both old format (array) and new format ({ phrases, session })
+	const session = $derived(
+		sessionData.data && 'session' in sessionData.data ? sessionData.data.session : null
+	);
+	const phrases = $derived(
+		sessionData.data
+			? Array.isArray(sessionData.data)
+				? sessionData.data
+				: sessionData.data.phrases
+			: undefined
+	);
 
 	let dialogOpen = $state(false);
 	let english = $state('');
