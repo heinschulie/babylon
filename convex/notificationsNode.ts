@@ -59,7 +59,7 @@ export const send = internalAction({
 			const payload = JSON.stringify({
 				title: 'Time to Recall!',
 				body: phrase.english,
-				url: `/reveal/${phrase._id}`,
+				url: `/practice?phrase=${phrase._id}`,
 				tag: `phrase-${phrase._id}`
 			});
 

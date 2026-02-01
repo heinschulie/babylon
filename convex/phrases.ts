@@ -117,6 +117,38 @@ export const update = mutation({
 	}
 });
 
+// List all phrases for the current user (across all sessions)
+export const listAllByUser = query({
+	args: {},
+	handler: async (ctx) => {
+		const userId = await getAuthUserId(ctx);
+		const phrases = await ctx.db
+			.query('phrases')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.collect();
+
+		// Fetch session metadata for each phrase to include the target language
+		const sessionCache = new Map<string, { targetLanguage: string }>();
+		const results = [];
+		for (const phrase of phrases) {
+			let sessionData = sessionCache.get(phrase.sessionId);
+			if (!sessionData) {
+				const session = await ctx.db.get(phrase.sessionId);
+				if (session) {
+					sessionData = { targetLanguage: session.targetLanguage };
+					sessionCache.set(phrase.sessionId, sessionData);
+				}
+			}
+			results.push({
+				...phrase,
+				targetLanguage: sessionData?.targetLanguage ?? 'Unknown'
+			});
+		}
+
+		return results;
+	}
+});
+
 // Remove a phrase
 export const remove = mutation({
 	args: { id: v.id('phrases') },

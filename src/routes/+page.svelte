@@ -49,6 +49,10 @@
 <div class="container mx-auto max-w-4xl p-4">
 	<div class="mb-6 flex items-center justify-between">
 		<h1 class="text-2xl font-bold">Learning Sessions</h1>
+		<div class="flex gap-2">
+			<a href={resolve('/practice')}>
+				<Button variant="outline">Practice</Button>
+			</a>
 		<Dialog.Root bind:open={dialogOpen}>
 			<Dialog.Trigger>
 				{#snippet child({ props })}
@@ -81,6 +85,7 @@
 				</Dialog.Footer>
 			</Dialog.Content>
 		</Dialog.Root>
+		</div>
 	</div>
 
 	<div class="space-y-4">
