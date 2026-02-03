@@ -85,7 +85,7 @@
 		submitted = false;
 	}
 
-	let inputEl: HTMLInputElement | undefined = $state();
+	let inputEl: HTMLInputElement | null = $state(null);
 
 	// Auto-focus input when moving to next phrase
 	$effect(() => {

@@ -188,7 +188,9 @@ function getLanguageCode(language: string): string {
 		malay: 'ms',
 		tagalog: 'tl',
 		swahili: 'sw',
-		afrikaans: 'af'
+		afrikaans: 'af',
+		xhosa: 'xh',
+		zulu: 'zu'
 	};
 
 	const normalized = language.toLowerCase().trim();

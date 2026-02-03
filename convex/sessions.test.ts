@@ -162,8 +162,8 @@ describe('sessions', () => {
 			});
 
 			// Verify phrases exist
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases).toHaveLength(2);
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases).toHaveLength(2);
 
 			// Remove session
 			await asUser.mutation(api.sessions.remove, { id: sessionId });

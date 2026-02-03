@@ -16,8 +16,9 @@ describe('phrases', () => {
 				targetLanguage: 'Spanish'
 			});
 
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases).toEqual([]);
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases).toEqual([]);
+			expect(result.session).toBeDefined();
 		});
 
 		it('should create and list phrases', async () => {
@@ -35,9 +36,9 @@ describe('phrases', () => {
 				translation: 'Hola'
 			});
 
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases).toHaveLength(1);
-			expect(phrases[0]).toMatchObject({
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases).toHaveLength(1);
+			expect(result.phrases[0]).toMatchObject({
 				userId: 'user1',
 				english: 'Hello',
 				translation: 'Hola'
@@ -84,9 +85,9 @@ describe('phrases', () => {
 
 			expect(phraseId).toBeDefined();
 
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases).toHaveLength(1);
-			expect(phrases[0].english).toBe('Good morning');
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases).toHaveLength(1);
+			expect(result.phrases[0].english).toBe('Good morning');
 		});
 
 		it('cannot create phrase for other users session', async () => {
@@ -150,9 +151,9 @@ describe('phrases', () => {
 				english: 'Hi there'
 			});
 
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases[0].english).toBe('Hi there');
-			expect(phrases[0].translation).toBe('Hola');
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases[0].english).toBe('Hi there');
+			expect(result.phrases[0].translation).toBe('Hola');
 		});
 
 		it('should update phrase translation', async () => {
@@ -175,9 +176,9 @@ describe('phrases', () => {
 				translation: '¡Hola!'
 			});
 
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases[0].english).toBe('Hello');
-			expect(phrases[0].translation).toBe('¡Hola!');
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases[0].english).toBe('Hello');
+			expect(result.phrases[0].translation).toBe('¡Hola!');
 		});
 
 		it('should not allow updating other users phrases', async () => {
@@ -248,8 +249,8 @@ describe('phrases', () => {
 
 			await asUser.mutation(api.phrases.remove, { id: phraseId });
 
-			const phrases = await asUser.query(api.phrases.listBySession, { sessionId });
-			expect(phrases).toHaveLength(0);
+			const result = await asUser.query(api.phrases.listBySession, { sessionId });
+			expect(result.phrases).toHaveLength(0);
 		});
 
 		it('should not allow removing other users phrases', async () => {

@@ -16,6 +16,7 @@ import type * as notificationsNode from "../notificationsNode.js";
 import type * as phrases from "../phrases.js";
 import type * as preferences from "../preferences.js";
 import type * as sessions from "../sessions.js";
+import type * as translateNode from "../translateNode.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   phrases: typeof phrases;
   preferences: typeof preferences;
   sessions: typeof sessions;
+  translateNode: typeof translateNode;
 }>;
 
 /**
