@@ -8,6 +8,12 @@
  * @module
  */
 
+import type * as aiFeedback from "../aiFeedback.js";
+import type * as aiPipeline from "../aiPipeline.js";
+import type * as aiPipelineData from "../aiPipelineData.js";
+import type * as attempts from "../attempts.js";
+import type * as audioAssets from "../audioAssets.js";
+import type * as audioUploads from "../audioUploads.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -25,6 +31,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiFeedback: typeof aiFeedback;
+  aiPipeline: typeof aiPipeline;
+  aiPipelineData: typeof aiPipelineData;
+  attempts: typeof attempts;
+  audioAssets: typeof audioAssets;
+  audioUploads: typeof audioUploads;
   auth: typeof auth;
   http: typeof http;
   "lib/auth": typeof lib_auth;

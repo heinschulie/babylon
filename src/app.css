@@ -93,4 +93,10 @@
 		letter-spacing: 0.02em;
 		line-height: 0.9;
 	}
+
+	.audio-playback {
+		width: 100%;
+		background-color: color-mix(in oklab, var(--background) 80%, var(--primary) 20%);
+		border: 1px solid color-mix(in oklab, var(--border) 70%, var(--primary) 30%);
+	}
 }
