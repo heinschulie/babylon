@@ -79,7 +79,11 @@ export const listByPhrase = query({
 			results.push({
 				...attempt,
 				audioUrl,
-				feedbackText: feedback?.feedbackText ?? null
+				feedbackText: feedback?.feedbackText ?? null,
+				transcript: feedback?.transcript ?? null,
+				confidence: feedback?.confidence ?? null,
+				errorTags: feedback?.errorTags ?? null,
+				score: feedback?.score ?? null
 			});
 		}
 
