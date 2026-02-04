@@ -43,6 +43,7 @@
 	let processing = $state(false);
 	let durationMs = $state(0);
 	let feedbackText = $state<string | null>(null);
+	const isDev = import.meta.env.DEV;
 
 	// Initialize shuffled queue when data loads, placing the notification phrase first if present
 	$effect(() => {
@@ -292,13 +293,13 @@
 							</p>
 						</div>
 						{#if attemptsQuery.data && attemptsQuery.data.length > 0}
-							<div class="rounded-lg border border-border/60 bg-card/40 p-4">
+							<div class="border border-border/60 bg-card/40 p-4">
 								<p class="text-lg font-semibold uppercase tracking-[0.18em] text-muted-foreground">
 									Attempt History
 								</p>
 								<ul class="mt-4 space-y-3 text-sm">
 									{#each attemptsQuery.data.slice(0, 5) as attempt}
-										<li class="space-y-3 rounded-md border border-border/60 bg-background/60 p-4">
+										<li class="space-y-3 border border-border/60 bg-background/60 p-4">
 											<div class="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.12em]">
 												<span class="text-muted-foreground">
 													{new Date(attempt.createdAt).toLocaleString()}
@@ -318,7 +319,7 @@
 												</span>
 											</div>
 											{#if attempt.audioUrl}
-												<div class="rounded-md border border-border/50 bg-muted/60 p-3">
+												<div class="border border-border/50 bg-muted/60 p-3">
 													<p class="mb-2 text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
 														Playback
 													</p>
@@ -327,6 +328,29 @@
 											{/if}
 											{#if attempt.feedbackText}
 												<p class="text-xs text-muted-foreground">{attempt.feedbackText}</p>
+											{/if}
+											{#if isDev}
+												<div class="border border-border/50 bg-muted/40 p-3 text-[0.7rem] text-muted-foreground">
+													<p class="font-semibold uppercase tracking-[0.16em] text-foreground/70">
+														Dev Debug
+													</p>
+													<p class="mt-2">
+														<span class="font-semibold text-foreground/70">Transcript:</span>
+														{attempt.transcript ?? '—'}
+													</p>
+													<p class="mt-1">
+														<span class="font-semibold text-foreground/70">Confidence:</span>
+														{attempt.confidence ?? '—'}
+													</p>
+													<p class="mt-1">
+														<span class="font-semibold text-foreground/70">Score:</span>
+														{attempt.score ?? '—'}
+													</p>
+													<p class="mt-1">
+														<span class="font-semibold text-foreground/70">Error Tags:</span>
+														{attempt.errorTags?.join(', ') ?? '—'}
+													</p>
+												</div>
 											{/if}
 										</li>
 									{/each}
