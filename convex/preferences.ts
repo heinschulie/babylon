@@ -6,7 +6,8 @@ import { getAuthUserId } from './lib/auth';
 const DEFAULT_PREFERENCES = {
 	quietHoursStart: 22, // 10 PM
 	quietHoursEnd: 8, // 8 AM
-	notificationsPerPhrase: 3
+	notificationsPerPhrase: 3,
+	timeZone: 'Africa/Johannesburg'
 };
 
 // Get user preferences (with defaults)
@@ -26,7 +27,8 @@ export const get = query({
 				quietHoursStart: 22,
 				quietHoursEnd: DEFAULT_PREFERENCES.quietHoursEnd,
 				notificationsPerPhrase: DEFAULT_PREFERENCES.notificationsPerPhrase,
-				pushSubscription: undefined
+				pushSubscription: undefined,
+				timeZone: DEFAULT_PREFERENCES.timeZone
 			};
 		}
 
@@ -40,7 +42,8 @@ export const upsert = mutation({
 		quietHoursStart: v.optional(v.number()),
 		quietHoursEnd: v.optional(v.number()),
 		notificationsPerPhrase: v.optional(v.number()),
-		pushSubscription: v.optional(v.string())
+		pushSubscription: v.optional(v.string()),
+		timeZone: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
@@ -57,7 +60,8 @@ export const upsert = mutation({
 				...(args.notificationsPerPhrase !== undefined && {
 					notificationsPerPhrase: args.notificationsPerPhrase
 				}),
-				...(args.pushSubscription !== undefined && { pushSubscription: args.pushSubscription })
+				...(args.pushSubscription !== undefined && { pushSubscription: args.pushSubscription }),
+				...(args.timeZone !== undefined && { timeZone: args.timeZone })
 			});
 			return existing._id;
 		}
@@ -68,7 +72,8 @@ export const upsert = mutation({
 			quietHoursEnd: args.quietHoursEnd ?? DEFAULT_PREFERENCES.quietHoursEnd,
 			notificationsPerPhrase:
 				args.notificationsPerPhrase ?? DEFAULT_PREFERENCES.notificationsPerPhrase,
-			pushSubscription: args.pushSubscription
+			pushSubscription: args.pushSubscription,
+			timeZone: args.timeZone ?? DEFAULT_PREFERENCES.timeZone
 		});
 	}
 });

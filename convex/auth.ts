@@ -6,12 +6,14 @@ import type { DataModel } from './_generated/dataModel';
 import authConfig from './auth.config';
 
 const siteUrl = process.env.SITE_URL!;
+const authSecret = process.env.BETTER_AUTH_SECRET!;
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth({
 		baseURL: siteUrl,
+		secret: authSecret,
 		trustedOrigins: ['http://localhost:5173', 'http://localhost:5178', 'https://intaka.netlify.app'],
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {

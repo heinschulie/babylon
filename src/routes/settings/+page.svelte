@@ -10,15 +10,19 @@
 
 	const client = useConvexClient();
 	const preferences = useQuery(api.preferences.get, {});
+	const billing = useQuery(api.billing.getStatus, {});
 
 	let quietStart = $state(22);
 	let quietEnd = $state(8);
 	let perPhrase = $state(3);
+	let timeZone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let saving = $state(false);
 	let saved = $state(false);
 	let enabling = $state(false);
 	let testing = $state(false);
 	let testResult = $state<{ success: boolean; message: string } | null>(null);
+	let billingLoading = $state(false);
+	let billingError = $state<string | null>(null);
 	let notificationsEnabled = $derived(!!preferences.data?.pushSubscription);
 
 	$effect(() => {
@@ -26,6 +30,7 @@
 			quietStart = preferences.data.quietHoursStart;
 			quietEnd = preferences.data.quietHoursEnd;
 			perPhrase = preferences.data.notificationsPerPhrase;
+			timeZone = preferences.data.timeZone ?? timeZone;
 		}
 	});
 
@@ -48,7 +53,8 @@
 		await client.mutation(api.preferences.upsert, {
 			quietHoursStart: quietStart,
 			quietHoursEnd: quietEnd,
-			notificationsPerPhrase: perPhrase
+			notificationsPerPhrase: perPhrase,
+			timeZone
 		});
 	}
 
@@ -83,6 +89,35 @@
 		} finally {
 			testing = false;
 			setTimeout(() => (testResult = null), 5000);
+		}
+	}
+
+	async function startCheckout(plan: 'ai' | 'pro') {
+		billingLoading = true;
+		billingError = null;
+
+		try {
+			const checkout = await client.mutation(api.billing.createPayfastCheckout, { plan });
+			const form = document.createElement('form');
+			form.method = 'POST';
+			form.action = checkout.endpointUrl;
+
+			const fields = checkout.fields as Record<string, string>;
+			Object.entries(fields).forEach(([key, value]) => {
+				const input = document.createElement('input');
+				input.type = 'hidden';
+				input.name = key;
+				input.value = value;
+				form.appendChild(input);
+			});
+
+			document.body.appendChild(form);
+			form.submit();
+			form.remove();
+		} catch (e) {
+			billingError = e instanceof Error ? e.message : 'Failed to start checkout';
+		} finally {
+			billingLoading = false;
 		}
 	}
 </script>
@@ -186,5 +221,44 @@
 				<span class="text-sm text-green-600">Saved!</span>
 			{/if}
 		</Card.Footer>
+	</Card.Root>
+
+	<Card.Root class="mt-6">
+		<Card.Header>
+			<Card.Title>Subscription</Card.Title>
+			<Card.Description>Manage your plan and daily recording minutes.</Card.Description>
+		</Card.Header>
+		<Card.Content class="space-y-4">
+			{#if billing.isLoading}
+				<p class="text-muted-foreground">Loading subscription...</p>
+			{:else if billing.error}
+				<p class="text-destructive">Error loading subscription</p>
+			{:else}
+				<div class="flex flex-col gap-2">
+					<p class="text-sm">
+						Current tier:
+						<span class="font-semibold capitalize">{billing.data?.tier ?? 'free'}</span>
+					</p>
+					<p class="text-sm text-muted-foreground">
+						Status: {billing.data?.status ?? 'unknown'}
+					</p>
+					<p class="text-sm text-muted-foreground">
+						Minutes used today: {billing.data?.minutesUsed?.toFixed(1) ?? '0.0'} /{' '}
+						{billing.data?.minutesLimit ?? 0}
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-3">
+					<Button onclick={() => startCheckout('ai')} disabled={billingLoading}>
+						{billingLoading ? 'Redirecting...' : 'Upgrade to AI (R150/mo)'}
+					</Button>
+					<Button onclick={() => startCheckout('pro')} disabled={billingLoading} variant="outline">
+						{billingLoading ? 'Redirecting...' : 'Upgrade to Pro (R500/mo)'}
+					</Button>
+				</div>
+				{#if billingError}
+					<p class="text-sm text-destructive">{billingError}</p>
+				{/if}
+			{/if}
+		</Card.Content>
 	</Card.Root>
 </div>

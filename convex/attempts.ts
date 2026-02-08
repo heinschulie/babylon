@@ -1,6 +1,11 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
+import {
+	assertRecordingAllowed,
+	consumeRecordingMinutes,
+	minutesFromMs
+} from './lib/billing';
 
 // Create an attempt (audio upload may follow)
 export const create = mutation({
@@ -12,6 +17,7 @@ export const create = mutation({
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
+		await assertRecordingAllowed(ctx, userId, 0);
 
 		const attemptId = await ctx.db.insert('attempts', {
 			userId,
@@ -41,9 +47,17 @@ export const attachAudio = mutation({
 			throw new Error('Attempt not found or not authorized');
 		}
 
+		const audioAsset = await ctx.db.get(audioAssetId);
+		const durationMs = audioAsset?.durationMs ?? attempt.durationMs ?? 0;
+		const additionalMinutes = minutesFromMs(durationMs);
+
+		const { dateKey } = await assertRecordingAllowed(ctx, userId, additionalMinutes);
+		await consumeRecordingMinutes(ctx, userId, dateKey, additionalMinutes);
+
 		await ctx.db.patch(attemptId, {
 			audioAssetId,
-			status: 'processing'
+			status: 'processing',
+			durationMs: durationMs || attempt.durationMs
 		});
 	}
 });
