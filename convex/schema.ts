@@ -87,8 +87,57 @@ export default defineSchema({
 		quietHoursStart: v.number(), // 0-23 hour
 		quietHoursEnd: v.number(), // 0-23 hour
 		notificationsPerPhrase: v.number(),
-		pushSubscription: v.optional(v.string()) // JSON stringified PushSubscription
+		pushSubscription: v.optional(v.string()), // JSON stringified PushSubscription
+		timeZone: v.optional(v.string()) // IANA time zone for local-midnight resets
 	}).index('by_user', ['userId']),
+
+	// Billing subscriptions (provider state)
+	billingSubscriptions: defineTable({
+		userId: v.string(),
+		provider: v.string(), // payfast
+		plan: v.string(), // free | ai | pro
+		status: v.string(), // pending | active | past_due | canceled
+		providerPaymentId: v.optional(v.string()),
+		providerSubscriptionToken: v.optional(v.string()),
+		lastPaymentAt: v.optional(v.number()),
+		currentPeriodEnd: v.optional(v.number()),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_user', ['userId'])
+		.index('by_provider_payment', ['provider', 'providerPaymentId']),
+
+	// Effective entitlements (authoritative for gating)
+	entitlements: defineTable({
+		userId: v.string(),
+		tier: v.string(), // free | ai | pro
+		status: v.string(), // active | past_due | canceled
+		source: v.string(), // webhook | admin | seed
+		updatedAt: v.number()
+	}).index('by_user', ['userId']),
+
+	// Daily usage tracking (local midnight reset)
+	usageDaily: defineTable({
+		userId: v.string(),
+		dateKey: v.string(), // YYYY-MM-DD in user's time zone
+		minutesRecorded: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_user', ['userId'])
+		.index('by_user_date', ['userId', 'dateKey']),
+
+	// Raw billing events for audit/debug
+	billingEvents: defineTable({
+		userId: v.optional(v.string()),
+		provider: v.string(),
+		providerEventId: v.optional(v.string()),
+		providerPaymentId: v.optional(v.string()),
+		eventType: v.optional(v.string()),
+		payload: v.any(),
+		receivedAt: v.number()
+	})
+		.index('by_provider_event', ['provider', 'providerEventId'])
+		.index('by_provider_payment', ['provider', 'providerPaymentId']),
 
 	// Scheduled notifications for spaced repetition
 	scheduledNotifications: defineTable({
