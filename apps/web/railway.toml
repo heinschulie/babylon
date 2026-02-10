@@ -4,7 +4,7 @@ buildCommand = "bun run build:web"
 watchPatterns = ["apps/web/**", "packages/**"]
 
 [deploy]
-startCommand = "node apps/web/build/index.js"
+startCommand = "bun apps/web/build/index.js"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"

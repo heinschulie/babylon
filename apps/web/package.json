@@ -15,7 +15,7 @@
 		"typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest",
 		"test:run": "vitest run",
-		"start": "node build/index.js"
+		"start": "bun build/index.js"
 	},
 	"devDependencies": {
 		"@edge-runtime/vm": "^5.0.0",
