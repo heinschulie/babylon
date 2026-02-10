@@ -1,8 +1,0 @@
-{
-	"/": [],
-	"/api/auth/[...all]": [
-		"src/routes/api/auth/[...all]/+server.ts"
-	],
-	"/login": [],
-	"/register": []
-}
