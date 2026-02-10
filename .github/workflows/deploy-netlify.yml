@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy-preview:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && secrets.NETLIFY_AUTH_TOKEN != ''
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,13 +34,6 @@ jobs:
             functions_dir: apps/verifier/.netlify/functions-internal
             site_id: 70b4f89f-0f3b-4f0e-9bbb-31bb6c58a006
     steps:
-      - name: Require NETLIFY_AUTH_TOKEN
-        run: |
-          if [ -z "${{ secrets.NETLIFY_AUTH_TOKEN }}" ]; then
-            echo "Missing GitHub secret NETLIFY_AUTH_TOKEN"
-            exit 1
-          fi
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -60,7 +53,7 @@ jobs:
         run: npx netlify-cli deploy --no-build --dir "${{ github.workspace }}/${{ matrix.deploy_dir }}" --functions "${{ github.workspace }}/${{ matrix.functions_dir }}" --site "${{ matrix.site_id }}" --auth "${{ secrets.NETLIFY_AUTH_TOKEN }}"
 
   deploy-production:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.NETLIFY_AUTH_TOKEN != ''
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -79,13 +72,6 @@ jobs:
             functions_dir: apps/verifier/.netlify/functions-internal
             site_id: 70b4f89f-0f3b-4f0e-9bbb-31bb6c58a006
     steps:
-      - name: Require NETLIFY_AUTH_TOKEN
-        run: |
-          if [ -z "${{ secrets.NETLIFY_AUTH_TOKEN }}" ]; then
-            echo "Missing GitHub secret NETLIFY_AUTH_TOKEN"
-            exit 1
-          fi
-
       - name: Checkout
         uses: actions/checkout@v4
 
