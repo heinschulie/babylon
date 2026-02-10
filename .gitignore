@@ -5,17 +5,9 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
-/apps/web/.svelte-kit
-/apps/web/build
-/.turbo
-/apps/*/.svelte-kit
-/apps/*/build
-/apps/*/.turbo
-/apps/*/apps
-/.npm/_logs
-/Library
+.svelte-kit
+.turbo
+**/build
 
 # OS
 .DS_Store

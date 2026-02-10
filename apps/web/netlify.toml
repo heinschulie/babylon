@@ -1,2 +1,5 @@
 [build]
-  publish = "apps/web/build"
+  command = "bun run build:web"
+
+[build.environment]
+  NODE_VERSION = "20"

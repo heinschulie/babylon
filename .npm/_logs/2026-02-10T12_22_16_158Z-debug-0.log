@@ -1,0 +1,16 @@
+0 verbose cli /Users/heinschulie/.nvm/versions/node/v22.20.0/bin/node /Users/heinschulie/.nvm/versions/node/v22.20.0/bin/npm
+1 info using npm@10.9.3
+2 info using node@v22.20.0
+3 silly config load:file:/Users/heinschulie/.nvm/versions/node/v22.20.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/heinschulie/Documents/code/babylon/.npmrc
+5 silly config load:file:/Users/heinschulie/.nvm/versions/node/v22.20.0/etc/npmrc
+6 verbose title npm get prefix
+7 verbose argv "get" "prefix" "--global"
+8 verbose logfile logs-max:10 dir:/Users/heinschulie/Documents/code/babylon/.npm/_logs/2026-02-10T12_22_16_158Z-
+9 verbose logfile /Users/heinschulie/Documents/code/babylon/.npm/_logs/2026-02-10T12_22_16_158Z-debug-0.log
+10 verbose cwd /Users/heinschulie/Documents/code/babylon
+11 verbose os Darwin 25.2.0
+12 verbose node v22.20.0
+13 verbose npm  v10.9.3
+14 verbose exit 0
+15 info ok
