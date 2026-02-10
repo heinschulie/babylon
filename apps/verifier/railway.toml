@@ -1,11 +1,12 @@
 [build]
 builder = "RAILPACK"
+installCommand = "bun install"
 buildCommand = "bun run build:verifier"
 watchPatterns = ["apps/verifier/**", "packages/**"]
 
 [deploy]
-startCommand = "bun apps/verifier/build/index.js"
+startCommand = "node apps/verifier/build/index.js"
 healthcheckPath = "/"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
