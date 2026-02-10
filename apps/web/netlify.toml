@@ -3,3 +3,14 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+[[headers]]
+  for = "/_app/immutable/*"
+  [headers.values]
+    cache-control = "public, immutable, max-age=31536000"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/sveltekit-render"
+  status = 200
+  force = false
