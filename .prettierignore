@@ -7,6 +7,9 @@ yarn.lock
 build/
 .svelte-kit/
 dist/
+apps/web/build/
+apps/web/.svelte-kit/
+.turbo/
 
 # Data files
 prd.json

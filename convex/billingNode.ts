@@ -1,8 +1,7 @@
 import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
 import { BILLING_PLANS } from './lib/billing';
-import { buildPayfastSignature, parseFormBody } from './lib/payfast';
+import { buildPayfastSignature, normalizePayfastPassphrase, parseFormBody } from './lib/payfast';
 
 function getPayfastValidateUrl() {
 	const sandbox = process.env.PAYFAST_SANDBOX === 'true';
@@ -27,12 +26,12 @@ export const payfastWebhook = httpAction(async (ctx, req) => {
 	const rawBody = await req.text();
 	const params = parseFormBody(rawBody);
 
-	const merchantId = process.env.PAYFAST_MERCHANT_ID;
+	const merchantId = process.env.PAYFAST_MERCHANT_ID?.trim();
 	if (!merchantId || params.merchant_id !== merchantId) {
 		return new Response('Merchant mismatch', { status: 400 });
 	}
 
-	const passphrase = process.env.PAYFAST_PASSPHRASE;
+	const passphrase = normalizePayfastPassphrase(process.env.PAYFAST_PASSPHRASE);
 	const receivedSignature = params.signature;
 	const expectedSignature = buildPayfastSignature(params, passphrase);
 	if (!receivedSignature || receivedSignature !== expectedSignature) {
@@ -54,16 +53,14 @@ export const payfastWebhook = httpAction(async (ctx, req) => {
 
 	const providerPaymentId = params.pf_payment_id;
 	const paymentStatus = params.payment_status;
-	const subscriptionId = params.m_payment_id as Id<'billingSubscriptions'> | undefined;
-	const userId = params.custom_str1;
-	const plan = normalizePlan(params.custom_str2);
+	const merchantReference = params.m_payment_id;
 	const providerEventId = params.signature ?? [providerPaymentId, paymentStatus, params.amount_gross].join(':');
 
 	const eventResult = await ctx.runMutation(internal.billingEvents.insert, {
 		provider: 'payfast',
 		providerEventId,
 		providerPaymentId,
-		userId,
+		userId: params.custom_str1,
 		eventType: paymentStatus,
 		payload: params
 	});
@@ -71,18 +68,25 @@ export const payfastWebhook = httpAction(async (ctx, req) => {
 		return new Response('OK', { status: 200 });
 	}
 
-	if (!subscriptionId || !userId || !plan || !paymentStatus) {
+	if (!merchantReference || !paymentStatus) {
 		return new Response('Missing mapping', { status: 200 });
 	}
 
-	const subscription = await ctx.runQuery(internal.billingSubscriptions.getForWebhook, {
-		subscriptionId
+	const subscription = await ctx.runQuery(internal.billingSubscriptions.getByPayfastReference, {
+		reference: merchantReference
 	});
 	if (!subscription) {
 		return new Response('Unknown subscription', { status: 200 });
 	}
 
-	if (subscription.userId !== userId || subscription.plan !== plan) {
+	const subscriptionPlan = normalizePlan(subscription.plan);
+	if (!subscriptionPlan) {
+		return new Response('Invalid subscription plan', { status: 400 });
+	}
+
+	const plan = normalizePlan(params.custom_str2) ?? subscriptionPlan;
+	const userId = params.custom_str1 ?? subscription.userId;
+	if (plan !== subscriptionPlan || userId !== subscription.userId) {
 		return new Response('Subscription mismatch', { status: 400 });
 	}
 
@@ -94,7 +98,7 @@ export const payfastWebhook = httpAction(async (ctx, req) => {
 
 	if (paymentStatus === 'COMPLETE') {
 		await ctx.runMutation(internal.billingSubscriptions.setStatus, {
-			subscriptionId,
+			subscriptionId: subscription._id,
 			status: 'active',
 			providerPaymentId: providerPaymentId ?? null,
 			providerSubscriptionToken: params.token ?? null
@@ -110,7 +114,7 @@ export const payfastWebhook = httpAction(async (ctx, req) => {
 
 	if (paymentStatus === 'FAILED') {
 		await ctx.runMutation(internal.billingSubscriptions.setStatus, {
-			subscriptionId,
+			subscriptionId: subscription._id,
 			status: 'past_due',
 			providerPaymentId: providerPaymentId ?? null,
 			providerSubscriptionToken: params.token ?? null
@@ -126,7 +130,7 @@ export const payfastWebhook = httpAction(async (ctx, req) => {
 
 	if (paymentStatus === 'CANCELLED') {
 		await ctx.runMutation(internal.billingSubscriptions.setStatus, {
-			subscriptionId,
+			subscriptionId: subscription._id,
 			status: 'canceled',
 			providerPaymentId: providerPaymentId ?? null,
 			providerSubscriptionToken: params.token ?? null

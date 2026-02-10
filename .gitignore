@@ -7,6 +7,9 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+/apps/web/.svelte-kit
+/apps/web/build
+/.turbo
 
 # OS
 .DS_Store

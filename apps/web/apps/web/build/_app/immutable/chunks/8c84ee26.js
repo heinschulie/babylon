@@ -1,0 +1,1 @@
+import{d as a}from"./4b1e6f09.js";import{a as s}from"./1d947441.js";const n=s.useSession(),r=a(n,t=>t.data!==null&&t.data!==void 0),o=a(n,t=>t.isPending);a(n,t=>t.data?.user??null);export{r as a,o as i};

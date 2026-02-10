@@ -20,15 +20,20 @@ import type * as billingEvents from "../billingEvents.js";
 import type * as billingNode from "../billingNode.js";
 import type * as billingSubscriptions from "../billingSubscriptions.js";
 import type * as http from "../http.js";
+import type * as humanReviews from "../humanReviews.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_billing from "../lib/billing.js";
+import type * as lib_languages from "../lib/languages.js";
 import type * as lib_payfast from "../lib/payfast.js";
+import type * as lib_phraseCategories from "../lib/phraseCategories.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsNode from "../notificationsNode.js";
 import type * as phrases from "../phrases.js";
+import type * as practiceSessions from "../practiceSessions.js";
 import type * as preferences from "../preferences.js";
 import type * as sessions from "../sessions.js";
 import type * as translateNode from "../translateNode.js";
+import type * as verifierAccess from "../verifierAccess.js";
 
 import type {
   ApiFromModules,
@@ -49,15 +54,20 @@ declare const fullApi: ApiFromModules<{
   billingNode: typeof billingNode;
   billingSubscriptions: typeof billingSubscriptions;
   http: typeof http;
+  humanReviews: typeof humanReviews;
   "lib/auth": typeof lib_auth;
   "lib/billing": typeof lib_billing;
+  "lib/languages": typeof lib_languages;
   "lib/payfast": typeof lib_payfast;
+  "lib/phraseCategories": typeof lib_phraseCategories;
   notifications: typeof notifications;
   notificationsNode: typeof notificationsNode;
   phrases: typeof phrases;
+  practiceSessions: typeof practiceSessions;
   preferences: typeof preferences;
   sessions: typeof sessions;
   translateNode: typeof translateNode;
+  verifierAccess: typeof verifierAccess;
 }>;
 
 /**

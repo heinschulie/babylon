@@ -2,6 +2,7 @@
 
 import { v } from 'convex/values';
 import { action } from './_generated/server';
+import { normalizeLanguage } from './lib/languages';
 
 /**
  * Verify translation spelling using Google Translate API.
@@ -157,44 +158,16 @@ export const getSuggestion = action({
  * Map common language names to Google Translate language codes.
  */
 function getLanguageCode(language: string): string {
-	const languageMap: Record<string, string> = {
-		spanish: 'es',
-		french: 'fr',
-		german: 'de',
-		italian: 'it',
-		portuguese: 'pt',
-		dutch: 'nl',
-		russian: 'ru',
-		japanese: 'ja',
-		chinese: 'zh',
-		korean: 'ko',
-		arabic: 'ar',
-		hindi: 'hi',
-		turkish: 'tr',
-		polish: 'pl',
-		vietnamese: 'vi',
-		thai: 'th',
-		greek: 'el',
-		hebrew: 'he',
-		swedish: 'sv',
-		norwegian: 'no',
-		danish: 'da',
-		finnish: 'fi',
-		czech: 'cs',
-		hungarian: 'hu',
-		romanian: 'ro',
-		ukrainian: 'uk',
-		indonesian: 'id',
-		malay: 'ms',
-		tagalog: 'tl',
-		swahili: 'sw',
-		afrikaans: 'af',
-		xhosa: 'xh',
-		zulu: 'zu'
-	};
+	const supported = normalizeLanguage(language);
+	if (supported) {
+		return supported.iso639_1;
+	}
 
 	const normalized = language.toLowerCase().trim();
-	return languageMap[normalized] || normalized;
+	if (normalized.includes('-')) {
+		return normalized.split('-')[0];
+	}
+	return normalized;
 }
 
 /**
