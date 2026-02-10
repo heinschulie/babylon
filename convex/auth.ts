@@ -17,7 +17,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		'http://localhost:5173',
 		'http://localhost:5178',
 		'http://localhost:5180',
-		'https://intaka.netlify.app',
+		siteUrl,
 		verifierSiteUrl
 	].filter(Boolean) as string[];
 

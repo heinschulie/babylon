@@ -9,15 +9,6 @@ const convexDir = fileURLToPath(new URL('../../convex', import.meta.url));
 export default defineConfig({
 	envDir: workspaceRoot,
 	plugins: [tailwindcss(), sveltekit()],
-	build: {
-		rollupOptions: {
-			output: {
-				// Netlify normalizes uploaded file paths to lowercase.
-				// Use lowercase-only hashes so HTML asset links remain valid after deploy.
-				hashCharacters: 'hex'
-			}
-		}
-	},
 	server: {
 		fs: {
 			allow: [convexDir]
