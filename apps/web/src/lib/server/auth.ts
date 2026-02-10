@@ -20,7 +20,7 @@ export const createAuth = () => {
 			'http://localhost:5173',
 			'http://localhost:5178',
 			'http://localhost:5180',
-			'https://intaka.netlify.app',
+			siteUrl,
 			env.VERIFIER_SITE_URL
 		].filter(Boolean) as string[]
 	});

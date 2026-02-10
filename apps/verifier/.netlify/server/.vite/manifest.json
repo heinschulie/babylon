@@ -1,0 +1,330 @@
+{
+  "../../node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
+    "file": "remote-entry.js",
+    "name": "remote-entry",
+    "src": "../../node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js",
+    "isEntry": true,
+    "imports": [
+      "_shared.js",
+      "_false.js",
+      "_server.js",
+      "_environment.js"
+    ]
+  },
+  "../../node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte": {
+    "file": "entries/fallbacks/error.svelte.js",
+    "name": "entries/fallbacks/error.svelte",
+    "src": "../../node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte",
+    "isEntry": true,
+    "imports": [
+      "_context.js",
+      "_state.svelte.js",
+      "_client.js"
+    ]
+  },
+  "../../node_modules/@sveltejs/kit/src/runtime/server/index.js": {
+    "file": "index.js",
+    "name": "index",
+    "src": "../../node_modules/@sveltejs/kit/src/runtime/server/index.js",
+    "isEntry": true,
+    "imports": [
+      "_false.js",
+      "_server.js",
+      "_shared.js",
+      "_exports.js",
+      "_utils.js",
+      "_index.js",
+      "_shared-server.js",
+      "_routing.js",
+      "_internal.js"
+    ]
+  },
+  "../../node_modules/better-auth/dist/adapters/kysely-adapter/bun-sqlite-dialect.mjs": {
+    "file": "chunks/bun-sqlite-dialect.js",
+    "name": "bun-sqlite-dialect",
+    "src": "../../node_modules/better-auth/dist/adapters/kysely-adapter/bun-sqlite-dialect.mjs",
+    "isDynamicEntry": true
+  },
+  "../../node_modules/better-auth/dist/adapters/kysely-adapter/index.mjs": {
+    "file": "chunks/index5.js",
+    "name": "index",
+    "src": "../../node_modules/better-auth/dist/adapters/kysely-adapter/index.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_hooks.server.js"
+    ]
+  },
+  "../../node_modules/better-auth/dist/adapters/kysely-adapter/node-sqlite-dialect.mjs": {
+    "file": "chunks/node-sqlite-dialect.js",
+    "name": "node-sqlite-dialect",
+    "src": "../../node_modules/better-auth/dist/adapters/kysely-adapter/node-sqlite-dialect.mjs",
+    "isDynamicEntry": true
+  },
+  "../../node_modules/better-auth/dist/adapters/memory-adapter/index.mjs": {
+    "file": "chunks/index4.js",
+    "name": "index",
+    "src": "../../node_modules/better-auth/dist/adapters/memory-adapter/index.mjs",
+    "isDynamicEntry": true
+  },
+  ".svelte-kit/generated/server/internal.js": {
+    "file": "internal.js",
+    "name": "internal",
+    "src": ".svelte-kit/generated/server/internal.js",
+    "isEntry": true,
+    "imports": [
+      "_internal.js",
+      "_environment.js",
+      "_server.js",
+      "_shared-server.js"
+    ]
+  },
+  "_auth.js": {
+    "file": "chunks/auth.js",
+    "name": "auth",
+    "imports": [
+      "_false.js",
+      "_context.js",
+      "_index.js",
+      "_button.js"
+    ]
+  },
+  "_button.js": {
+    "file": "chunks/button.js",
+    "name": "button",
+    "imports": [
+      "_url.js",
+      "_index2.js"
+    ]
+  },
+  "_card-footer.js": {
+    "file": "chunks/card-footer.js",
+    "name": "card-footer",
+    "imports": [
+      "_index2.js",
+      "_button.js"
+    ]
+  },
+  "_client.js": {
+    "file": "chunks/client.js",
+    "name": "client",
+    "imports": [
+      "_exports.js",
+      "_utils.js",
+      "_index.js",
+      "_state.svelte.js"
+    ]
+  },
+  "_context.js": {
+    "file": "chunks/context.js",
+    "name": "context",
+    "imports": [
+      "_false.js"
+    ]
+  },
+  "_environment.js": {
+    "file": "chunks/environment.js",
+    "name": "environment"
+  },
+  "_exports.js": {
+    "file": "chunks/exports.js",
+    "name": "exports"
+  },
+  "_false.js": {
+    "file": "chunks/false.js",
+    "name": "false"
+  },
+  "_hooks.server.js": {
+    "file": "chunks/hooks.server.js",
+    "name": "hooks.server",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index3.js",
+      "_url.js",
+      "_shared-server.js"
+    ],
+    "dynamicImports": [
+      "../../node_modules/better-auth/dist/adapters/memory-adapter/index.mjs",
+      "../../node_modules/better-auth/dist/adapters/kysely-adapter/index.mjs",
+      "../../node_modules/better-auth/dist/adapters/kysely-adapter/index.mjs",
+      "../../node_modules/better-auth/dist/adapters/kysely-adapter/bun-sqlite-dialect.mjs",
+      "../../node_modules/better-auth/dist/adapters/kysely-adapter/node-sqlite-dialect.mjs"
+    ]
+  },
+  "_index.js": {
+    "file": "chunks/index.js",
+    "name": "index",
+    "imports": [
+      "_context.js"
+    ]
+  },
+  "_index2.js": {
+    "file": "chunks/index2.js",
+    "name": "index",
+    "imports": [
+      "_context.js"
+    ]
+  },
+  "_index3.js": {
+    "file": "chunks/index3.js",
+    "name": "index",
+    "imports": [
+      "_public.js"
+    ]
+  },
+  "_internal.js": {
+    "file": "chunks/internal.js",
+    "name": "internal",
+    "imports": [
+      "_context.js",
+      "_index2.js",
+      "_environment.js",
+      "_server.js",
+      "_shared-server.js"
+    ],
+    "dynamicImports": [
+      "src/hooks.server.ts"
+    ]
+  },
+  "_label.js": {
+    "file": "chunks/label.js",
+    "name": "label",
+    "imports": [
+      "_index2.js",
+      "_button.js",
+      "_context.js"
+    ]
+  },
+  "_public.js": {
+    "file": "chunks/public.js",
+    "name": "public"
+  },
+  "_routing.js": {
+    "file": "chunks/routing.js",
+    "name": "routing"
+  },
+  "_server.js": {
+    "file": "chunks/server.js",
+    "name": "server"
+  },
+  "_server2.js": {
+    "file": "chunks/server2.js",
+    "name": "server",
+    "imports": [
+      "_server.js",
+      "_routing.js"
+    ]
+  },
+  "_shared-server.js": {
+    "file": "chunks/shared-server.js",
+    "name": "shared-server"
+  },
+  "_shared.js": {
+    "file": "chunks/shared.js",
+    "name": "shared",
+    "imports": [
+      "_utils.js"
+    ]
+  },
+  "_state.svelte.js": {
+    "file": "chunks/state.svelte.js",
+    "name": "state.svelte",
+    "imports": [
+      "_context.js"
+    ]
+  },
+  "_url.js": {
+    "file": "chunks/url.js",
+    "name": "url"
+  },
+  "_utils.js": {
+    "file": "chunks/utils.js",
+    "name": "utils"
+  },
+  "src/hooks.server.ts": {
+    "file": "entries/hooks.server.js",
+    "name": "entries/hooks.server",
+    "src": "src/hooks.server.ts",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_hooks.server.js"
+    ]
+  },
+  "src/routes/+layout.svelte": {
+    "file": "entries/pages/_layout.svelte.js",
+    "name": "entries/pages/_layout.svelte",
+    "src": "src/routes/+layout.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_public.js",
+      "_button.js",
+      "_server2.js",
+      "_client.js",
+      "_auth.js",
+      "_context.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_layout.999210c4.css"
+    ]
+  },
+  "src/routes/+page.svelte": {
+    "file": "entries/pages/_page.svelte.js",
+    "name": "entries/pages/_page.svelte",
+    "src": "src/routes/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js",
+      "_auth.js",
+      "_button.js",
+      "_label.js",
+      "_context.js"
+    ]
+  },
+  "src/routes/api/auth/[...all]/+server.ts": {
+    "file": "entries/endpoints/api/auth/_...all_/_server.ts.js",
+    "name": "entries/endpoints/api/auth/_...all_/_server.ts",
+    "src": "src/routes/api/auth/[...all]/+server.ts",
+    "isEntry": true,
+    "imports": [
+      "_index3.js"
+    ]
+  },
+  "src/routes/login/+page.svelte": {
+    "file": "entries/pages/login/_page.svelte.js",
+    "name": "entries/pages/login/_page.svelte",
+    "src": "src/routes/login/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_context.js",
+      "_exports.js",
+      "_utils.js",
+      "_server2.js",
+      "_state.svelte.js",
+      "_button.js",
+      "_label.js",
+      "_card-footer.js"
+    ]
+  },
+  "src/routes/register/+page.svelte": {
+    "file": "entries/pages/register/_page.svelte.js",
+    "name": "entries/pages/register/_page.svelte",
+    "src": "src/routes/register/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_context.js",
+      "_exports.js",
+      "_utils.js",
+      "_server2.js",
+      "_state.svelte.js",
+      "_button.js",
+      "_label.js",
+      "_card-footer.js"
+    ]
+  }
+}

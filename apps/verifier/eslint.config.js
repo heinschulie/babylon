@@ -41,6 +41,6 @@ export default ts.config(
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', '.netlify/', 'dist/', '../../convex/_generated/']
+		ignores: ['build/', '.svelte-kit/', 'dist/', '../../convex/_generated/']
 	}
 );

@@ -1,4 +1,3 @@
 build/
 .svelte-kit/
-.netlify/
 dist/
