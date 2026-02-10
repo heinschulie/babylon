@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
+import { requireSupportedLanguage } from './lib/languages';
 
 // Get a single session by ID
 export const get = query({
@@ -46,10 +47,13 @@ export const getByDate = query({
 export const create = mutation({
 	args: {
 		date: v.string(),
-		targetLanguage: v.string()
+		targetLanguage: v.optional(v.string()),
+		targetLanguageCode: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
+		const languageInput = args.targetLanguageCode ?? args.targetLanguage ?? '';
+		const language = requireSupportedLanguage(languageInput);
 
 		// Check for existing session on this date
 		const existing = await ctx.db
@@ -64,7 +68,9 @@ export const create = mutation({
 		return await ctx.db.insert('sessions', {
 			userId,
 			date: args.date,
-			targetLanguage: args.targetLanguage,
+			targetLanguage: language.displayName,
+			targetLanguageCode: language.bcp47,
+			targetLanguageIso639_1: language.iso639_1,
 			createdAt: Date.now()
 		});
 	}

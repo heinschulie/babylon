@@ -2,6 +2,8 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
+import { inferPhraseCategory, PHRASE_CATEGORIES } from './lib/phraseCategories';
+import { requireSupportedLanguage } from './lib/languages';
 
 // Get a single phrase by ID
 export const get = query({
@@ -41,7 +43,9 @@ export const listBySession = query({
 			session: {
 				_id: session._id,
 				date: session.date,
-				targetLanguage: session.targetLanguage
+				targetLanguage: session.targetLanguage,
+				targetLanguageCode: session.targetLanguageCode ?? null,
+				targetLanguageIso639_1: session.targetLanguageIso639_1 ?? null
 			}
 		};
 	}
@@ -71,10 +75,51 @@ export const create = mutation({
 			userId,
 			english: args.english,
 			translation: args.translation,
+			languageCode: session.targetLanguageCode,
+			categoryKey: inferPhraseCategory(args.english, args.translation).key,
+			categoryLabel: inferPhraseCategory(args.english, args.translation).label,
 			createdAt: Date.now()
 		});
 
 		// Schedule notifications for this phrase (if user has push subscription)
+		const prefs = await ctx.db
+			.query('userPreferences')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.unique();
+
+		if (prefs?.pushSubscription) {
+			await ctx.scheduler.runAfter(0, internal.notifications.scheduleForPhrase, {
+				phraseId,
+				userId
+			});
+		}
+
+		return phraseId;
+	}
+});
+
+// Create a phrase directly in the learner phrase library.
+export const createDirect = mutation({
+	args: {
+		english: v.string(),
+		translation: v.string(),
+		languageCode: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const userId = await getAuthUserId(ctx);
+		const language = requireSupportedLanguage(args.languageCode ?? 'xh-ZA');
+		const category = inferPhraseCategory(args.english, args.translation);
+
+		const phraseId = await ctx.db.insert('phrases', {
+			userId,
+			english: args.english,
+			translation: args.translation,
+			languageCode: language.bcp47,
+			categoryKey: category.key,
+			categoryLabel: category.label,
+			createdAt: Date.now()
+		});
+
 		const prefs = await ctx.db
 			.query('userPreferences')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
@@ -112,7 +157,17 @@ export const update = mutation({
 
 		await ctx.db.patch(args.id, {
 			...(args.english !== undefined && { english: args.english }),
-			...(args.translation !== undefined && { translation: args.translation })
+			...(args.translation !== undefined && { translation: args.translation }),
+			...((args.english !== undefined || args.translation !== undefined) && {
+				categoryKey: inferPhraseCategory(
+					args.english ?? phrase.english,
+					args.translation ?? phrase.translation
+				).key,
+				categoryLabel: inferPhraseCategory(
+					args.english ?? phrase.english,
+					args.translation ?? phrase.translation
+				).label
+			})
 		});
 	}
 });
@@ -127,25 +182,79 @@ export const listAllByUser = query({
 			.withIndex('by_user', (q) => q.eq('userId', userId))
 			.collect();
 
-		// Fetch session metadata for each phrase to include the target language
-		const sessionCache = new Map<string, { targetLanguage: string }>();
+		// Fetch legacy session metadata for phrases that still reference sessions.
+		const sessionCache = new Map<string, { targetLanguage: string; targetLanguageCode: string | null }>();
 		const results = [];
 		for (const phrase of phrases) {
-			let sessionData = sessionCache.get(phrase.sessionId);
-			if (!sessionData) {
-				const session = await ctx.db.get(phrase.sessionId);
-				if (session) {
-					sessionData = { targetLanguage: session.targetLanguage };
-					sessionCache.set(phrase.sessionId, sessionData);
+			let sessionData: { targetLanguage: string; targetLanguageCode: string | null } | undefined;
+			if (phrase.sessionId) {
+				sessionData = sessionCache.get(phrase.sessionId);
+				if (!sessionData) {
+					const session = await ctx.db.get(phrase.sessionId);
+					if (session) {
+						sessionData = {
+							targetLanguage: session.targetLanguage,
+							targetLanguageCode: session.targetLanguageCode ?? null
+						};
+						sessionCache.set(phrase.sessionId, sessionData);
+					}
 				}
 			}
 			results.push({
 				...phrase,
-				targetLanguage: sessionData?.targetLanguage ?? 'Unknown'
+				targetLanguage: sessionData?.targetLanguage ?? 'Xhosa',
+				targetLanguageCode: phrase.languageCode ?? sessionData?.targetLanguageCode ?? 'xh-ZA',
+				categoryKey: phrase.categoryKey ?? inferPhraseCategory(phrase.english, phrase.translation).key,
+				categoryLabel: phrase.categoryLabel ?? inferPhraseCategory(phrase.english, phrase.translation).label
 			});
 		}
 
 		return results;
+	}
+});
+
+export const listGroupedByCategory = query({
+	args: {},
+	handler: async (ctx) => {
+		const userId = await getAuthUserId(ctx);
+		const phrases = await ctx.db
+			.query('phrases')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.order('desc')
+			.collect();
+
+		const grouped = new Map<
+			string,
+			{
+				key: string;
+				label: string;
+				phrases: typeof phrases;
+			}
+		>();
+
+		for (const category of PHRASE_CATEGORIES) {
+			grouped.set(category.key, {
+				key: category.key,
+				label: category.label,
+				phrases: []
+			});
+		}
+
+		for (const phrase of phrases) {
+			const inferred = inferPhraseCategory(phrase.english, phrase.translation);
+			const key = phrase.categoryKey ?? inferred.key;
+			const label = phrase.categoryLabel ?? inferred.label;
+			const existing = grouped.get(key) ?? { key, label, phrases: [] };
+			existing.phrases.push({
+				...phrase,
+				categoryKey: key,
+				categoryLabel: label,
+				languageCode: phrase.languageCode ?? 'xh-ZA'
+			});
+			grouped.set(key, existing);
+		}
+
+		return Array.from(grouped.values()).filter((group) => group.phrases.length > 0);
 	}
 });
 

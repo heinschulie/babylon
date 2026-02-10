@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildPayfastSignature, parseFormBody } from './lib/payfast';
+import {
+	buildPayfastCanonicalString,
+	buildPayfastSignature,
+	normalizePayfastPassphrase,
+	parseFormBody
+} from './lib/payfast';
 
 describe('payfast utils', () => {
 	it('parses x-www-form-urlencoded body', () => {
@@ -23,6 +28,17 @@ describe('payfast utils', () => {
 		expect(signature1).toHaveLength(32);
 	});
 
+	it('canonicalizes params in insertion order', () => {
+		const canonical = buildPayfastCanonicalString({
+			item_name: 'Xhosa AI Plan',
+			merchant_key: '46f0cd694581a',
+			merchant_id: '10000100',
+			amount: '150.00'
+		});
+
+		expect(canonical).toBe('item_name=Xhosa+AI+Plan&merchant_key=46f0cd694581a&merchant_id=10000100&amount=150.00');
+	});
+
 	it('changes signature when passphrase changes', () => {
 		const input = {
 			merchant_id: '10000100',
@@ -34,5 +50,17 @@ describe('payfast utils', () => {
 		const withoutPassphrase = buildPayfastSignature(input);
 		const withPassphrase = buildPayfastSignature(input, 'secret');
 		expect(withPassphrase).not.toBe(withoutPassphrase);
+	});
+
+	it('ignores blank passphrase values', () => {
+		const input = {
+			merchant_id: '10000100',
+			merchant_key: '46f0cd694581a',
+			amount: '500.00',
+			item_name: 'Xhosa Pro Plan'
+		};
+
+		expect(buildPayfastSignature(input, '   ')).toBe(buildPayfastSignature(input));
+		expect(normalizePayfastPassphrase(' \n\t ')).toBeUndefined();
 	});
 });

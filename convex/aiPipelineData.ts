@@ -11,10 +11,34 @@ export const getAttemptById = internalQuery({
 export const getAudioAssetByAttempt = internalQuery({
 	args: { attemptId: v.id('attempts') },
 	handler: async (ctx, { attemptId }) => {
-		return await ctx.db
+		const attempt = await ctx.db.get(attemptId);
+		if (!attempt) {
+			return null;
+		}
+
+		if (attempt.audioAssetId) {
+			const linkedAudioAsset = await ctx.db.get(attempt.audioAssetId);
+			if (linkedAudioAsset) {
+				return linkedAudioAsset;
+			}
+		}
+
+		const audioAssets = await ctx.db
 			.query('audioAssets')
 			.withIndex('by_attempt', (q) => q.eq('attemptId', attemptId))
-			.unique();
+			.collect();
+		if (audioAssets.length === 0) {
+			return null;
+		}
+
+		const learnerAudioAsset = audioAssets.find(
+			(audioAsset) => audioAsset.userId === attempt.userId && audioAsset.phraseId === attempt.phraseId
+		);
+		if (learnerAudioAsset) {
+			return learnerAudioAsset;
+		}
+
+		return [...audioAssets].sort((a, b) => a.createdAt - b.createdAt)[0] ?? null;
 	}
 });
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+if ! command -v bun >/dev/null 2>&1; then
+	echo "pre-push: bun not found in PATH; skipping local lockfile check."
+	echo "pre-push: CI will still enforce lockfile consistency."
+	exit 0
+fi
+
+echo "Running lockfile check..."
+bun run lockfile:check

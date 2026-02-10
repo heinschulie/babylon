@@ -10,6 +10,20 @@ export const getForWebhook = internalQuery({
 	}
 });
 
+export const getByPayfastReference = internalQuery({
+	args: {
+		reference: v.string()
+	},
+	handler: async (ctx, args) => {
+		return await ctx.db
+			.query('billingSubscriptions')
+			.withIndex('by_provider_reference', (q) =>
+				q.eq('provider', 'payfast').eq('payfastReference', args.reference)
+			)
+			.unique();
+	}
+});
+
 export const setStatus = internalMutation({
 	args: {
 		subscriptionId: v.id('billingSubscriptions'),

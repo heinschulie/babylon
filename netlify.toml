@@ -1,6 +1,6 @@
 [build]
-  command = "pnpm run build"
-  publish = "build"
+  command = "npm run build:web"
+  publish = "apps/web/build"
 
 [build.environment]
   NODE_VERSION = "20"
