@@ -1,6 +1,5 @@
 [build]
   command = "bun run build:verifier"
-  publish = "apps/verifier/build"
 
 [build.environment]
   NODE_VERSION = "20"
