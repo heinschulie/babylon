@@ -3,10 +3,18 @@ name: CI
 on:
   pull_request:
   push:
+    branches:
+      - main
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      PUBLIC_CONVEX_URL: https://ci-placeholder.convex.cloud
+      PUBLIC_CONVEX_SITE_URL: https://ci-placeholder.convex.site
+      SITE_URL: https://ci-placeholder.example
+      VERIFIER_SITE_URL: https://ci-placeholder-verifier.example
+      BETTER_AUTH_SECRET: ci-placeholder-secret-0123456789abcdef
     strategy:
       fail-fast: false
       matrix:
