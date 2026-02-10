@@ -62,3 +62,19 @@ bun run convex:check-generated
   - `NETLIFY_AUTH_TOKEN`: personal/team Netlify token with deploy permissions
 
 This setup makes deployments deterministic in a monorepo: each app is built from its own workspace output and deployed independently on every merge to `main`.
+
+## Local Push Guard
+
+Install local git hooks once:
+
+```sh
+bun run hooks:install
+```
+
+The pre-push hook runs:
+
+```sh
+bun run lockfile:check
+```
+
+This blocks pushes when `bun.lock` is out of sync with workspace manifests.

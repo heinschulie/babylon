@@ -18,6 +18,8 @@
 		"convex:dev": "bunx convex dev",
 		"convex:codegen": "bunx convex codegen",
 		"convex:check-generated": "sh ./scripts/check-convex-generated.sh",
+		"lockfile:check": "sh ./scripts/check-lockfile-sync.sh",
+		"hooks:install": "sh ./scripts/setup-git-hooks.sh",
 		"convex:deploy": "bunx convex deploy",
 		"convex:logs": "bunx convex logs",
 		"check": "turbo run check",

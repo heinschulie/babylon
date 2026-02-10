@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+echo "Running lockfile check..."
+bun run lockfile:check
