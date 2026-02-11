@@ -732,6 +732,70 @@ export const getAttemptHumanReview = query({
 	}
 });
 
+export const getUnseenFeedback = query({
+	args: {},
+	handler: async (ctx) => {
+		const userId = await getAuthUserId(ctx);
+
+		const requests = await ctx.db
+			.query('humanReviewRequests')
+			.withIndex('by_learner_created', (q) => q.eq('learnerUserId', userId))
+			.order('desc')
+			.collect();
+
+		const unseen = requests.filter(
+			(r) =>
+				(r.status === 'completed' || r.status === 'dispute_resolved') &&
+				r.feedbackSeenAt === undefined
+		);
+
+		if (unseen.length === 0) return null;
+
+		const latest = unseen[0];
+		const attempt = await ctx.db.get(latest.attemptId);
+
+		return {
+			practiceSessionId: attempt?.practiceSessionId ?? null,
+			attemptId: latest.attemptId,
+			count: unseen.length
+		};
+	}
+});
+
+export const markFeedbackSeen = mutation({
+	args: {
+		practiceSessionId: v.id('practiceSessions')
+	},
+	handler: async (ctx, args) => {
+		const userId = await getAuthUserId(ctx);
+		const now = Date.now();
+
+		const attempts = await ctx.db
+			.query('attempts')
+			.withIndex('by_practice_session', (q) =>
+				q.eq('practiceSessionId', args.practiceSessionId)
+			)
+			.collect();
+
+		const attemptIds = new Set(attempts.map((a) => a._id));
+
+		const requests = await ctx.db
+			.query('humanReviewRequests')
+			.withIndex('by_learner_created', (q) => q.eq('learnerUserId', userId))
+			.collect();
+
+		for (const req of requests) {
+			if (
+				attemptIds.has(req.attemptId) &&
+				req.feedbackSeenAt === undefined &&
+				(req.status === 'completed' || req.status === 'dispute_resolved')
+			) {
+				await ctx.db.patch(req._id, { feedbackSeenAt: now });
+			}
+		}
+	}
+});
+
 export const listEscalated = query({
 	args: { languageCode: v.optional(v.string()) },
 	handler: async (ctx, args) => {

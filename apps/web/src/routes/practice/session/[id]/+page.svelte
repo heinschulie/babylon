@@ -1,90 +1,251 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { useQuery } from 'convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
-	import * as Card from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
+	import * as Accordion from '$lib/components/ui/accordion';
 
+	const client = useConvexClient();
 	const practiceSessionId = $derived(page.params.id as Id<'practiceSessions'>);
-	const sessionData = useQuery(api.attempts.listByPracticeSession, () => ({
+	const sessionData = useQuery(api.attempts.listByPracticeSessionAsc, () => ({
 		practiceSessionId
 	}));
+
+	let markedSeen = $state(false);
+
+	$effect(() => {
+		if (sessionData.data && !markedSeen) {
+			const hasReview = sessionData.data.attempts.some((a) => a.humanReview?.initialReview);
+			if (hasReview) {
+				markedSeen = true;
+				client.mutation(api.humanReviews.markFeedbackSeen, {
+					practiceSessionId
+				});
+			}
+		}
+	});
+
+	$effect(() => {
+		if (page.url.hash === '#feedback') {
+			requestAnimationFrame(() => {
+				document.getElementById('feedback')?.scrollIntoView({ behavior: 'smooth' });
+			});
+		}
+	});
+
+	function formatDuration(ms: number): string {
+		if (!ms || !isFinite(ms)) return '0:00';
+		const totalSeconds = Math.floor(ms / 1000);
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
+
+	// Audio state keyed by attempt ID
+	let reviewPlayers = $state<Record<string, {
+		el: HTMLAudioElement | null;
+		playing: boolean;
+		progress: number;
+		duration: number;
+	}>>({});
+	let verifierPlayers = $state<Record<string, {
+		el: HTMLAudioElement | null;
+		playing: boolean;
+		progress: number;
+		duration: number;
+	}>>({});
+	let playedVerifierClips = $state<Set<string>>(new Set());
+
+	function toggleReviewPlayback(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (!p?.el) return;
+		if (p.playing) { p.el.pause(); } else { p.el.play(); }
+	}
+
+	function toggleVerifierPlayback(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (!p?.el) return;
+		if (p.playing) { p.el.pause(); } else { p.el.play(); }
+	}
+
+	function onReviewTimeUpdate(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (!p?.el || !p.el.duration || !isFinite(p.el.duration)) return;
+		p.progress = p.el.currentTime / p.el.duration;
+		if (!p.duration) p.duration = p.el.duration * 1000;
+	}
+
+	function onVerifierTimeUpdate(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (!p?.el || !p.el.duration || !isFinite(p.el.duration)) return;
+		p.progress = p.el.currentTime / p.el.duration;
+		if (!p.duration) p.duration = p.el.duration * 1000;
+	}
+
+	function onReviewPlayEnded(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (p) { p.playing = false; p.progress = 0; }
+	}
+
+	function onVerifierPlayEnded(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (p) { p.playing = false; p.progress = 0; }
+		playedVerifierClips.add(attemptId);
+		playedVerifierClips = new Set(playedVerifierClips);
+	}
+
+	const defaultPlayer = { el: null, playing: false, progress: 0, duration: 0 } as const;
+
+	function rp(attemptId: string) {
+		return reviewPlayers[attemptId] ?? defaultPlayer;
+	}
+
+	function vp(attemptId: string) {
+		return verifierPlayers[attemptId] ?? defaultPlayer;
+	}
+
+	// Pre-seed player entries when attempts data arrives
+	$effect(() => {
+		const attempts = sessionData.data?.attempts;
+		if (!attempts) return;
+		for (const a of attempts) {
+			if (a.audioUrl && !reviewPlayers[a._id]) {
+				reviewPlayers[a._id] = { el: null, playing: false, progress: 0, duration: 0 };
+			}
+			if (a.humanReview?.initialReview?.audioUrl && !verifierPlayers[a._id]) {
+				verifierPlayers[a._id] = { el: null, playing: false, progress: 0, duration: 0 };
+			}
+		}
+	});
+
+	function registerReviewAudio(attemptId: string, el: HTMLAudioElement) {
+		if (!reviewPlayers[attemptId]) {
+			reviewPlayers[attemptId] = { el: null, playing: false, progress: 0, duration: 0 };
+		}
+		reviewPlayers[attemptId].el = el;
+		if (el.duration && isFinite(el.duration)) reviewPlayers[attemptId].duration = el.duration * 1000;
+	}
+
+	function registerVerifierAudio(attemptId: string, el: HTMLAudioElement) {
+		if (!verifierPlayers[attemptId]) {
+			verifierPlayers[attemptId] = { el: null, playing: false, progress: 0, duration: 0 };
+		}
+		verifierPlayers[attemptId].el = el;
+		if (el.duration && isFinite(el.duration)) verifierPlayers[attemptId].duration = el.duration * 1000;
+	}
 </script>
 
 <div class="page-shell page-shell--narrow page-stack">
 	<div class="page-stack">
-		<a href={resolve('/practice')} class="meta-text underline"
-			>&larr; Back to Practice Sessions</a
-		>
-		<h1 class="text-5xl sm:text-6xl">Practice Session Detail</h1>
+		<a href={resolve('/practice')} class="meta-text underline">&larr; Back to Practice Sessions</a>
+		<h1 class="text-5xl sm:text-6xl">Session Review</h1>
+		{#if sessionData.data}
+			<p class="meta-text">
+				{new Date(sessionData.data.practiceSession.startedAt).toLocaleString()}
+				&middot; {sessionData.data.attempts.length} attempt{sessionData.data.attempts.length === 1 ? '' : 's'}
+			</p>
+		{/if}
 	</div>
 
 	{#if sessionData.isLoading}
-		<p class="text-muted-foreground">Loading session...</p>
+		<p class="meta-text">Loading session...</p>
 	{:else if sessionData.error}
 		<p class="text-destructive">{sessionData.error.message}</p>
 	{:else if !sessionData.data}
-		<p class="text-muted-foreground">Session not found.</p>
+		<p class="meta-text">Session not found.</p>
 	{:else}
-		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
-			<Card.Content>
-				<p class="text-sm">
-					Started: {new Date(sessionData.data.practiceSession.startedAt).toLocaleString()}
-				</p>
-				<p class="meta-text">
-					Ended:
-					{sessionData.data.practiceSession.endedAt
-						? new Date(sessionData.data.practiceSession.endedAt).toLocaleString()
-						: 'Still active'}
-				</p>
-				<p class="meta-text">
-					Total attempts: {sessionData.data.attempts.length}
-				</p>
-			</Card.Content>
-		</Card.Root>
-
-		<ul class="space-y-3">
-			{#each sessionData.data.attempts as attempt}
-				<li class="border border-border/60 bg-background/70 p-4">
-					<p class="meta-text">{new Date(attempt.createdAt).toLocaleString()}</p>
-					<p class="mt-1 font-semibold">{attempt.phraseEnglish}</p>
-					<p class="meta-text text-primary">{attempt.phraseTranslation}</p>
-
-					{#if attempt.audioUrl}
-						<div class="mt-2">
-							<p class="info-kicker mb-1">Learner Audio</p>
-							<audio controls src={attempt.audioUrl} class="audio-playback w-full"></audio>
+		<Accordion.Root type="single">
+			{#each sessionData.data.attempts as attempt (attempt._id)}
+				{@const hasVerifier = !!attempt.humanReview?.initialReview}
+				{@const showFire = hasVerifier && attempt.humanReview?.initialReview?.audioUrl && !playedVerifierClips.has(attempt._id)}
+				<Accordion.Item value={attempt._id}>
+					<Accordion.Trigger class="practice-review-trigger">
+						{#if showFire}
+							<img src="/fire.gif" alt="" class="practice-review-fire" />
+						{/if}
+						<div class="practice-review-trigger__content">
+							<p class="practice-review-phrase">{attempt.phraseTranslation}</p>
+							<p class="meta-text">{attempt.phraseEnglish}</p>
 						</div>
-					{/if}
-
-					{#if attempt.feedbackText}
-						<p class="meta-text mt-2">{attempt.feedbackText}</p>
-					{/if}
-
-					{#if attempt.humanReview?.initialReview}
-						<div class="mt-3 border border-border/50 bg-muted/40 p-3 text-sm">
-							<p class="font-semibold">
-								Verifier: {attempt.humanReview.initialReview.verifierFirstName}
-							</p>
-							<p class="meta-text mt-1">
-								Sound {attempt.humanReview.initialReview.soundAccuracy}/5 • Rhythm
-								{attempt.humanReview.initialReview.rhythmIntonation}/5 • Phrase
-								{attempt.humanReview.initialReview.phraseAccuracy}/5
-							</p>
-							{#if attempt.humanReview.initialReview.audioUrl}
-								<div class="mt-2">
-									<p class="info-kicker mb-1">Verifier Example</p>
-									<audio
-										controls
-										src={attempt.humanReview.initialReview.audioUrl}
-										class="audio-playback w-full"
-									></audio>
+						{#if attempt.status === 'feedback_ready' && attempt.score != null}
+							<div class="practice-review-trigger__scores">
+								<span class="practice-review-score">{attempt.score}/5</span>
+							</div>
+						{:else if attempt.status === 'processing'}
+							<span class="meta-text">Processing...</span>
+						{:else if attempt.status === 'failed'}
+							<span class="text-destructive text-sm">Failed</span>
+						{/if}
+						{#if hasVerifier}
+							<div class="practice-review-trigger__verifier-scores">
+								<span class="practice-review-vscore" title="Sound">S{attempt.humanReview.initialReview.soundAccuracy}</span>
+								<span class="practice-review-vscore" title="Rhythm">R{attempt.humanReview.initialReview.rhythmIntonation}</span>
+								<span class="practice-review-vscore" title="Phrase">P{attempt.humanReview.initialReview.phraseAccuracy}</span>
+							</div>
+						{/if}
+					</Accordion.Trigger>
+					<Accordion.Content>
+						<div class="practice-review-detail" id={attempt.humanReview?.initialReview ? 'feedback' : undefined}>
+							{#if attempt.feedbackText}
+								<div class="text-sm practice-review-feedback">
+									{#each attempt.feedbackText.split('\n') as line}
+										{#if line.trim()}<p>{line}</p>{/if}
+									{/each}
+								</div>
+							{/if}
+							{#if attempt.audioUrl}
+								<div class="practice-review-detail__players">
+									<div>
+										<p class="info-kicker mb-1">Your Recording</p>
+										<!-- svelte-ignore a11y_click_events_have_key_events -->
+										<!-- svelte-ignore a11y_no_static_element_interactions -->
+										<div class="practice-player" onclick={() => toggleReviewPlayback(attempt._id)}>
+											<div class="practice-player__fill" style="width: {(rp(attempt._id).progress) * 100}%"></div>
+											<span class="practice-player__label">
+												{rp(attempt._id).playing ? 'Playing...' : formatDuration(rp(attempt._id).duration)}
+											</span>
+										</div>
+										<audio
+											src={attempt.audioUrl}
+											ontimeupdate={() => onReviewTimeUpdate(attempt._id)}
+											onplay={() => { rp(attempt._id).playing = true; }}
+											onpause={() => { rp(attempt._id).playing = false; }}
+											onended={() => onReviewPlayEnded(attempt._id)}
+											oncanplay={(e) => registerReviewAudio(attempt._id, e.currentTarget as HTMLAudioElement)}
+										></audio>
+									</div>
+									{#if attempt.humanReview?.initialReview?.audioUrl}
+										<div>
+											<p class="info-kicker mb-1">Verifier Example</p>
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<!-- svelte-ignore a11y_no_static_element_interactions -->
+											<div class="practice-player practice-player--verifier" onclick={() => toggleVerifierPlayback(attempt._id)}>
+												<div class="practice-player__fill" style="width: {(vp(attempt._id).progress) * 100}%"></div>
+												<span class="practice-player__label">
+													{vp(attempt._id).playing ? 'Playing...' : formatDuration(vp(attempt._id).duration)}
+												</span>
+											</div>
+											<audio
+												src={attempt.humanReview.initialReview.audioUrl}
+												ontimeupdate={() => onVerifierTimeUpdate(attempt._id)}
+												onplay={() => { vp(attempt._id).playing = true; }}
+												onpause={() => { vp(attempt._id).playing = false; }}
+												onended={() => onVerifierPlayEnded(attempt._id)}
+												oncanplay={(e) => registerVerifierAudio(attempt._id, e.currentTarget as HTMLAudioElement)}
+											></audio>
+										</div>
+									{/if}
 								</div>
 							{/if}
 						</div>
-					{/if}
-				</li>
+					</Accordion.Content>
+				</Accordion.Item>
 			{/each}
-		</ul>
+		</Accordion.Root>
+
+		<Button onclick={() => history.back()} variant="outline" size="lg" class="w-full">
+			Back to Sessions
+		</Button>
 	{/if}
 </div>

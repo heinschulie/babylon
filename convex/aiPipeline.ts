@@ -130,10 +130,15 @@ async function generateFeedbackWithClaude(input: {
 	}
 
 	const prompt = [
-		'You are a Xhosa pronunciation coach for English speakers.',
-		'Provide concise feedback (2-4 sentences) focused on intelligibility.',
-		'Call out likely click errors or prefix issues if relevant.',
-		'If transcript is empty, tell the user to try again clearly.'
+		'You are a Xhosa pronunciation coach for English speakers learning isiXhosa.',
+		'The learner has attempted to say a specific Xhosa phrase. A speech-to-text system transcribed their attempt.',
+		'IMPORTANT: The transcript is the system\'s best guess at what the learner said while attempting the TARGET Xhosa phrase. Do NOT interpret it as a word in any other language (Zulu, Swahili, English, etc.). Always analyse it as an attempt at the target Xhosa phrase.',
+		'If the transcript is empty or garbled, assume the microphone didn\'t pick up clearly and encourage them to try again.',
+		'Be encouraging but honest — not sycophantic.',
+		'Focus on specific pronunciation guidance: click sounds, vowel clarity, syllable stress, word separation.',
+		'Format your response as: one short encouraging/summary sentence, then a numbered list breaking down each word or sub-phrase that needs correction.',
+		'Each numbered item should name the word/sound, what the learner said vs what it should be, and a concise tip. Spell out target syllables e.g. "MA-si", "HAM-be".',
+		'Only list items that need correction — skip words that were fine. Keep it concise.'
 	].join(' ');
 
 	const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -145,7 +150,7 @@ async function generateFeedbackWithClaude(input: {
 		},
 		body: JSON.stringify({
 			model: 'claude-sonnet-4-20250514',
-			max_tokens: 200,
+			max_tokens: 300,
 			system: prompt,
 			messages: [
 				{

@@ -5,8 +5,32 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
 	import { Button } from '$lib/components/ui/button';
+	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Card from '$lib/components/ui/card';
 	import { isAuthenticated, isLoading } from '$lib/stores/auth';
+	import { fly } from 'svelte/transition';
+
+	function relativeTime(timestamp: number): string {
+		const now = Date.now();
+		const diff = now - timestamp;
+		const minutes = Math.floor(diff / 60000);
+		const hours = Math.floor(diff / 3600000);
+		const days = Math.floor(diff / 86400000);
+
+		if (minutes < 1) return 'Just now';
+		if (minutes < 60) return `${minutes} Minute${minutes === 1 ? '' : 's'} Ago`;
+
+		const date = new Date(timestamp);
+		const today = new Date();
+		const yesterday = new Date(today);
+		yesterday.setDate(yesterday.getDate() - 1);
+
+		if (date.toDateString() === today.toDateString()) return 'Earlier Today';
+		if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+		if (days < 7) return `${days} Days Ago`;
+		if (days < 30) return `${Math.floor(days / 7)} Week${Math.floor(days / 7) === 1 ? '' : 's'} Ago`;
+		return date.toLocaleDateString();
+	}
 
 	const client = useConvexClient();
 	const allPhrases = useQuery(api.phrases.listAllByUser, {});
@@ -17,6 +41,10 @@
 	);
 	const activePracticeSession = useQuery(
 		api.practiceSessions.get,
+		() => (activePracticeSessionId ? { practiceSessionId: activePracticeSessionId } : 'skip')
+	);
+	const sessionAttempts = useQuery(
+		api.attempts.listByPracticeSessionAsc,
 		() => (activePracticeSessionId ? { practiceSessionId: activePracticeSessionId } : 'skip')
 	);
 
@@ -37,7 +65,19 @@
 
 	let queue: typeof allPhrases.data = $state([]);
 	let currentIndex = $state(0);
-	let submitted = $state(false);
+	const queueModes = ['once', 'shuffle', 'repeat'] as const;
+	type QueueMode = (typeof queueModes)[number];
+	let queueMode = $state<QueueMode>('once');
+
+	function cycleQueueMode() {
+		const nextIndex = (queueModes.indexOf(queueMode) + 1) % queueModes.length;
+		queueMode = queueModes[nextIndex];
+		if (queueMode === 'shuffle') {
+			queue = shuffle(queue!);
+		}
+	}
+	let sessionDone = $state(false);
+	let pendingSubmissions = $state(0);
 	let initialized = $state(false);
 	let recorder: MediaRecorder | null = $state(null);
 	let recording = $state(false);
@@ -47,10 +87,102 @@
 	let recordError = $state('');
 	let processing = $state(false);
 	let durationMs = $state(0);
-	let feedbackText = $state<string | null>(null);
 	let starting = $state(false);
 	let ending = $state(false);
-	let flaggingAttemptId = $state<string | null>(null);
+
+	// Review screen audio state — keyed by attempt ID
+	let reviewPlayers = $state<Record<string, {
+		el: HTMLAudioElement | null;
+		playing: boolean;
+		progress: number;
+		duration: number;
+	}>>({});
+	let verifierPlayers = $state<Record<string, {
+		el: HTMLAudioElement | null;
+		playing: boolean;
+		progress: number;
+		duration: number;
+	}>>({});
+	let playedVerifierClips = $state<Set<string>>(new Set());
+
+	function toggleReviewPlayback(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (!p?.el) return;
+		if (p.playing) { p.el.pause(); } else { p.el.play(); }
+	}
+
+	function toggleVerifierPlayback(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (!p?.el) return;
+		if (p.playing) { p.el.pause(); } else { p.el.play(); }
+	}
+
+	function onReviewTimeUpdate(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (!p?.el || !p.el.duration) return;
+		p.progress = p.el.currentTime / p.el.duration;
+	}
+
+	function onVerifierTimeUpdate(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (!p?.el || !p.el.duration) return;
+		p.progress = p.el.currentTime / p.el.duration;
+	}
+
+	function onReviewPlayEnded(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (p) { p.playing = false; p.progress = 0; }
+	}
+
+	function onVerifierPlayEnded(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (p) { p.playing = false; p.progress = 0; }
+		playedVerifierClips.add(attemptId);
+		playedVerifierClips = new Set(playedVerifierClips);
+	}
+
+	const defaultPlayer = { el: null, playing: false, progress: 0, duration: 0 } as const;
+
+	function rp(attemptId: string) {
+		return reviewPlayers[attemptId] ?? defaultPlayer;
+	}
+
+	function vp(attemptId: string) {
+		return verifierPlayers[attemptId] ?? defaultPlayer;
+	}
+
+	// Pre-seed player entries when attempts data arrives
+	$effect(() => {
+		const attempts = sessionAttempts.data?.attempts;
+		if (!attempts) return;
+		for (const a of attempts) {
+			if (a.audioUrl && !reviewPlayers[a._id]) {
+				reviewPlayers[a._id] = { el: null, playing: false, progress: 0, duration: 0 };
+			}
+			if (a.humanReview?.initialReview?.audioUrl && !verifierPlayers[a._id]) {
+				verifierPlayers[a._id] = { el: null, playing: false, progress: 0, duration: 0 };
+			}
+		}
+	});
+
+	function registerReviewAudio(attemptId: string, el: HTMLAudioElement) {
+		if (!reviewPlayers[attemptId]) {
+			reviewPlayers[attemptId] = { el: null, playing: false, progress: 0, duration: 0 };
+		}
+		reviewPlayers[attemptId].el = el;
+		if (el.duration && !isNaN(el.duration)) reviewPlayers[attemptId].duration = el.duration * 1000;
+	}
+
+	function registerVerifierAudio(attemptId: string, el: HTMLAudioElement) {
+		if (!verifierPlayers[attemptId]) {
+			verifierPlayers[attemptId] = { el: null, playing: false, progress: 0, duration: 0 };
+		}
+		verifierPlayers[attemptId].el = el;
+		if (el.duration && !isNaN(el.duration)) verifierPlayers[attemptId].duration = el.duration * 1000;
+	}
+	let playerEl: HTMLAudioElement | null = $state(null);
+	let playing = $state(false);
+	let playProgress = $state(0);
 
 	$effect(() => {
 		if (activePracticeSessionId && allPhrases.data && allPhrases.data.length > 0 && !initialized) {
@@ -62,10 +194,10 @@
 			initialized = false;
 			queue = [];
 			currentIndex = 0;
-			submitted = false;
+			sessionDone = false;
+			pendingSubmissions = 0;
 			recording = false;
 			recordError = '';
-			feedbackText = null;
 			audioChunks = [];
 			audioBlob = null;
 			audioUrl = null;
@@ -74,10 +206,6 @@
 	});
 
 	const currentPhrase = $derived(queue && queue.length > 0 ? queue[currentIndex] : null);
-	const attemptsQuery = useQuery(
-		api.attempts.listByPhrase,
-		() => (currentPhrase ? { phraseId: currentPhrase._id } : 'skip')
-	);
 	const queueLength = $derived(queue?.length ?? 0);
 	const queuePosition = $derived(currentPhrase ? currentIndex + 1 : 0);
 
@@ -129,41 +257,41 @@
 	}
 
 	async function handleSubmit() {
-		if (!audioBlob || !currentPhrase || !activePracticeSessionId) {
-			return;
-		}
+		if (!audioBlob || !currentPhrase || !activePracticeSessionId) return;
 
 		processing = true;
 		recordError = '';
-		feedbackText = null;
 
 		try {
+			const phraseSnapshot = { ...currentPhrase };
+			const blobSnapshot = audioBlob;
+			const durationSnapshot = durationMs;
+
+			// 1. Create attempt + upload audio (must be sync — need IDs)
 			const attemptId = await client.mutation(api.attempts.create, {
-				phraseId: currentPhrase._id,
+				phraseId: phraseSnapshot._id,
 				practiceSessionId: activePracticeSessionId,
-				durationMs
+				durationMs: durationSnapshot
 			});
 
 			const uploadUrl = await client.mutation(api.audioUploads.generateUploadUrl, {});
 			const uploadResponse = await fetch(uploadUrl, {
 				method: 'POST',
-				headers: { 'Content-Type': audioBlob.type || 'audio/webm' },
-				body: audioBlob
+				headers: { 'Content-Type': blobSnapshot.type || 'audio/webm' },
+				body: blobSnapshot
 			});
 
-			if (!uploadResponse.ok) {
-				throw new Error('Failed to upload audio.');
-			}
+			if (!uploadResponse.ok) throw new Error('Failed to upload audio.');
 
 			const uploadResult = await uploadResponse.json();
 			const storageId = uploadResult.storageId as string;
 
 			const audioAssetId = await client.mutation(api.audioAssets.create, {
 				storageKey: storageId,
-				contentType: audioBlob.type || 'audio/webm',
-				phraseId: currentPhrase._id,
+				contentType: blobSnapshot.type || 'audio/webm',
+				phraseId: phraseSnapshot._id,
 				attemptId,
-				durationMs
+				durationMs: durationSnapshot
 			});
 
 			await client.mutation(api.attempts.attachAudio, {
@@ -171,15 +299,19 @@
 				audioAssetId
 			});
 
-			const feedback = await client.action(api.aiPipeline.processAttempt, {
+			// 2. Fire-and-forget AI processing
+			pendingSubmissions++;
+			client.action(api.aiPipeline.processAttempt, {
 				attemptId,
-				phraseId: currentPhrase._id,
-				englishPrompt: currentPhrase.english,
-				targetPhrase: currentPhrase.translation
+				phraseId: phraseSnapshot._id,
+				englishPrompt: phraseSnapshot.english,
+				targetPhrase: phraseSnapshot.translation
+			}).finally(() => {
+				pendingSubmissions--;
 			});
 
-			feedbackText = feedback?.feedbackText ?? 'Feedback not available yet.';
-			submitted = true;
+			// 3. Immediately advance
+			advanceToNext();
 		} catch (err) {
 			recordError = err instanceof Error ? err.message : 'Failed to submit recording.';
 		} finally {
@@ -187,25 +319,45 @@
 		}
 	}
 
-	function handleSkip() {
-		submitted = true;
+	function advanceToNext() {
+		const nextIndex = currentIndex + 1;
+
+		if (nextIndex >= queue!.length) {
+			if (queueMode === 'once') {
+				sessionDone = true;
+				resetRecordingState();
+				return;
+			} else if (queueMode === 'shuffle') {
+				queue = shuffle(queue!);
+				currentIndex = 0;
+			} else {
+				// repeat — restart from 0 without reshuffle
+				currentIndex = 0;
+			}
+		} else {
+			currentIndex = nextIndex;
+		}
+
+		resetRecordingState();
 	}
 
-	function handleNext() {
-		let nextIndex = currentIndex + 1;
-		if (nextIndex >= queue!.length) {
-			queue = shuffle(queue!);
-			nextIndex = 0;
-		}
-		currentIndex = nextIndex;
-		submitted = false;
+	function resetRecordingState() {
 		recording = false;
 		recordError = '';
-		feedbackText = null;
 		audioChunks = [];
 		audioBlob = null;
 		audioUrl = null;
 		durationMs = 0;
+		if (playerEl) {
+			playerEl.pause();
+			playerEl = null;
+		}
+		playing = false;
+		playProgress = 0;
+	}
+
+	function handleSkip() {
+		advanceToNext();
 	}
 
 	async function startRecording() {
@@ -261,6 +413,12 @@
 	}
 
 	function discardRecording() {
+		if (playerEl) {
+			playerEl.pause();
+			playerEl = null;
+		}
+		playing = false;
+		playProgress = 0;
 		audioChunks = [];
 		audioBlob = null;
 		audioUrl = null;
@@ -268,16 +426,25 @@
 		recordError = '';
 	}
 
-	async function flagHumanReview(attemptId: Id<'attempts'>) {
-		flaggingAttemptId = attemptId;
-		try {
-			await client.mutation(api.humanReviews.flagAttemptReview, { attemptId });
-		} catch (err) {
-			recordError = err instanceof Error ? err.message : 'Failed to flag review.';
-		} finally {
-			flaggingAttemptId = null;
+	function togglePlayback() {
+		if (!playerEl) return;
+		if (playing) {
+			playerEl.pause();
+		} else {
+			playerEl.play();
 		}
 	}
+
+	function onTimeUpdate() {
+		if (!playerEl || !playerEl.duration) return;
+		playProgress = playerEl.currentTime / playerEl.duration;
+	}
+
+	function onPlayEnded() {
+		playing = false;
+		playProgress = 0;
+	}
+
 </script>
 
 {#if !activePracticeSessionId}
@@ -338,23 +505,14 @@
 				{:else}
 					<ul class="space-y-3">
 						{#each practiceSessions.data as session}
-							<li class="border border-border/60 bg-background/70 p-4">
-								<div class="flex flex-wrap items-center justify-between gap-3">
-									<div class="space-y-1">
-										<p class="font-semibold">
-											{new Date(session.startedAt).toLocaleString()}
-										</p>
-										<p class="meta-text">
-											Attempts: {session.attemptCount} • Phrases: {session.phraseCount}
-										</p>
-									</div>
-									<a
-										href={resolve(`/practice/session/${session._id}`)}
-										class="info-kicker text-primary underline"
-									>
-										Open
-									</a>
-								</div>
+							<li>
+								<a
+									href={resolve(`/practice/session/${session._id}`)}
+									class="flex items-center justify-between border border-border/60 bg-background/70 p-4 transition-colors hover:bg-background/90"
+								>
+									<span class="font-semibold">{relativeTime(session.startedAt)}</span>
+									<span class="meta-text">{session.phraseCount} phrase{session.phraseCount === 1 ? '' : 's'}</span>
+								</a>
 							</li>
 						{/each}
 					</ul>
@@ -363,10 +521,12 @@
 		</Card.Root>
 	</div>
 {:else}
-	<div class="page-shell page-shell--compact flex min-h-[80vh] flex-col items-center justify-center">
-		{#if allPhrases.isLoading || activePracticeSession.isLoading}
+	{#if allPhrases.isLoading || activePracticeSession.isLoading}
+		<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
 			<p class="meta-text">Loading session...</p>
-		{:else if !allPhrases.data || allPhrases.data.length === 0}
+		</div>
+	{:else if !allPhrases.data || allPhrases.data.length === 0}
+		<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
 			<Card.Root class="w-full border border-border/60 bg-background/85 backdrop-blur-sm">
 				<Card.Header class="text-center">
 					<Card.Title class="text-2xl">No Phrases Yet</Card.Title>
@@ -378,145 +538,204 @@
 					</a>
 				</Card.Footer>
 			</Card.Root>
-		{:else if currentPhrase}
-			<Card.Root class="w-full border border-border/60 bg-background/85 backdrop-blur-sm">
-				<Card.Header class="text-center">
-					<p class="info-kicker">Phrase {queuePosition} of {queueLength}</p>
-					<Card.Title class="text-3xl sm:text-4xl">Practice</Card.Title>
-					<Card.Description>
-						Session started {new Date(activePracticeSession.data?.startedAt ?? Date.now()).toLocaleTimeString()}
-					</Card.Description>
-				</Card.Header>
-				<Card.Content class="space-y-6 text-center">
-					<div class="border border-border/60 bg-muted/60 p-5 sm:p-6">
-						<p class="info-kicker">English Prompt</p>
-						<p class="mt-2 text-xl font-semibold">{currentPhrase.english}</p>
-					</div>
+		</div>
+	{:else if sessionDone}
+		<div class="page-shell page-shell--narrow page-stack">
+			<div class="page-stack">
+				<h1 class="text-5xl sm:text-6xl">Session Review</h1>
+				<p class="meta-text">
+					{#if pendingSubmissions > 0}
+						Processing {pendingSubmissions} recording{pendingSubmissions === 1 ? '' : 's'}...
+					{:else}
+						All feedback received.
+					{/if}
+				</p>
+			</div>
 
-					{#if !submitted}
-						<div class="space-y-4 text-left">
-							<div class="border border-dashed border-border/70 bg-background/60 p-4">
-								<p class="meta-text">
-									Speak your {currentPhrase.targetLanguage} response
-								</p>
-								<div class="mt-3 flex flex-wrap gap-2">
-									{#if !recording}
-										<Button onclick={startRecording} size="lg">Start Recording</Button>
-									{:else}
-										<Button onclick={stopRecording} size="lg" variant="destructive">
-											Stop Recording
-										</Button>
-									{/if}
-									{#if audioUrl}
-										<Button onclick={discardRecording} variant="outline">Discard</Button>
-									{/if}
-								</div>
-								{#if recordError}
-									<p class="mt-2 text-destructive">{recordError}</p>
+			{#if sessionAttempts.isLoading}
+				<p class="meta-text">Loading results...</p>
+			{:else if sessionAttempts.data}
+				<Accordion.Root type="single">
+					{#each sessionAttempts.data.attempts as attempt (attempt._id)}
+						{@const hasVerifier = !!attempt.humanReview?.initialReview}
+						{@const showFire = hasVerifier && attempt.humanReview?.initialReview?.audioUrl && !playedVerifierClips.has(attempt._id)}
+						<Accordion.Item value={attempt._id}>
+							<Accordion.Trigger class="practice-review-trigger">
+								{#if showFire}
+									<img src="/fire.gif" alt="" class="practice-review-fire" />
 								{/if}
-								{#if audioUrl}
-									<div class="mt-4 space-y-2">
-										<p class="meta-text">
-											Recorded: {formatDuration(durationMs)}
-										</p>
-										<audio controls src={audioUrl} class="audio-playback w-full"></audio>
+								<div class="practice-review-trigger__content">
+									<p class="practice-review-phrase">{attempt.phraseTranslation}</p>
+									<p class="meta-text">{attempt.phraseEnglish}</p>
+								</div>
+								{#if attempt.status === 'feedback_ready' && attempt.score != null}
+									<div class="practice-review-trigger__scores">
+										<span class="practice-review-score">{attempt.score}/5</span>
+									</div>
+								{:else if attempt.status === 'processing'}
+									<span class="meta-text">Processing...</span>
+								{:else if attempt.status === 'failed'}
+									<span class="text-destructive text-sm">Failed</span>
+								{/if}
+								{#if hasVerifier}
+									<div class="practice-review-trigger__verifier-scores">
+										<span class="practice-review-vscore" title="Sound">S{attempt.humanReview.initialReview.soundAccuracy}</span>
+										<span class="practice-review-vscore" title="Rhythm">R{attempt.humanReview.initialReview.rhythmIntonation}</span>
+										<span class="practice-review-vscore" title="Phrase">P{attempt.humanReview.initialReview.phraseAccuracy}</span>
 									</div>
 								{/if}
-							</div>
-							<div class="flex gap-2">
-								<Button
-									onclick={handleSubmit}
-									class="flex-1"
-									size="lg"
-									disabled={!audioBlob || processing}
-								>
-									{processing ? 'Processing...' : 'Submit'}
-								</Button>
-								<Button onclick={handleSkip} variant="outline" size="lg">
-									Skip
-								</Button>
-							</div>
-						</div>
-					{:else}
-						<div class="space-y-4">
-							<div class="border-2 border-primary bg-primary/6 p-4 text-left">
-								<p class="info-kicker">AI Feedback</p>
-								<p class="mt-1 text-lg font-semibold text-primary">
-									{feedbackText ?? 'Feedback not available yet.'}
-								</p>
-							</div>
-							{#if attemptsQuery.data && attemptsQuery.data.length > 0}
-								<div class="border border-border/60 bg-card/40 p-4 text-left">
-									<p class="info-kicker">
-										Attempt History
-									</p>
-									<ul class="mt-4 space-y-3">
-										{#each attemptsQuery.data.slice(0, 5) as attempt}
-											<li class="space-y-3 border border-border/60 bg-background/60 p-4">
-												<div class="flex flex-wrap items-center justify-between gap-2 text-[0.84rem] uppercase tracking-[0.1em]">
-													<span class="meta-text">
-														{new Date(attempt.createdAt).toLocaleString()}
-													</span>
-													<span>{attempt.status.replace('_', ' ')}</span>
-												</div>
-												{#if attempt.audioUrl}
-													<div class="border border-border/50 bg-muted/60 p-3">
-														<p class="info-kicker mb-2">
-															Playback
-														</p>
-														<audio controls src={attempt.audioUrl} class="audio-playback w-full"></audio>
-													</div>
-												{/if}
-												{#if attempt.feedbackText}
-													<p class="meta-text">{attempt.feedbackText}</p>
-												{/if}
-												{#if attempt.humanReview?.initialReview}
-													<div class="space-y-3 border border-border/50 bg-muted/40 p-3">
-														<p class="info-kicker">
-															Human Review {attempt.humanReview.status.replace('_', ' ')}
-														</p>
-														<p class="text-sm">
-															Verifier: {attempt.humanReview.initialReview.verifierFirstName}
-														</p>
-														{#if attempt.humanReview.initialReview.audioUrl}
-															<audio
-																controls
-																src={attempt.humanReview.initialReview.audioUrl}
-																class="audio-playback w-full"
-															></audio>
-														{/if}
-														{#if attempt.humanReview.status === 'completed' || attempt.humanReview.status === 'dispute_resolved'}
-															<Button
-																variant="outline"
-																size="sm"
-																disabled={flaggingAttemptId === attempt._id}
-																onclick={() => flagHumanReview(attempt._id)}
-															>
-																{flaggingAttemptId === attempt._id ? 'Flagging...' : 'Flag Review'}
-															</Button>
-														{/if}
-													</div>
-												{/if}
-											</li>
-										{/each}
-									</ul>
+							</Accordion.Trigger>
+							<Accordion.Content>
+								<div class="practice-review-detail">
+									{#if attempt.feedbackText}
+										<p class="text-sm">{attempt.feedbackText}</p>
+									{/if}
+									{#if attempt.audioUrl}
+										<div>
+											<p class="info-kicker mb-1">Your Recording</p>
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<!-- svelte-ignore a11y_no_static_element_interactions -->
+											<div class="practice-player" onclick={() => toggleReviewPlayback(attempt._id)}>
+												<div class="practice-player__fill" style="width: {(rp(attempt._id).progress) * 100}%"></div>
+												<span class="practice-player__label">
+													{rp(attempt._id).playing ? 'Playing...' : formatDuration(rp(attempt._id).duration)}
+												</span>
+											</div>
+											<audio
+												src={attempt.audioUrl}
+												ontimeupdate={() => onReviewTimeUpdate(attempt._id)}
+												onplay={() => { rp(attempt._id).playing = true; }}
+												onpause={() => { rp(attempt._id).playing = false; }}
+												onended={() => onReviewPlayEnded(attempt._id)}
+												oncanplay={(e) => registerReviewAudio(attempt._id, e.currentTarget as HTMLAudioElement)}
+											></audio>
+										</div>
+									{/if}
+									{#if attempt.humanReview?.initialReview?.audioUrl}
+										<div>
+											<p class="info-kicker mb-1">Verifier Example</p>
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<!-- svelte-ignore a11y_no_static_element_interactions -->
+											<div class="practice-player practice-player--verifier" onclick={() => toggleVerifierPlayback(attempt._id)}>
+												<div class="practice-player__fill" style="width: {(vp(attempt._id).progress) * 100}%"></div>
+												<span class="practice-player__label">
+													{vp(attempt._id).playing ? 'Playing...' : formatDuration(vp(attempt._id).duration)}
+												</span>
+											</div>
+											<audio
+												src={attempt.humanReview.initialReview.audioUrl}
+												ontimeupdate={() => onVerifierTimeUpdate(attempt._id)}
+												onplay={() => { vp(attempt._id).playing = true; }}
+												onpause={() => { vp(attempt._id).playing = false; }}
+												onended={() => onVerifierPlayEnded(attempt._id)}
+												oncanplay={(e) => registerVerifierAudio(attempt._id, e.currentTarget as HTMLAudioElement)}
+											></audio>
+										</div>
+									{/if}
 								</div>
-							{/if}
-							<div class="grid grid-cols-2 gap-2">
-								<Button onclick={handleNext} size="lg">Next Phrase</Button>
-								<Button onclick={endPracticeSession} variant="outline" size="lg" disabled={ending}>
-									{ending ? 'Ending...' : 'End Session'}
-								</Button>
-							</div>
-						</div>
+							</Accordion.Content>
+						</Accordion.Item>
+					{/each}
+				</Accordion.Root>
+
+				<div class="grid grid-cols-2 gap-2">
+					<Button onclick={() => { sessionDone = false; initialized = false; startPracticeSession(); }} size="lg">
+						New Session
+					</Button>
+					<Button onclick={endPracticeSession} variant="outline" size="lg" disabled={ending}>
+						{ending ? 'Ending...' : 'Finish'}
+					</Button>
+				</div>
+			{/if}
+		</div>
+	{:else if currentPhrase}
+		<div class="practice-session">
+			<!-- Top: session info + mode toggle -->
+			<div class="practice-session__header">
+				<div class="practice-session__header-info">
+					<p class="info-kicker">Phrase {queuePosition} of {queueLength}</p>
+					<p class="meta-text">
+						Session started {new Date(activePracticeSession.data?.startedAt ?? Date.now()).toLocaleTimeString()}
+					</p>
+				</div>
+				<div class="practice-session__header-mode">
+					<button
+						class="practice-mode-btn active"
+						onclick={cycleQueueMode}
+						aria-label="Queue mode: {queueMode}"
+					>
+						{#if queueMode === 'once'}
+							1x
+						{:else if queueMode === 'shuffle'}
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.7l-.327-.517"/></svg>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+						{/if}
+					</button>
+				</div>
+			</div>
+
+			<!-- Center: phrase area -->
+			<div class="practice-session__phrase">
+				{#key currentIndex}
+					<div
+						class="phrase-card text-center"
+						in:fly={{ x: 200, duration: 320 }}
+						out:fly={{ x: -200, duration: 320 }}
+					>
+						<p class="xhosa-phrase font-black">{currentPhrase.english}</p>
+					</div>
+				{/key}
+			</div>
+
+			<!-- Bottom: controls -->
+			<div class="practice-session__controls">
+				{#if recordError}
+					<p class="text-destructive text-sm">{recordError}</p>
+				{/if}
+
+				{#if audioUrl}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="practice-player" onclick={togglePlayback}>
+						<div class="practice-player__fill" style="width: {playProgress * 100}%"></div>
+						<span class="practice-player__label">
+							{playing ? 'Playing...' : formatDuration(durationMs)}
+						</span>
+					</div>
+					<audio
+						bind:this={playerEl}
+						src={audioUrl}
+						ontimeupdate={onTimeUpdate}
+						onplay={() => (playing = true)}
+						onpause={() => (playing = false)}
+						onended={onPlayEnded}
+					></audio>
+				{:else if recording}
+					<Button onclick={stopRecording} size="lg" class="practice-record-btn w-full">
+						Stop Recording
+					</Button>
+				{:else}
+					<Button onclick={startRecording} size="lg" class="practice-record-btn w-full">
+						Start Recording
+					</Button>
+				{/if}
+
+				<div class="flex gap-2">
+					<Button onclick={handleSubmit} class="flex-1" size="lg" disabled={!audioBlob || processing}>
+						{processing ? 'Uploading...' : 'Submit'}
+					</Button>
+					{#if audioUrl}
+						<Button onclick={discardRecording} variant="outline" size="lg">Discard</Button>
+					{:else}
+						<Button onclick={handleSkip} variant="outline" size="lg">Skip</Button>
 					{/if}
-				</Card.Content>
-				<Card.Footer class="justify-center">
-					<a href={resolve('/practice')} class="meta-text underline">
-						Back to Sessions
-					</a>
-				</Card.Footer>
-			</Card.Root>
-		{/if}
-	</div>
+				</div>
+
+				<button class="meta-text underline text-center" onclick={endPracticeSession}>
+					{ending ? 'Ending...' : 'End Session'}
+				</button>
+			</div>
+		</div>
+	{/if}
 {/if}

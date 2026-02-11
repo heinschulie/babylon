@@ -282,6 +282,35 @@ export const listByPracticeSession = query({
 	}
 });
 
+export const listByPracticeSessionAsc = query({
+	args: {
+		practiceSessionId: v.id('practiceSessions')
+	},
+	handler: async (ctx, args) => {
+		const userId = await getAuthUserId(ctx);
+		const practiceSession = await ctx.db.get(args.practiceSessionId);
+		if (!practiceSession || practiceSession.userId !== userId) {
+			throw new Error('Practice session not found or not authorized');
+		}
+
+		const attempts = await ctx.db
+			.query('attempts')
+			.withIndex('by_practice_session', (q) => q.eq('practiceSessionId', args.practiceSessionId))
+			.order('asc')
+			.collect();
+
+		const results = [];
+		for (const attempt of attempts) {
+			results.push(await buildAttemptResult(ctx, attempt));
+		}
+
+		return {
+			practiceSession,
+			attempts: results
+		};
+	}
+});
+
 // Mark attempt as failed
 export const markFailed = mutation({
 	args: { attemptId: v.id('attempts'), reason: v.optional(v.string()) },

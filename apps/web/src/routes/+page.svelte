@@ -12,6 +12,8 @@
 
 	const client = useConvexClient();
 	const phraseGroups = useQuery(api.phrases.listGroupedByCategory, {});
+	const billingStatus = useQuery(api.billing.getStatus, {});
+	const unseenFeedback = useQuery(api.humanReviews.getUnseenFeedback, {});
 
 	$effect(() => {
 		if (!$isLoading && !$isAuthenticated) {
@@ -25,10 +27,11 @@
 	let creating = $state(false);
 	let error = $state('');
 
-	const totalPhraseCount = $derived(
-		phraseGroups.data?.reduce((sum, group) => sum + group.phrases.length, 0) ?? 0
+	const minutesRemaining = $derived(
+		billingStatus.data
+			? Math.max(0, Math.round(billingStatus.data.minutesLimit - billingStatus.data.minutesUsed))
+			: null
 	);
-	const categoryCount = $derived(phraseGroups.data?.length ?? 0);
 
 	async function createPhrase() {
 		if (!english.trim() || !translation.trim()) {
@@ -64,10 +67,7 @@
 				Store phrases once, then train in short bursts when you have a spare minute.
 			</p>
 		</div>
-		<div class="grid gap-3 sm:grid-cols-2">
-			<a href={resolve('/practice')} class="block">
-				<Button class="w-full" size="lg">Start Practice</Button>
-			</a>
+		<div>
 			<Dialog.Root bind:open={dialogOpen}>
 				<Dialog.Trigger>
 					{#snippet child({ props })}
@@ -103,28 +103,24 @@
 		</div>
 	</header>
 
-	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
-		<Card.Content>
-			<div class="grid gap-4 sm:grid-cols-3">
-				<div>
-					<p class="info-kicker">Saved Phrases</p>
-					<p class="mt-2 text-4xl font-display">{totalPhraseCount}</p>
-				</div>
-				<div>
-					<p class="info-kicker">Categories</p>
-					<p class="mt-2 text-4xl font-display">{categoryCount}</p>
-				</div>
-				<div>
-					<p class="info-kicker">Suggested Session</p>
-					<p class="mt-2 text-lg font-semibold">5-10 minutes</p>
-					<p class="meta-text mt-1">Perfect for commute gaps and quick breaks.</p>
-				</div>
+	{#if unseenFeedback.data?.practiceSessionId}
+		<a
+			href={resolve(`/practice/session/${unseenFeedback.data.practiceSessionId}#feedback`)}
+			class="feedback-banner"
+		>
+			<div class="feedback-banner__content">
+				<span class="feedback-banner__icon">
+					<img src="/fire.gif" alt="" />
+				</span>
+				<span class="feedback-banner__text">
+					Your verifier has reviewed your practice
+				</span>
+				<span class="feedback-banner__arrow">&rarr;</span>
 			</div>
-		</Card.Content>
-	</Card.Root>
+		</a>
+	{/if}
 
 	<section class="page-stack">
-		<h2 class="text-4xl sm:text-5xl">Your Phrase Groups</h2>
 		{#if phraseGroups.isLoading}
 			<p class="meta-text">Loading phrases...</p>
 		{:else if phraseGroups.error}
@@ -164,3 +160,11 @@
 		{/if}
 	</section>
 </div>
+
+<!-- Practice FAB -->
+{#if $isAuthenticated}
+	<a href={resolve('/practice')} class="practice-fab" aria-label="Start practice">
+		<span class="practice-fab__minutes">{minutesRemaining ?? '—'}</span>
+		<span class="practice-fab__label">min</span>
+	</a>
+{/if}
