@@ -4,7 +4,7 @@ import { getAuthUserId } from './lib/auth';
 import { normalizeLanguage, requireSupportedLanguage } from './lib/languages';
 import { internal } from './_generated/api';
 
-const CLAIM_TIMEOUT_MS = 2 * 60 * 1000;
+const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
 const SLA_MS = 24 * 60 * 60 * 1000;
 const AGREEMENT_TOLERANCE = 1;
 
