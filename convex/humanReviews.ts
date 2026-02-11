@@ -412,17 +412,6 @@ export const submitReview = mutation({
 			throw new Error('Exemplar audio not found or not authorized');
 		}
 
-		const attempt = await ctx.db.get(request.attemptId);
-		if (!attempt) {
-			throw new Error('Attempt not found');
-		}
-		const learnerDuration = attempt.durationMs ?? 0;
-		const exemplarDuration = audioAsset.durationMs ?? 0;
-		const maxDuration = Math.floor(learnerDuration * 1.2);
-		if (learnerDuration > 0 && exemplarDuration > maxDuration) {
-			throw new Error('Exemplar recording exceeds learner attempt duration + 20%');
-		}
-
 		const profile = await ctx.db
 			.query('verifierProfiles')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
