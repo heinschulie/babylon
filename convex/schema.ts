@@ -134,6 +134,7 @@ export default defineSchema({
 		resolvedAt: v.optional(v.number()),
 		escalatedAt: v.optional(v.number()),
 		escalatedReason: v.optional(v.string()),
+		feedbackSeenAt: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number()
 	})
