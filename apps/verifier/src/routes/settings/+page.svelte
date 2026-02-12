@@ -8,6 +8,8 @@
 	import * as Card from '@babylon/ui/card';
 	import { Input } from '@babylon/ui/input';
 	import { Label } from '@babylon/ui/label';
+	import * as m from '$lib/paraglide/messages.js';
+	import { getLocale, setLocale, locales, isLocale } from '$lib/paraglide/runtime.js';
 
 	const client = useConvexClient();
 	const verifierState = useQuery(api.verifierAccess.getMyVerifierState, {});
@@ -31,9 +33,19 @@
 		)
 	);
 
+	const localeNames: Record<string, string> = { en: 'English', xh: 'isiXhosa' };
+	function localeDisplayName(locale: string): string {
+		return localeNames[locale] ?? locale;
+	}
+	async function switchLanguage(locale: string) {
+		if (!isLocale(locale)) return;
+		await client.mutation(api.preferences.upsert, { uiLocale: locale });
+		setLocale(locale);
+	}
+
 	async function saveOnboarding() {
 		if (!onboardingFirstName.trim()) {
-			error = 'Please enter a first name.';
+			error = m.vsettings_name_required();
 			return;
 		}
 		saving = true;
@@ -47,9 +59,9 @@
 				languageCode: selectedLanguage,
 				active: true
 			});
-			message = 'Verifier profile activated.';
+			message = m.vsettings_activated();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to save.';
+			error = e instanceof Error ? e.message : m.vsettings_save_failed();
 		} finally {
 			saving = false;
 		}
@@ -58,20 +70,20 @@
 
 <div class="page-shell page-shell--narrow page-stack">
 	<div class="page-stack">
-		<a href={resolve('/')} class="meta-text underline">&larr; Back home</a>
-		<p class="info-kicker">Verifier Configuration</p>
-		<h1 class="text-5xl sm:text-6xl">Settings</h1>
+		<a href={resolve('/')} class="meta-text underline">&larr; {m.vsettings_back()}</a>
+		<p class="info-kicker">{m.vsettings_kicker()}</p>
+		<h1 class="text-5xl sm:text-6xl">{m.vsettings_title()}</h1>
 	</div>
 
 	<!-- Stats callout -->
 	<div class="border border-primary/40 bg-primary/10 p-4">
 		<div class="grid grid-cols-2 gap-4">
 			<div>
-				<p class="info-kicker">Total Verifications</p>
+				<p class="info-kicker">{m.vsettings_total()}</p>
 				<p class="mt-2 text-4xl font-display">{verifierStats.data?.totalReviews ?? 0}</p>
 			</div>
 			<div>
-				<p class="info-kicker">Today</p>
+				<p class="info-kicker">{m.vsettings_today()}</p>
 				<p class="mt-2 text-4xl font-display">{verifierStats.data?.todayReviews ?? 0}</p>
 			</div>
 		</div>
@@ -86,11 +98,29 @@
 
 	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 		<Card.Header>
-			<Card.Title>Language Team</Card.Title>
+			<Card.Title>{m.vsettings_language_ui_title()}</Card.Title>
+			<Card.Description>{m.vsettings_language_ui_desc()}</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<select
+				value={getLocale()}
+				onchange={(e) => switchLanguage(e.currentTarget.value)}
+				class="w-full border border-input bg-background px-3 py-2.5 text-base"
+			>
+				{#each locales as locale}
+					<option value={locale}>{localeDisplayName(locale)}</option>
+				{/each}
+			</select>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Header>
+			<Card.Title>{m.vsettings_language_title()}</Card.Title>
 		</Card.Header>
 		<Card.Content class="space-y-3">
 			<div class="space-y-2">
-				<Label for="languageCode">Language</Label>
+				<Label for="languageCode">{m.vsettings_language_label()}</Label>
 				<select
 					id="languageCode"
 					class="w-full border border-input bg-background px-3 py-2.5 text-base"
@@ -104,7 +134,7 @@
 				</select>
 			</div>
 			{#if verifierState.data?.profile}
-				<p class="meta-text">Active verifier: {verifierState.data.profile.firstName}</p>
+				<p class="meta-text">{m.vsettings_active({ name: verifierState.data.profile.firstName })}</p>
 			{/if}
 		</Card.Content>
 	</Card.Root>
@@ -112,20 +142,20 @@
 	{#if !verifierState.data?.profile || !canReview}
 		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 			<Card.Header>
-				<Card.Title>Activate Verifier Access</Card.Title>
-				<Card.Description>Set your visible identity and join this language team.</Card.Description>
+				<Card.Title>{m.vsettings_activate_title()}</Card.Title>
+				<Card.Description>{m.vsettings_activate_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Content class="space-y-3">
 				<div class="space-y-2">
-					<Label for="firstName">First Name</Label>
-					<Input id="firstName" bind:value={onboardingFirstName} placeholder="e.g. Lwazi" />
+					<Label for="firstName">{m.vsettings_first_name()}</Label>
+					<Input id="firstName" bind:value={onboardingFirstName} placeholder={m.vsettings_first_name_placeholder()} />
 				</div>
 				<div class="space-y-2">
-					<Label for="profileImage">Profile Image URL (optional)</Label>
+					<Label for="profileImage">{m.vsettings_image_label()}</Label>
 					<Input id="profileImage" bind:value={onboardingImageUrl} placeholder="https://..." />
 				</div>
 				<Button class="w-full" onclick={saveOnboarding} disabled={saving}>
-					{saving ? 'Saving...' : 'Activate'}
+					{saving ? m.btn_saving() : m.vsettings_activate_btn()}
 				</Button>
 			</Card.Content>
 		</Card.Root>

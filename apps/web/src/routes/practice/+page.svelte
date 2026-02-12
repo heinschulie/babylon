@@ -9,6 +9,7 @@
 	import * as Card from '@babylon/ui/card';
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 	import { fly } from 'svelte/transition';
+	import * as m from '$lib/paraglide/messages.js';
 
 	function relativeTime(timestamp: number): string {
 		const now = Date.now();
@@ -17,18 +18,18 @@
 		const hours = Math.floor(diff / 3600000);
 		const days = Math.floor(diff / 86400000);
 
-		if (minutes < 1) return 'Just now';
-		if (minutes < 60) return `${minutes} Minute${minutes === 1 ? '' : 's'} Ago`;
+		if (minutes < 1) return m.time_just_now();
+		if (minutes < 60) return m.time_minutes_ago({ count: minutes });
 
 		const date = new Date(timestamp);
 		const today = new Date();
 		const yesterday = new Date(today);
 		yesterday.setDate(yesterday.getDate() - 1);
 
-		if (date.toDateString() === today.toDateString()) return 'Earlier Today';
-		if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-		if (days < 7) return `${days} Days Ago`;
-		if (days < 30) return `${Math.floor(days / 7)} Week${Math.floor(days / 7) === 1 ? '' : 's'} Ago`;
+		if (date.toDateString() === today.toDateString()) return m.time_earlier_today();
+		if (date.toDateString() === yesterday.toDateString()) return m.time_yesterday();
+		if (days < 7) return m.time_days_ago({ count: days });
+		if (days < 30) return m.time_weeks_ago({ count: Math.floor(days / 7) });
 		return date.toLocaleDateString();
 	}
 
@@ -281,7 +282,7 @@
 				body: blobSnapshot
 			});
 
-			if (!uploadResponse.ok) throw new Error('Failed to upload audio.');
+			if (!uploadResponse.ok) throw new Error(m.practice_upload_failed());
 
 			const uploadResult = await uploadResponse.json();
 			const storageId = uploadResult.storageId as string;
@@ -313,7 +314,7 @@
 			// 3. Immediately advance
 			advanceToNext();
 		} catch (err) {
-			recordError = err instanceof Error ? err.message : 'Failed to submit recording.';
+			recordError = err instanceof Error ? err.message : m.practice_submit_failed();
 		} finally {
 			processing = false;
 		}
@@ -368,7 +369,7 @@
 		durationMs = 0;
 
 		if (!navigator.mediaDevices?.getUserMedia) {
-			recordError = 'Audio recording not supported in this browser.';
+			recordError = m.practice_browser_unsupported();
 			return;
 		}
 
@@ -400,7 +401,7 @@
 			mediaRecorder.start();
 			recording = true;
 		} catch (err) {
-			recordError = err instanceof Error ? err.message : 'Failed to start recording.';
+			recordError = err instanceof Error ? err.message : m.practice_record_failed();
 		}
 	}
 
@@ -451,21 +452,21 @@
 	<div class="page-shell page-shell--narrow page-stack">
 		<header class="page-stack">
 			<div>
-				<p class="info-kicker">On-the-Go Mode</p>
-				<h1 class="text-5xl sm:text-6xl">Practice Sessions</h1>
+				<p class="info-kicker">{m.practice_kicker()}</p>
+				<h1 class="text-5xl sm:text-6xl">{m.practice_title()}</h1>
 				<p class="meta-text mt-3">
-					Start a short run now, review details later. Primary action first, history second.
+					{m.practice_desc()}
 				</p>
 			</div>
 			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 				<Card.Content>
 					<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
 						<div class="space-y-2">
-							<p class="info-kicker">Quick Start</p>
+							<p class="info-kicker">{m.practice_quick_start()}</p>
 							<p class="text-xl font-semibold">
-								{allPhrases.data?.length ?? 0} phrases ready to train
+								{m.practice_ready({ count: allPhrases.data?.length ?? 0 })}
 							</p>
-							<p class="meta-text">Best results come from 5-10 minute daily sessions.</p>
+							<p class="meta-text">{m.practice_tip()}</p>
 						</div>
 						<Button
 							onclick={startPracticeSession}
@@ -473,7 +474,7 @@
 							size="lg"
 							class="w-full sm:w-auto"
 						>
-							{starting ? 'Starting...' : 'Start Session'}
+							{starting ? m.practice_starting() : m.practice_start()}
 						</Button>
 					</div>
 				</Card.Content>
@@ -483,25 +484,25 @@
 		{#if !allPhrases.data || allPhrases.data.length === 0}
 			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 				<Card.Header>
-					<Card.Title>No phrases yet</Card.Title>
-					<Card.Description>Add phrases first, then come back to start practicing.</Card.Description>
+					<Card.Title>{m.practice_no_phrases()}</Card.Title>
+					<Card.Description>{m.practice_no_phrases_desc()}</Card.Description>
 				</Card.Header>
 				<Card.Footer>
-					<a href={resolve('/')} class="meta-text underline">Go to Phrase Library</a>
+					<a href={resolve('/')} class="meta-text underline">{m.practice_go_library()}</a>
 				</Card.Footer>
 			</Card.Root>
 		{/if}
 
 		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 			<Card.Header>
-				<Card.Title>Recent Sessions</Card.Title>
-				<Card.Description>Open prior sessions to replay attempts and review corrections.</Card.Description>
+				<Card.Title>{m.practice_recent()}</Card.Title>
+				<Card.Description>{m.practice_recent_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				{#if practiceSessions.isLoading}
-					<p class="meta-text">Loading sessions...</p>
+					<p class="meta-text">{m.practice_loading_sessions()}</p>
 				{:else if !practiceSessions.data || practiceSessions.data.length === 0}
-					<p class="meta-text">No practice sessions yet.</p>
+					<p class="meta-text">{m.practice_no_sessions()}</p>
 				{:else}
 					<ul class="space-y-3">
 						{#each practiceSessions.data as session}
@@ -511,7 +512,7 @@
 									class="flex items-center justify-between border border-border/60 bg-background/70 p-4 transition-colors hover:bg-background/90"
 								>
 									<span class="font-semibold">{relativeTime(session.startedAt)}</span>
-									<span class="meta-text">{session.phraseCount} phrase{session.phraseCount === 1 ? '' : 's'}</span>
+									<span class="meta-text">{m.library_phrase_count({ count: session.phraseCount })}</span>
 								</a>
 							</li>
 						{/each}
@@ -523,18 +524,18 @@
 {:else}
 	{#if allPhrases.isLoading || activePracticeSession.isLoading}
 		<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
-			<p class="meta-text">Loading session...</p>
+			<p class="meta-text">{m.practice_loading_session()}</p>
 		</div>
 	{:else if !allPhrases.data || allPhrases.data.length === 0}
 		<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
 			<Card.Root class="w-full border border-border/60 bg-background/85 backdrop-blur-sm">
 				<Card.Header class="text-center">
-					<Card.Title class="text-2xl">No Phrases Yet</Card.Title>
-					<Card.Description>Add phrases in your phrase library first.</Card.Description>
+					<Card.Title class="text-2xl">{m.practice_no_phrases_title()}</Card.Title>
+					<Card.Description>{m.practice_no_phrases_body()}</Card.Description>
 				</Card.Header>
 				<Card.Footer class="justify-center">
 					<a href={resolve('/')} class="meta-text underline">
-						Back to Phrase Library
+						{m.practice_back_library()}
 					</a>
 				</Card.Footer>
 			</Card.Root>
@@ -542,18 +543,18 @@
 	{:else if sessionDone}
 		<div class="page-shell page-shell--narrow page-stack">
 			<div class="page-stack">
-				<h1 class="text-5xl sm:text-6xl">Session Review</h1>
+				<h1 class="text-5xl sm:text-6xl">{m.practice_review_title()}</h1>
 				<p class="meta-text">
 					{#if pendingSubmissions > 0}
-						Processing {pendingSubmissions} recording{pendingSubmissions === 1 ? '' : 's'}...
+						{m.practice_processing_count({ count: pendingSubmissions })}
 					{:else}
-						All feedback received.
+						{m.practice_all_received()}
 					{/if}
 				</p>
 			</div>
 
 			{#if sessionAttempts.isLoading}
-				<p class="meta-text">Loading results...</p>
+				<p class="meta-text">{m.practice_loading_results()}</p>
 			{:else if sessionAttempts.data}
 				<Accordion.Root type="single">
 					{#each sessionAttempts.data.attempts as attempt (attempt._id)}
@@ -573,15 +574,15 @@
 										<span class="practice-review-score">{attempt.score}/5</span>
 									</div>
 								{:else if attempt.status === 'processing'}
-									<span class="meta-text">Processing...</span>
+									<span class="meta-text">{m.state_processing()}</span>
 								{:else if attempt.status === 'failed'}
-									<span class="text-destructive text-sm">Failed</span>
+									<span class="text-destructive text-sm">{m.state_failed()}</span>
 								{/if}
 								{#if hasVerifier}
 									<div class="practice-review-trigger__verifier-scores">
-										<span class="practice-review-vscore" title="Sound">S{attempt.humanReview.initialReview.soundAccuracy}</span>
-										<span class="practice-review-vscore" title="Rhythm">R{attempt.humanReview.initialReview.rhythmIntonation}</span>
-										<span class="practice-review-vscore" title="Phrase">P{attempt.humanReview.initialReview.phraseAccuracy}</span>
+										<span class="practice-review-vscore" title={m.practice_score_sound()}>S{attempt.humanReview.initialReview.soundAccuracy}</span>
+										<span class="practice-review-vscore" title={m.practice_score_rhythm()}>R{attempt.humanReview.initialReview.rhythmIntonation}</span>
+										<span class="practice-review-vscore" title={m.practice_score_phrase()}>P{attempt.humanReview.initialReview.phraseAccuracy}</span>
 									</div>
 								{/if}
 							</Accordion.Trigger>
@@ -592,13 +593,13 @@
 									{/if}
 									{#if attempt.audioUrl}
 										<div>
-											<p class="info-kicker mb-1">Your Recording</p>
+											<p class="info-kicker mb-1">{m.practice_your_recording()}</p>
 											<!-- svelte-ignore a11y_click_events_have_key_events -->
 											<!-- svelte-ignore a11y_no_static_element_interactions -->
 											<div class="practice-player" onclick={() => toggleReviewPlayback(attempt._id)}>
 												<div class="practice-player__fill" style="width: {(rp(attempt._id).progress) * 100}%"></div>
 												<span class="practice-player__label">
-													{rp(attempt._id).playing ? 'Playing...' : formatDuration(rp(attempt._id).duration)}
+													{rp(attempt._id).playing ? m.state_playing() : formatDuration(rp(attempt._id).duration)}
 												</span>
 											</div>
 											<audio
@@ -613,13 +614,13 @@
 									{/if}
 									{#if attempt.humanReview?.initialReview?.audioUrl}
 										<div>
-											<p class="info-kicker mb-1">Verifier Example</p>
+											<p class="info-kicker mb-1">{m.practice_verifier_example()}</p>
 											<!-- svelte-ignore a11y_click_events_have_key_events -->
 											<!-- svelte-ignore a11y_no_static_element_interactions -->
 											<div class="practice-player practice-player--verifier" onclick={() => toggleVerifierPlayback(attempt._id)}>
 												<div class="practice-player__fill" style="width: {(vp(attempt._id).progress) * 100}%"></div>
 												<span class="practice-player__label">
-													{vp(attempt._id).playing ? 'Playing...' : formatDuration(vp(attempt._id).duration)}
+													{vp(attempt._id).playing ? m.state_playing() : formatDuration(vp(attempt._id).duration)}
 												</span>
 											</div>
 											<audio
@@ -640,10 +641,10 @@
 
 				<div class="grid grid-cols-2 gap-2">
 					<Button onclick={() => { sessionDone = false; initialized = false; startPracticeSession(); }} size="lg">
-						New Session
+						{m.practice_new_session()}
 					</Button>
 					<Button onclick={endPracticeSession} variant="outline" size="lg" disabled={ending}>
-						{ending ? 'Ending...' : 'Finish'}
+						{ending ? m.practice_ending() : m.practice_finish()}
 					</Button>
 				</div>
 			{/if}
@@ -653,16 +654,16 @@
 			<!-- Top: session info + mode toggle -->
 			<div class="practice-session__header">
 				<div class="practice-session__header-info">
-					<p class="info-kicker">Phrase {queuePosition} of {queueLength}</p>
+					<p class="info-kicker">{m.practice_phrase_of({ position: queuePosition, length: queueLength })}</p>
 					<p class="meta-text">
-						Session started {new Date(activePracticeSession.data?.startedAt ?? Date.now()).toLocaleTimeString()}
+						{m.practice_session_started({ time: new Date(activePracticeSession.data?.startedAt ?? Date.now()).toLocaleTimeString() })}
 					</p>
 				</div>
 				<div class="practice-session__header-mode">
 					<button
 						class="practice-mode-btn active"
 						onclick={cycleQueueMode}
-						aria-label="Queue mode: {queueMode}"
+						aria-label={m.practice_queue_mode({ mode: queueMode })}
 					>
 						{#if queueMode === 'once'}
 							1x
@@ -683,7 +684,7 @@
 						in:fly={{ x: 200, duration: 320 }}
 						out:fly={{ x: -200, duration: 320 }}
 					>
-						<p class="xhosa-phrase font-black">{currentPhrase.english}</p>
+						<p class="target-phrase font-black">{currentPhrase.english}</p>
 					</div>
 				{/key}
 			</div>
@@ -700,7 +701,7 @@
 					<div class="practice-player" onclick={togglePlayback}>
 						<div class="practice-player__fill" style="width: {playProgress * 100}%"></div>
 						<span class="practice-player__label">
-							{playing ? 'Playing...' : formatDuration(durationMs)}
+							{playing ? m.state_playing() : formatDuration(durationMs)}
 						</span>
 					</div>
 					<audio
@@ -713,27 +714,27 @@
 					></audio>
 				{:else if recording}
 					<Button onclick={stopRecording} size="lg" class="practice-record-btn w-full">
-						Stop Recording
+						{m.practice_stop_recording()}
 					</Button>
 				{:else}
 					<Button onclick={startRecording} size="lg" class="practice-record-btn w-full">
-						Start Recording
+						{m.practice_start_recording()}
 					</Button>
 				{/if}
 
 				<div class="flex gap-2">
 					<Button onclick={handleSubmit} class="flex-1" size="lg" disabled={!audioBlob || processing}>
-						{processing ? 'Uploading...' : 'Submit'}
+						{processing ? m.practice_uploading() : m.btn_submit()}
 					</Button>
 					{#if audioUrl}
-						<Button onclick={discardRecording} variant="outline" size="lg">Discard</Button>
+						<Button onclick={discardRecording} variant="outline" size="lg">{m.btn_discard()}</Button>
 					{:else}
-						<Button onclick={handleSkip} variant="outline" size="lg">Skip</Button>
+						<Button onclick={handleSkip} variant="outline" size="lg">{m.btn_skip()}</Button>
 					{/if}
 				</div>
 
 				<button class="meta-text underline text-center" onclick={endPracticeSession}>
-					{ending ? 'Ending...' : 'End Session'}
+					{ending ? m.practice_ending() : m.practice_end_session()}
 				</button>
 			</div>
 		</div>

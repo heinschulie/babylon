@@ -5,6 +5,7 @@
 	import { api, type Id } from '@babylon/convex';
 	import { Button } from '@babylon/ui/button';
 	import * as Accordion from '@babylon/ui/accordion';
+	import * as m from '$lib/paraglide/messages.js';
 
 	const client = useConvexClient();
 	const practiceSessionId = $derived(page.params.id as Id<'practiceSessions'>);
@@ -138,22 +139,22 @@
 
 <div class="page-shell page-shell--narrow page-stack">
 	<div class="page-stack">
-		<a href={resolve('/practice')} class="meta-text underline">&larr; Back to Practice Sessions</a>
-		<h1 class="text-5xl sm:text-6xl">Session Review</h1>
+		<a href={resolve('/practice')} class="meta-text underline">&larr; {m.session_back()}</a>
+		<h1 class="text-5xl sm:text-6xl">{m.session_review()}</h1>
 		{#if sessionData.data}
 			<p class="meta-text">
 				{new Date(sessionData.data.practiceSession.startedAt).toLocaleString()}
-				&middot; {sessionData.data.attempts.length} attempt{sessionData.data.attempts.length === 1 ? '' : 's'}
+				&middot; {m.session_attempt_count({ count: sessionData.data.attempts.length })}
 			</p>
 		{/if}
 	</div>
 
 	{#if sessionData.isLoading}
-		<p class="meta-text">Loading session...</p>
+		<p class="meta-text">{m.session_loading()}</p>
 	{:else if sessionData.error}
 		<p class="text-destructive">{sessionData.error.message}</p>
 	{:else if !sessionData.data}
-		<p class="meta-text">Session not found.</p>
+		<p class="meta-text">{m.session_not_found()}</p>
 	{:else}
 		<Accordion.Root type="single">
 			{#each sessionData.data.attempts as attempt (attempt._id)}
@@ -173,15 +174,15 @@
 								<span class="practice-review-score">{attempt.score}/5</span>
 							</div>
 						{:else if attempt.status === 'processing'}
-							<span class="meta-text">Processing...</span>
+							<span class="meta-text">{m.state_processing()}</span>
 						{:else if attempt.status === 'failed'}
-							<span class="text-destructive text-sm">Failed</span>
+							<span class="text-destructive text-sm">{m.state_failed()}</span>
 						{/if}
 						{#if hasVerifier}
 							<div class="practice-review-trigger__verifier-scores">
-								<span class="practice-review-vscore" title="Sound">S{attempt.humanReview.initialReview.soundAccuracy}</span>
-								<span class="practice-review-vscore" title="Rhythm">R{attempt.humanReview.initialReview.rhythmIntonation}</span>
-								<span class="practice-review-vscore" title="Phrase">P{attempt.humanReview.initialReview.phraseAccuracy}</span>
+								<span class="practice-review-vscore" title={m.practice_score_sound()}>S{attempt.humanReview.initialReview.soundAccuracy}</span>
+								<span class="practice-review-vscore" title={m.practice_score_rhythm()}>R{attempt.humanReview.initialReview.rhythmIntonation}</span>
+								<span class="practice-review-vscore" title={m.practice_score_phrase()}>P{attempt.humanReview.initialReview.phraseAccuracy}</span>
 							</div>
 						{/if}
 					</Accordion.Trigger>
@@ -197,13 +198,13 @@
 							{#if attempt.audioUrl}
 								<div class="practice-review-detail__players">
 									<div>
-										<p class="info-kicker mb-1">Your Recording</p>
+										<p class="info-kicker mb-1">{m.practice_your_recording()}</p>
 										<!-- svelte-ignore a11y_click_events_have_key_events -->
 										<!-- svelte-ignore a11y_no_static_element_interactions -->
 										<div class="practice-player" onclick={() => toggleReviewPlayback(attempt._id)}>
 											<div class="practice-player__fill" style="width: {(rp(attempt._id).progress) * 100}%"></div>
 											<span class="practice-player__label">
-												{rp(attempt._id).playing ? 'Playing...' : formatDuration(rp(attempt._id).duration)}
+												{rp(attempt._id).playing ? m.state_playing() : formatDuration(rp(attempt._id).duration)}
 											</span>
 										</div>
 										<audio
@@ -217,13 +218,13 @@
 									</div>
 									{#if attempt.humanReview?.initialReview?.audioUrl}
 										<div>
-											<p class="info-kicker mb-1">Verifier Example</p>
+											<p class="info-kicker mb-1">{m.practice_verifier_example()}</p>
 											<!-- svelte-ignore a11y_click_events_have_key_events -->
 											<!-- svelte-ignore a11y_no_static_element_interactions -->
 											<div class="practice-player practice-player--verifier" onclick={() => toggleVerifierPlayback(attempt._id)}>
 												<div class="practice-player__fill" style="width: {(vp(attempt._id).progress) * 100}%"></div>
 												<span class="practice-player__label">
-													{vp(attempt._id).playing ? 'Playing...' : formatDuration(vp(attempt._id).duration)}
+													{vp(attempt._id).playing ? m.state_playing() : formatDuration(vp(attempt._id).duration)}
 												</span>
 											</div>
 											<audio
@@ -245,7 +246,7 @@
 		</Accordion.Root>
 
 		<Button onclick={() => history.back()} variant="outline" size="lg" class="w-full">
-			Back to Sessions
+			{m.session_back_btn()}
 		</Button>
 	{/if}
 </div>

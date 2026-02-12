@@ -6,6 +6,7 @@
 	import { api, type Id } from '@babylon/convex';
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 	import { Button } from '@babylon/ui/button';
+	import * as m from '$lib/paraglide/messages.js';
 
 	const client = useConvexClient();
 	const requestId = $derived(page.params.id as Id<'humanReviewRequests'>);
@@ -79,7 +80,7 @@
 		exemplarDurationMs = 0;
 
 		if (!navigator.mediaDevices?.getUserMedia) {
-			recorderError = 'Audio recording not supported.';
+			recorderError = m.claim_audio_unsupported();
 			return;
 		}
 
@@ -103,7 +104,7 @@
 			mr.start();
 			recording = true;
 		} catch (e) {
-			recorderError = e instanceof Error ? e.message : 'Failed to start recording.';
+			recorderError = e instanceof Error ? e.message : m.claim_record_failed();
 		}
 	}
 
@@ -130,7 +131,7 @@
 			discardRecording();
 			goto(resolve('/work'));
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to release.';
+			error = e instanceof Error ? e.message : m.claim_release_failed();
 		} finally {
 			releasing = false;
 		}
@@ -148,7 +149,7 @@
 				headers: { 'Content-Type': exemplarAudioBlob.type || 'audio/webm' },
 				body: exemplarAudioBlob
 			});
-			if (!res.ok) throw new Error('Failed to upload exemplar audio.');
+			if (!res.ok) throw new Error(m.claim_upload_failed());
 			const { storageId } = await res.json();
 
 			const exemplarId = await client.mutation(api.audioAssets.create, {
@@ -176,7 +177,7 @@
 				goto(resolve('/work'));
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to submit review.';
+			error = e instanceof Error ? e.message : m.claim_submit_failed();
 		} finally {
 			submitting = false;
 		}
@@ -187,7 +188,7 @@
 
 {#if !claim}
 	<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
-		<p class="meta-text">Loading claim...</p>
+		<p class="meta-text">{m.claim_loading()}</p>
 	</div>
 {:else}
 	<div class="practice-session">
@@ -195,10 +196,10 @@
 		<div class="practice-session__header">
 			<div class="practice-session__header-info">
 				<p class="info-kicker">
-					{claim.phase === 'dispute' ? 'Dispute Review' : 'Learner Attempt'}
+					{claim.phase === 'dispute' ? m.claim_dispute_review() : m.claim_learner_attempt()}
 				</p>
 				<p class="meta-text">
-					Time remaining: {formatTimer(remainingMs)}
+					{m.claim_time_remaining({ time: formatTimer(remainingMs) })}
 				</p>
 			</div>
 		</div>
@@ -210,23 +211,23 @@
 				<div class="text-center">
 					<p class="info-kicker">English</p>
 					<p class="mt-1 text-xl font-semibold sm:text-2xl">{claim.phrase?.english}</p>
-					<p class="xhosa-phrase mt-3 font-black">{claim.phrase?.translation}</p>
+					<p class="target-phrase mt-3 font-black">{claim.phrase?.translation}</p>
 				</div>
 
 				<!-- Learner audio -->
 				{#if claim.learnerAttempt.audioUrl}
 					<div class="border border-border/50 bg-muted/30 p-3">
-						<p class="info-kicker mb-2">Learner Audio</p>
+						<p class="info-kicker mb-2">{m.claim_learner_audio()}</p>
 						<audio controls src={claim.learnerAttempt.audioUrl} class="w-full"></audio>
 					</div>
 				{/if}
 
 				<!-- Audio Scoring: 5 yellow square buttons per dimension -->
 				<div class="space-y-4">
-					<p class="info-kicker">Audio Scoring</p>
+					<p class="info-kicker">{m.claim_scoring_title()}</p>
 
 					<div class="space-y-3">
-						<p class="text-sm font-medium">Sound Accuracy</p>
+						<p class="text-sm font-medium">{m.claim_sound_accuracy()}</p>
 						<div class="flex gap-2">
 							{#each scoreLabels as n}
 								<button
@@ -244,7 +245,7 @@
 					</div>
 
 					<div class="space-y-3">
-						<p class="text-sm font-medium">Rhythm & Intonation</p>
+						<p class="text-sm font-medium">{m.claim_rhythm_intonation()}</p>
 						<div class="flex gap-2">
 							{#each scoreLabels as n}
 								<button
@@ -262,7 +263,7 @@
 					</div>
 
 					<div class="space-y-3">
-						<p class="text-sm font-medium">Phrase Accuracy</p>
+						<p class="text-sm font-medium">{m.claim_phrase_accuracy()}</p>
 						<div class="flex gap-2">
 							{#each scoreLabels as n}
 								<button
@@ -283,27 +284,27 @@
 				<!-- AI Analysis section -->
 				{#if claim.aiFeedback}
 					<div class="space-y-4">
-						<p class="info-kicker">AI Analysis</p>
+						<p class="info-kicker">{m.claim_ai_title()}</p>
 						<div class="border border-border/50 bg-muted/30 p-3 space-y-2">
 							{#if claim.aiFeedback.transcript}
 								<div>
-									<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Transcript</p>
+									<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{m.claim_transcript()}</p>
 									<p class="text-sm mt-1">{claim.aiFeedback.transcript}</p>
 								</div>
 							{/if}
 							{#if claim.aiFeedback.feedbackText}
 								<div>
-									<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Feedback</p>
+									<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{m.claim_feedback()}</p>
 									<p class="text-sm mt-1">{claim.aiFeedback.feedbackText}</p>
 								</div>
 							{/if}
 							{#if claim.aiFeedback.score != null}
-								<p class="text-sm">AI Score: {claim.aiFeedback.score}/5</p>
+								<p class="text-sm">{m.claim_ai_score({ score: claim.aiFeedback.score })}</p>
 							{/if}
 						</div>
 
 						<div class="space-y-2">
-							<p class="text-sm font-medium">Is this analysis correct?</p>
+							<p class="text-sm font-medium">{m.claim_ai_correct_q()}</p>
 							<div class="flex gap-2">
 								<button
 									class="flex-1 py-2.5 text-sm font-bold transition-colors border"
@@ -314,7 +315,7 @@
 									class:border-border={aiAnalysisCorrect !== false}
 									onclick={() => (aiAnalysisCorrect = false)}
 								>
-									Incorrect
+									{m.claim_ai_incorrect()}
 								</button>
 								<button
 									class="flex-1 py-2.5 text-sm font-bold transition-colors border"
@@ -325,7 +326,7 @@
 									class:border-border={aiAnalysisCorrect !== true}
 									onclick={() => (aiAnalysisCorrect = true)}
 								>
-									Correct
+									{m.claim_ai_correct()}
 								</button>
 							</div>
 						</div>
@@ -335,14 +336,12 @@
 				<!-- Dispute context -->
 				{#if claim.phase === 'dispute' && claim.originalReview}
 					<div class="border border-orange-500/50 bg-orange-500/10 p-3">
-						<p class="info-kicker">Original Review by {claim.originalReview.verifierFirstName}</p>
+						<p class="info-kicker">{m.claim_original_review({ name: claim.originalReview.verifierFirstName })}</p>
 						<p class="meta-text mt-1">
-							Sound {claim.originalReview.soundAccuracy}/5
-							• Rhythm {claim.originalReview.rhythmIntonation}/5
-							• Phrase {claim.originalReview.phraseAccuracy}/5
+							{m.claim_original_scores({ sound: claim.originalReview.soundAccuracy, rhythm: claim.originalReview.rhythmIntonation, phrase: claim.originalReview.phraseAccuracy })}
 						</p>
 						<p class="meta-text mt-1">
-							Dispute checks: {claim.disputeProgress?.completed ?? 0}/2
+							{m.claim_dispute_progress({ completed: claim.disputeProgress?.completed ?? 0 })}
 						</p>
 					</div>
 				{/if}
@@ -360,27 +359,27 @@
 
 			<!-- Exemplar recording -->
 			<div class="space-y-2">
-				<p class="info-kicker">Record Exemplar</p>
+				<p class="info-kicker">{m.claim_record_exemplar()}</p>
 				{#if exemplarAudioUrl}
 					<audio controls src={exemplarAudioUrl} class="w-full"></audio>
-					<Button onclick={discardRecording} variant="outline" size="sm" class="w-full">Discard Recording</Button>
+					<Button onclick={discardRecording} variant="outline" size="sm" class="w-full">{m.claim_discard_recording()}</Button>
 				{:else if recording}
 					<Button onclick={stopRecording} size="lg" class="practice-record-btn w-full">
-						Stop Recording
+						{m.claim_stop_recording()}
 					</Button>
 				{:else}
 					<Button onclick={startRecording} size="lg" class="practice-record-btn w-full">
-						Record Exemplar
+						{m.claim_record_exemplar()}
 					</Button>
 				{/if}
 			</div>
 
 			<div class="grid grid-cols-2 gap-2">
 				<Button variant="outline" onclick={releaseClaim} disabled={releasing || submitting}>
-					{releasing ? 'Releasing...' : 'Release'}
+					{releasing ? m.btn_releasing() : m.btn_release()}
 				</Button>
 				<Button onclick={submitReview} disabled={submitting || !exemplarAudioBlob || remainingMs <= 0}>
-					{submitting ? 'Submitting...' : 'Submit'}
+					{submitting ? m.btn_submitting() : m.btn_submit()}
 				</Button>
 			</div>
 		</div>
