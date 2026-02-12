@@ -4,10 +4,10 @@
 	import { page } from '$app/state';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
-	import { Button } from '$lib/components/ui/button';
-	import * as Accordion from '$lib/components/ui/accordion';
-	import * as Card from '$lib/components/ui/card';
-	import { isAuthenticated, isLoading } from '$lib/stores/auth';
+	import { Button } from '@babylon/ui/button';
+	import * as Accordion from '@babylon/ui/accordion';
+	import * as Card from '@babylon/ui/card';
+	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 	import { fly } from 'svelte/transition';
 
 	function relativeTime(timestamp: number): string {

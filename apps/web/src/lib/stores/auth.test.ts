@@ -8,7 +8,7 @@ type SessionData = {
 };
 
 // Mock better-auth client before importing auth stores
-vi.mock('$lib/auth-client', () => {
+vi.mock('@babylon/shared/auth-client', () => {
 	const mockSessionStore = writable<SessionData>({
 		data: null,
 		isPending: false,
@@ -25,8 +25,8 @@ vi.mock('$lib/auth-client', () => {
 });
 
 // Import after mock setup
-const { session, isAuthenticated, isLoading, user } = await import('./auth');
-const authClientMock = (await import('$lib/auth-client')) as unknown as {
+const { session, isAuthenticated, isLoading, user } = await import('@babylon/shared/stores/auth');
+const authClientMock = (await import('@babylon/shared/auth-client')) as unknown as {
 	__mockSessionStore: Writable<SessionData>;
 };
 const __mockSessionStore = authClientMock.__mockSessionStore;

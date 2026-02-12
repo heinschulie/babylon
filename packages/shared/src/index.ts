@@ -1,2 +1,2 @@
-// Shared cross-frontend utilities and types live here.
-export {};
+export { cn } from './utils';
+export type { WithoutChild, WithoutChildren, WithoutChildrenOrChild, WithElementRef } from './utils';

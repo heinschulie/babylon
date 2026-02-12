@@ -3,8 +3,8 @@
 	import { page } from '$app/state';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
-	import { Button } from '$lib/components/ui/button';
-	import * as Accordion from '$lib/components/ui/accordion';
+	import { Button } from '@babylon/ui/button';
+	import * as Accordion from '@babylon/ui/accordion';
 
 	const client = useConvexClient();
 	const practiceSessionId = $derived(page.params.id as Id<'practiceSessions'>);

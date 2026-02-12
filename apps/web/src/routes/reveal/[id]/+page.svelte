@@ -3,10 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { useQuery } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { Button } from '@babylon/ui/button';
+	import * as Card from '@babylon/ui/card';
+	import { Input } from '@babylon/ui/input';
+	import { Label } from '@babylon/ui/label';
 
 	const phraseId = $derived(page.params.id as Id<'phrases'>);
 	const phrase = useQuery(api.phrases.get, () => ({ id: phraseId }));

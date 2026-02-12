@@ -157,6 +157,7 @@ export default defineSchema({
 		soundAccuracy: v.number(), // 1..5
 		rhythmIntonation: v.number(), // 1..5
 		phraseAccuracy: v.number(), // 1..5
+		aiAnalysisCorrect: v.optional(v.boolean()),
 		exemplarAudioAssetId: v.id('audioAssets'),
 		verifierFirstName: v.string(),
 		verifierProfileImageUrl: v.optional(v.string()),

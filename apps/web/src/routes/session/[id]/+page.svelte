@@ -3,11 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { Button } from '@babylon/ui/button';
+	import * as Card from '@babylon/ui/card';
+	import * as Dialog from '@babylon/ui/dialog';
+	import { Input } from '@babylon/ui/input';
+	import { Label } from '@babylon/ui/label';
 
 	const client = useConvexClient();
 	const sessionId = $derived(page.params.id as Id<'sessions'>);

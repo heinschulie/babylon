@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@source "../../ui/src/**/*.{svelte,ts,js}";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -502,6 +504,12 @@
 
 	.practice-fab:hover {
 		transform: scale(1.06);
+	}
+
+	.practice-fab--disabled,
+	.practice-fab:disabled {
+		opacity: 0.35;
+		pointer-events: none;
 	}
 
 	.practice-fab__minutes {
