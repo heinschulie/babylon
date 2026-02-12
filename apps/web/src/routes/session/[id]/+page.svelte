@@ -8,6 +8,7 @@
 	import * as Dialog from '@babylon/ui/dialog';
 	import { Input } from '@babylon/ui/input';
 	import { Label } from '@babylon/ui/label';
+	import * as m from '$lib/paraglide/messages.js';
 
 	const client = useConvexClient();
 	const sessionId = $derived(page.params.id as Id<'sessions'>);
@@ -35,7 +36,7 @@
 
 	async function verifyTranslation() {
 		if (!english.trim() || !translation.trim()) {
-			error = 'Please enter both English and translation';
+			error = m.error_enter_both();
 			return;
 		}
 
@@ -65,7 +66,7 @@
 
 	async function createPhrase() {
 		if (!english.trim() || !translation.trim()) {
-			error = 'Please enter both English and translation';
+			error = m.error_enter_both();
 			return;
 		}
 
@@ -81,7 +82,7 @@
 			dialogOpen = false;
 			resetForm();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to create phrase';
+			error = e instanceof Error ? e.message : m.error_failed_add_phrase();
 		} finally {
 			creating = false;
 		}
@@ -108,7 +109,7 @@
 	}
 
 	async function removePhrase(phraseId: Id<'phrases'>) {
-		if (!confirm('Are you sure you want to delete this phrase?')) {
+		if (!confirm(m.old_session_confirm_delete())) {
 			return;
 		}
 
@@ -124,13 +125,13 @@
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div>
 			<a href={resolve('/')} class="meta-text underline"
-				>&larr; Back to sessions</a
+				>&larr; {m.old_session_back()}</a
 			>
 			<h1 class="mt-2 text-5xl sm:text-6xl">
 				{#if session}
-					{session.targetLanguage} Session
+					{m.old_session_language_session({ language: session.targetLanguage })}
 				{:else}
-					Session Details
+					{m.old_session_details()}
 				{/if}
 			</h1>
 			{#if session}
@@ -140,24 +141,24 @@
 		<Dialog.Root bind:open={dialogOpen}>
 			<Dialog.Trigger>
 				{#snippet child({ props })}
-					<Button {...props}>Add Phrase</Button>
+					<Button {...props}>{m.old_session_add_phrase()}</Button>
 				{/snippet}
 			</Dialog.Trigger>
 			<Dialog.Content>
 				<Dialog.Header>
-					<Dialog.Title>Add New Phrase</Dialog.Title>
+					<Dialog.Title>{m.old_session_add_new_phrase()}</Dialog.Title>
 					<Dialog.Description>
-						Enter an English phrase and your {session?.targetLanguage || 'target language'} translation.
+						{m.old_session_enter_phrase_desc({ language: session?.targetLanguage || 'target language' })}
 					</Dialog.Description>
 				</Dialog.Header>
 				<div class="space-y-4 py-4">
 					<div class="space-y-2">
-						<Label for="english">English</Label>
-						<Input id="english" placeholder="Enter English phrase" bind:value={english} />
+						<Label for="english">{m.old_session_english_label()}</Label>
+						<Input id="english" placeholder={m.old_session_english_placeholder()} bind:value={english} />
 					</div>
 					<div class="space-y-2">
-						<Label for="translation">Your Translation ({session?.targetLanguage || 'target'})</Label>
-						<Input id="translation" placeholder="Enter your translation" bind:value={translation} />
+						<Label for="translation">{m.old_session_translation_label({ language: session?.targetLanguage || 'target' })}</Label>
+						<Input id="translation" placeholder={m.old_session_translation_placeholder()} bind:value={translation} />
 					</div>
 
 					{#if showVerification && verificationResult}
@@ -167,16 +168,16 @@
 							</p>
 							{#if verificationResult.similarity !== undefined}
 								<p class="mt-1 text-xs text-muted-foreground">
-									Similarity: {verificationResult.similarity}%
+									{m.old_session_similarity({ similarity: String(verificationResult.similarity) })}
 								</p>
 							{/if}
 							{#if !verificationResult.verified && verificationResult.suggestedTranslation}
 								<div class="mt-3 flex gap-2">
 									<Button size="sm" variant="outline" onclick={useSuggestion}>
-										Use Suggestion
+										{m.old_session_use_suggestion()}
 									</Button>
 									<Button size="sm" variant="ghost" onclick={keepOriginal}>
-										Keep Mine
+										{m.old_session_keep_mine()}
 									</Button>
 								</div>
 							{/if}
@@ -188,18 +189,18 @@
 					{/if}
 				</div>
 				<Dialog.Footer>
-					<Button variant="outline" onclick={() => { dialogOpen = false; resetForm(); }}>Cancel</Button>
+					<Button variant="outline" onclick={() => { dialogOpen = false; resetForm(); }}>{m.btn_cancel()}</Button>
 					{#if !showVerification}
 						<Button
 							variant="secondary"
 							onclick={verifyTranslation}
 							disabled={verifying || !english.trim() || !translation.trim()}
 						>
-							{verifying ? 'Checking...' : 'Check Spelling'}
+							{verifying ? m.old_session_checking() : m.old_session_check_spelling()}
 						</Button>
 					{/if}
 					<Button onclick={createPhrase} disabled={creating || !english.trim() || !translation.trim()}>
-						{creating ? 'Adding...' : 'Add Phrase'}
+						{creating ? m.old_session_adding() : m.old_session_add_phrase()}
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Content>
@@ -207,16 +208,16 @@
 	</div>
 
 	<div>
-		<h2 class="text-4xl sm:text-5xl">Phrases</h2>
+		<h2 class="text-4xl sm:text-5xl">{m.old_session_phrases_title()}</h2>
 	</div>
 
 	<div class="space-y-4">
 		{#if sessionData.isLoading}
-			<p class="text-muted-foreground">Loading phrases...</p>
+			<p class="text-muted-foreground">{m.old_session_loading()}</p>
 		{:else if sessionData.error}
-			<p class="text-destructive">Error loading phrases: {sessionData.error.message}</p>
+			<p class="text-destructive">{m.old_session_error_loading({ message: sessionData.error.message })}</p>
 		{:else if !phrases || phrases.length === 0}
-			<p class="text-muted-foreground">No phrases yet. Add your first phrase!</p>
+			<p class="text-muted-foreground">{m.old_session_no_phrases()}</p>
 		{:else}
 			{#each phrases as phrase (phrase._id)}
 				<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
@@ -231,7 +232,7 @@
 							class="text-destructive hover:text-destructive"
 							onclick={() => removePhrase(phrase._id)}
 						>
-							Delete
+							{m.old_session_delete()}
 						</Button>
 					</Card.Header>
 				</Card.Root>

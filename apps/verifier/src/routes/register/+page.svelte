@@ -6,6 +6,7 @@
 	import * as Card from '@babylon/ui/card';
 	import { Input } from '@babylon/ui/input';
 	import { Label } from '@babylon/ui/label';
+	import * as m from '$lib/paraglide/messages.js';
 
 	let name = $state('');
 	let email = $state('');
@@ -25,7 +26,7 @@
 		});
 
 		if (err) {
-			error = err.message ?? 'Registration failed';
+			error = err.message ?? m.auth_registration_failed();
 		} else {
 			goto(resolve('/'));
 		}
@@ -36,36 +37,36 @@
 <div class="page-shell page-shell--compact flex min-h-[calc(100svh-9rem)] items-center justify-center">
 	<Card.Root class="w-full border border-border/60 bg-background/88 backdrop-blur-sm">
 		<Card.Header>
-			<p class="info-kicker">Start Quickly</p>
-			<Card.Title>Create Account</Card.Title>
-			<Card.Description>Set up in under a minute, then activate your verifier profile.</Card.Description>
+			<p class="info-kicker">{m.verifier_register_kicker()}</p>
+			<Card.Title>{m.auth_create_account()}</Card.Title>
+			<Card.Description>{m.verifier_register_desc()}</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<form onsubmit={handleRegister} class="space-y-5">
 				<div class="space-y-2">
-					<Label for="name">Name</Label>
+					<Label for="name">{m.auth_name()}</Label>
 					<Input id="name" bind:value={name} required />
 				</div>
 				<div class="space-y-2">
-					<Label for="email">Email</Label>
+					<Label for="email">{m.auth_email()}</Label>
 					<Input id="email" type="email" bind:value={email} required />
 				</div>
 				<div class="space-y-2">
-					<Label for="password">Password</Label>
+					<Label for="password">{m.auth_password()}</Label>
 					<Input id="password" type="password" bind:value={password} required />
 				</div>
 				{#if error}
 					<p class="text-sm text-red-500">{error}</p>
 				{/if}
 				<Button type="submit" class="w-full" disabled={loading}>
-					{loading ? 'Creating account...' : 'Create Account'}
+					{loading ? m.auth_creating_account() : m.auth_create_account()}
 				</Button>
 			</form>
 		</Card.Content>
 		<Card.Footer class="justify-center">
 			<p class="meta-text">
-				Already have an account?
-				<a href={resolve('/login')} class="text-primary underline">Sign in</a>
+				{m.auth_have_account()}
+				<a href={resolve('/login')} class="text-primary underline">{m.auth_sign_in_link()}</a>
 			</p>
 		</Card.Footer>
 	</Card.Root>

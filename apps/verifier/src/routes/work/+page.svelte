@@ -5,6 +5,7 @@
 	import { api } from '@babylon/convex';
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 	import * as Card from '@babylon/ui/card';
+	import * as m from '$lib/paraglide/messages.js';
 
 	const client = useConvexClient();
 	const verifierState = useQuery(api.verifierAccess.getMyVerifierState, {});
@@ -54,32 +55,32 @@
 	function relativeTime(timestamp: number): string {
 		const diff = Date.now() - timestamp;
 		const minutes = Math.floor(diff / 60000);
-		if (minutes < 1) return 'Just now';
-		if (minutes < 60) return `${minutes}m ago`;
+		if (minutes < 1) return m.time_just_now_short();
+		if (minutes < 60) return m.time_m_ago({ m: minutes });
 		const hours = Math.floor(diff / 3600000);
-		if (hours < 24) return `${hours}h ago`;
-		return `${Math.floor(diff / 86400000)}d ago`;
+		if (hours < 24) return m.time_h_ago({ h: hours });
+		return m.time_d_ago({ d: Math.floor(diff / 86400000) });
 	}
 </script>
 
 <div class="page-shell page-shell--narrow page-stack">
 	<header class="page-stack">
 		<div>
-			<p class="info-kicker">First Come, First Serve</p>
-			<h1 class="text-5xl sm:text-6xl">Available Work</h1>
+			<p class="info-kicker">{m.work_kicker()}</p>
+			<h1 class="text-5xl sm:text-6xl">{m.work_title()}</h1>
 			<p class="meta-text mt-3">
-				Pick a learner attempt from the queue. Once you claim it, you have 5 minutes to complete your review.
+				{m.work_desc()}
 			</p>
 		</div>
 		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 			<Card.Content>
 				<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
 					<div class="space-y-2">
-						<p class="info-kicker">Queue Status</p>
+						<p class="info-kicker">{m.work_queue_status()}</p>
 						<p class="text-xl font-semibold">
-							{queueSignal.data?.pendingCount ?? 0} pending review{(queueSignal.data?.pendingCount ?? 0) === 1 ? '' : 's'}
+							{m.work_pending_count({ count: queueSignal.data?.pendingCount ?? 0 })}
 						</p>
-						<p class="meta-text">Claim any item below to begin.</p>
+						<p class="meta-text">{m.work_claim_hint()}</p>
 					</div>
 				</div>
 			</Card.Content>
@@ -89,27 +90,27 @@
 	{#if !canReview}
 		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 			<Card.Header>
-				<Card.Title>Not Activated</Card.Title>
-				<Card.Description>Go to Settings to activate your verifier profile for this language.</Card.Description>
+				<Card.Title>{m.work_not_activated()}</Card.Title>
+				<Card.Description>{m.work_not_activated_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Footer>
-				<a href={resolve('/settings')} class="meta-text underline">Go to Settings</a>
+				<a href={resolve('/settings')} class="meta-text underline">{m.work_go_settings()}</a>
 			</Card.Footer>
 		</Card.Root>
 	{:else if pendingItems.isLoading}
-		<p class="meta-text">Loading queue...</p>
+		<p class="meta-text">{m.work_loading_queue()}</p>
 	{:else if !pendingItems.data || pendingItems.data.length === 0}
 		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 			<Card.Header>
-				<Card.Title>Queue Empty</Card.Title>
-				<Card.Description>No learner attempts need review right now. Check back soon.</Card.Description>
+				<Card.Title>{m.work_queue_empty()}</Card.Title>
+				<Card.Description>{m.work_queue_empty_desc()}</Card.Description>
 			</Card.Header>
 		</Card.Root>
 	{:else}
 		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 			<Card.Header>
-				<Card.Title>Pending Reviews</Card.Title>
-				<Card.Description>Tap an item to claim and begin reviewing.</Card.Description>
+				<Card.Title>{m.work_pending_title()}</Card.Title>
+				<Card.Description>{m.work_pending_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<ul class="space-y-3">
@@ -121,12 +122,12 @@
 								disabled={!!claiming}
 							>
 								<div>
-									<p class="font-semibold">{item.phrase?.english ?? 'Unknown phrase'}</p>
+									<p class="font-semibold">{item.phrase?.english ?? m.work_unknown_phrase()}</p>
 									<p class="meta-text text-primary">{item.phrase?.translation ?? ''}</p>
 								</div>
 								<div class="flex items-center gap-3">
 									{#if item.phase === 'dispute'}
-										<span class="info-kicker text-orange-600">Dispute</span>
+										<span class="info-kicker text-orange-600">{m.work_dispute()}</span>
 									{/if}
 									<span class="meta-text">{relativeTime(item.createdAt)}</span>
 								</div>

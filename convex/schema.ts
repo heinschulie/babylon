@@ -202,7 +202,8 @@ export default defineSchema({
 		quietHoursEnd: v.number(), // 0-23 hour
 		notificationsPerPhrase: v.number(),
 		pushSubscription: v.optional(v.string()), // JSON stringified PushSubscription
-		timeZone: v.optional(v.string()) // IANA time zone for local-midnight resets
+		timeZone: v.optional(v.string()), // IANA time zone for local-midnight resets
+		uiLocale: v.optional(v.string()) // UI language (e.g. en, xh)
 	}).index('by_user', ['userId']),
 
 	// Billing subscriptions (provider state)
