@@ -3,16 +3,14 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { setupConvex } from 'convex-svelte';
 	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { CONVEX_URL } from '$lib/convex';
-	import { authClient } from '$lib/auth-client';
-	import Header from '$lib/components/Header.svelte';
+	import { CONVEX_URL } from '@babylon/shared/convex';
+	import { authClient } from '@babylon/shared/auth-client';
+	import { Header } from '@babylon/ui/header';
 
 	let { children } = $props();
 
-	// setupConvex creates the Convex client and stores it in context
 	setupConvex(CONVEX_URL);
 
-	// createSvelteAuthClient will get the client from context and set up auth
 	createSvelteAuthClient({
 		authClient,
 		convexUrl: CONVEX_URL
@@ -23,5 +21,10 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<Header />
+<Header
+	links={[
+		{ label: 'Library', href: '/' },
+		{ label: 'Practice', href: '/practice' }
+	]}
+/>
 {@render children()}

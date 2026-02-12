@@ -118,6 +118,11 @@ async function buildAssignment(ctx: any, request: any, now: number) {
 	const learnerAudio = attempt.audioAssetId ? await ctx.db.get(attempt.audioAssetId) : null;
 	const learnerAudioUrl = learnerAudio?.storageKey ? await ctx.storage.getUrl(learnerAudio.storageKey) : null;
 
+	const aiFeedback = await ctx.db
+		.query('aiFeedback')
+		.withIndex('by_attempt', (q: any) => q.eq('attemptId', request.attemptId))
+		.unique();
+
 	let initialReview: any = null;
 	if (request.initialReviewId) {
 		initialReview = await ctx.db.get(request.initialReviewId);
@@ -152,6 +157,15 @@ async function buildAssignment(ctx: any, request: any, now: number) {
 					soundAccuracy: initialReview.soundAccuracy,
 					rhythmIntonation: initialReview.rhythmIntonation,
 					phraseAccuracy: initialReview.phraseAccuracy
+				}
+			: null,
+		aiFeedback: aiFeedback
+			? {
+					transcript: aiFeedback.transcript ?? null,
+					confidence: aiFeedback.confidence ?? null,
+					score: aiFeedback.score ?? null,
+					feedbackText: aiFeedback.feedbackText ?? null,
+					errorTags: aiFeedback.errorTags ?? []
 				}
 			: null,
 		disputeProgress:
@@ -371,6 +385,7 @@ export const submitReview = mutation({
 		soundAccuracy: v.number(),
 		rhythmIntonation: v.number(),
 		phraseAccuracy: v.number(),
+		aiAnalysisCorrect: v.optional(v.boolean()),
 		exemplarAudioAssetId: v.id('audioAssets')
 	},
 	handler: async (ctx, args) => {
@@ -470,6 +485,7 @@ export const submitReview = mutation({
 			soundAccuracy: args.soundAccuracy,
 			rhythmIntonation: args.rhythmIntonation,
 			phraseAccuracy: args.phraseAccuracy,
+			aiAnalysisCorrect: args.aiAnalysisCorrect,
 			exemplarAudioAssetId: args.exemplarAudioAssetId,
 			verifierFirstName,
 			verifierProfileImageUrl,
@@ -824,5 +840,38 @@ export const listEscalated = query({
 				escalatedAt: item.escalatedAt ?? null,
 				escalatedReason: item.escalatedReason ?? 'Escalated'
 			}));
+	}
+});
+
+export const listPendingForLanguage = query({
+	args: { languageCode: v.string() },
+	handler: async (ctx, { languageCode }) => {
+		const userId = await getAuthUserId(ctx);
+		await assertVerifierLanguageAccess(ctx, userId, languageCode);
+
+		const pending = await ctx.db
+			.query('humanReviewRequests')
+			.withIndex('by_language_status_priority', (q) =>
+				q.eq('languageCode', languageCode).eq('status', 'pending')
+			)
+			.take(50);
+
+		const results = [];
+		for (const request of pending) {
+			const phrase = await ctx.db.get(request.phraseId);
+			results.push({
+				requestId: request._id,
+				attemptId: request.attemptId,
+				phraseId: request.phraseId,
+				phase: request.phase,
+				priorityAt: request.priorityAt,
+				slaDueAt: request.slaDueAt,
+				createdAt: request.createdAt,
+				phrase: phrase
+					? { english: phrase.english, translation: phrase.translation }
+					: null
+			});
+		}
+		return results;
 	}
 });

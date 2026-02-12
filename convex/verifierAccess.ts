@@ -110,3 +110,25 @@ export const listSupportedLanguages = query({
 	}
 });
 
+export const getMyStats = query({
+	args: {},
+	handler: async (ctx) => {
+		const userId = await getAuthUserId(ctx);
+		const allReviews = await ctx.db
+			.query('humanReviews')
+			.withIndex('by_verifier_created', (q) => q.eq('verifierUserId', userId))
+			.collect();
+
+		const todayStart = new Date();
+		todayStart.setHours(0, 0, 0, 0);
+		const todayMs = todayStart.getTime();
+
+		const todayCount = allReviews.filter((r) => r.createdAt >= todayMs).length;
+
+		return {
+			totalReviews: allReviews.length,
+			todayReviews: todayCount
+		};
+	}
+});
+

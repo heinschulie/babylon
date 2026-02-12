@@ -2,11 +2,11 @@
 	import { resolve } from '$app/paths';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '@babylon/convex';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { requestNotificationPermission } from '$lib/notifications';
+	import { Button } from '@babylon/ui/button';
+	import * as Card from '@babylon/ui/card';
+	import { Input } from '@babylon/ui/input';
+	import { Label } from '@babylon/ui/label';
+	import { requestNotificationPermission } from '@babylon/shared/notifications';
 
 	const client = useConvexClient();
 	const preferences = useQuery(api.preferences.get, {});

@@ -2,5 +2,27 @@
 	"name": "@babylon/ui",
 	"private": true,
 	"version": "0.0.1",
-	"type": "module"
+	"type": "module",
+	"svelte": "./src/index.ts",
+	"exports": {
+		".": { "svelte": "./src/index.ts", "default": "./src/index.ts" },
+		"./button": { "svelte": "./src/components/button/index.ts", "default": "./src/components/button/index.ts" },
+		"./card": { "svelte": "./src/components/card/index.ts", "default": "./src/components/card/index.ts" },
+		"./dialog": { "svelte": "./src/components/dialog/index.ts", "default": "./src/components/dialog/index.ts" },
+		"./input": { "svelte": "./src/components/input/index.ts", "default": "./src/components/input/index.ts" },
+		"./label": { "svelte": "./src/components/label/index.ts", "default": "./src/components/label/index.ts" },
+		"./accordion": { "svelte": "./src/components/accordion/index.ts", "default": "./src/components/accordion/index.ts" },
+		"./alert": { "svelte": "./src/components/alert/index.ts", "default": "./src/components/alert/index.ts" },
+		"./dropdown-menu": { "svelte": "./src/components/dropdown-menu/index.ts", "default": "./src/components/dropdown-menu/index.ts" },
+		"./header": { "svelte": "./src/components/header/index.ts", "default": "./src/components/header/index.ts" }
+	},
+	"dependencies": {
+		"bits-ui": "^2.15.4",
+		"tailwind-variants": "^3.2.2",
+		"@lucide/svelte": "^0.561.0"
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0",
+		"@babylon/shared": "workspace:*"
+	}
 }

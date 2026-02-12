@@ -3,12 +3,12 @@
 	import { goto } from '$app/navigation';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '@babylon/convex';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { isAuthenticated, isLoading } from '$lib/stores/auth';
+	import { Button } from '@babylon/ui/button';
+	import * as Card from '@babylon/ui/card';
+	import * as Dialog from '@babylon/ui/dialog';
+	import { Input } from '@babylon/ui/input';
+	import { Label } from '@babylon/ui/label';
+	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 
 	const client = useConvexClient();
 	const phraseGroups = useQuery(api.phrases.listGroupedByCategory, {});
