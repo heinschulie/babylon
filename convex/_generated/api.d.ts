@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as aiCalibration from "../aiCalibration.js";
 import type * as aiFeedback from "../aiFeedback.js";
 import type * as aiPipeline from "../aiPipeline.js";
 import type * as aiPipelineData from "../aiPipelineData.js";
@@ -42,6 +43,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiCalibration: typeof aiCalibration;
   aiFeedback: typeof aiFeedback;
   aiPipeline: typeof aiPipeline;
   aiPipelineData: typeof aiPipelineData;

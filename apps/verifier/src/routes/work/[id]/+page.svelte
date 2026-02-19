@@ -298,8 +298,12 @@
 									<p class="text-sm mt-1">{claim.aiFeedback.feedbackText}</p>
 								</div>
 							{/if}
-							{#if claim.aiFeedback.score != null}
-								<p class="text-sm">{m.claim_ai_score({ score: claim.aiFeedback.score })}</p>
+							{#if claim.aiFeedback.soundAccuracy != null}
+								<div class="flex gap-3 text-sm">
+									<span>S{claim.aiFeedback.soundAccuracy}</span>
+									<span>R{claim.aiFeedback.rhythmIntonation}</span>
+									<span>P{claim.aiFeedback.phraseAccuracy}</span>
+								</div>
 							{/if}
 						</div>
 

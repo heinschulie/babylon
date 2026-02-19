@@ -8,7 +8,9 @@ export const create = mutation({
 		transcript: v.optional(v.string()),
 		confidence: v.optional(v.number()),
 		errorTags: v.optional(v.array(v.string())),
-		score: v.optional(v.number()),
+		soundAccuracy: v.optional(v.number()),
+		rhythmIntonation: v.optional(v.number()),
+		phraseAccuracy: v.optional(v.number()),
 		feedbackText: v.optional(v.string()),
 		ttsAudioUrl: v.optional(v.string())
 	},
@@ -24,7 +26,9 @@ export const create = mutation({
 			transcript: args.transcript,
 			confidence: args.confidence,
 			errorTags: args.errorTags,
-			score: args.score,
+			soundAccuracy: args.soundAccuracy,
+			rhythmIntonation: args.rhythmIntonation,
+			phraseAccuracy: args.phraseAccuracy,
 			feedbackText: args.feedbackText,
 			ttsAudioUrl: args.ttsAudioUrl,
 			createdAt: Date.now()

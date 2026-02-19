@@ -80,7 +80,7 @@
   "claim_ai_title": "AI Analysis",
   "claim_transcript": "Transcript",
   "claim_feedback": "Feedback",
-  "claim_ai_score": "AI Score: {score}/5",
+  "claim_ai_scores": "AI: S{sound} R{rhythm} P{phrase}",
   "claim_ai_correct_q": "Is this analysis correct?",
   "claim_ai_incorrect": "Incorrect",
   "claim_ai_correct": "Correct",

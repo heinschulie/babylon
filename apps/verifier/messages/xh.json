@@ -80,7 +80,7 @@
   "claim_ai_title": "Uhlalutyo lwe-AI",
   "claim_transcript": "Isihumusho",
   "claim_feedback": "Impendulo",
-  "claim_ai_score": "Amanqaku e-AI: {score}/5",
+  "claim_ai_scores": "I-AI: S{sound} R{rhythm} P{phrase}",
   "claim_ai_correct_q": "Ingaba olu hlalutyo luchanekile?",
   "claim_ai_incorrect": "Aluchanekanga",
   "claim_ai_correct": "Luchanekile",

@@ -124,7 +124,9 @@ async function buildAttemptResult(ctx: any, attempt: any) {
 		transcript: feedback?.transcript ?? null,
 		confidence: feedback?.confidence ?? null,
 		errorTags: feedback?.errorTags ?? null,
-		score: feedback?.score ?? null,
+		aiSoundAccuracy: feedback?.soundAccuracy ?? null,
+		aiRhythmIntonation: feedback?.rhythmIntonation ?? null,
+		aiPhraseAccuracy: feedback?.phraseAccuracy ?? null,
 		humanReview
 	};
 }

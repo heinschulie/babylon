@@ -34,6 +34,47 @@ function medianOf(values: number[]) {
 	return sorted[Math.floor(sorted.length / 2)];
 }
 
+async function updateAiCalibration(
+	ctx: { db: any },
+	phraseId: any,
+	ai: { soundAccuracy: number; rhythmIntonation: number; phraseAccuracy: number },
+	human: { soundAccuracy: number; rhythmIntonation: number; phraseAccuracy: number }
+) {
+	const dS = ai.soundAccuracy - human.soundAccuracy;
+	const dR = ai.rhythmIntonation - human.rhythmIntonation;
+	const dP = ai.phraseAccuracy - human.phraseAccuracy;
+
+	const existing = await ctx.db
+		.query('aiCalibration')
+		.withIndex('by_phrase', (q: any) => q.eq('phraseId', phraseId))
+		.unique();
+
+	if (existing) {
+		await ctx.db.patch(existing._id, {
+			comparisonCount: existing.comparisonCount + 1,
+			sumDeltaSoundAccuracy: existing.sumDeltaSoundAccuracy + dS,
+			sumDeltaRhythmIntonation: existing.sumDeltaRhythmIntonation + dR,
+			sumDeltaPhraseAccuracy: existing.sumDeltaPhraseAccuracy + dP,
+			sumAbsDeltaSoundAccuracy: existing.sumAbsDeltaSoundAccuracy + Math.abs(dS),
+			sumAbsDeltaRhythmIntonation: existing.sumAbsDeltaRhythmIntonation + Math.abs(dR),
+			sumAbsDeltaPhraseAccuracy: existing.sumAbsDeltaPhraseAccuracy + Math.abs(dP),
+			lastUpdatedAt: Date.now()
+		});
+	} else {
+		await ctx.db.insert('aiCalibration', {
+			phraseId,
+			comparisonCount: 1,
+			sumDeltaSoundAccuracy: dS,
+			sumDeltaRhythmIntonation: dR,
+			sumDeltaPhraseAccuracy: dP,
+			sumAbsDeltaSoundAccuracy: Math.abs(dS),
+			sumAbsDeltaRhythmIntonation: Math.abs(dR),
+			sumAbsDeltaPhraseAccuracy: Math.abs(dP),
+			lastUpdatedAt: Date.now()
+		});
+	}
+}
+
 async function assertVerifierLanguageAccess(
 	ctx: { db: any },
 	userId: string,
@@ -163,7 +204,9 @@ async function buildAssignment(ctx: any, request: any, now: number) {
 			? {
 					transcript: aiFeedback.transcript ?? null,
 					confidence: aiFeedback.confidence ?? null,
-					score: aiFeedback.score ?? null,
+					soundAccuracy: aiFeedback.soundAccuracy ?? null,
+					rhythmIntonation: aiFeedback.rhythmIntonation ?? null,
+					phraseAccuracy: aiFeedback.phraseAccuracy ?? null,
 					feedbackText: aiFeedback.feedbackText ?? null,
 					errorTags: aiFeedback.errorTags ?? []
 				}
@@ -492,6 +535,33 @@ export const submitReview = mutation({
 			agreesWithOriginal: agrees,
 			createdAt: now
 		});
+
+		// Record AI vs human calibration if AI scores exist
+		const aiFeedbackForCalibration = await ctx.db
+			.query('aiFeedback')
+			.withIndex('by_attempt', (q: any) => q.eq('attemptId', request.attemptId))
+			.unique();
+
+		if (
+			aiFeedbackForCalibration?.soundAccuracy != null &&
+			aiFeedbackForCalibration?.rhythmIntonation != null &&
+			aiFeedbackForCalibration?.phraseAccuracy != null
+		) {
+			await updateAiCalibration(
+				ctx,
+				request.phraseId,
+				{
+					soundAccuracy: aiFeedbackForCalibration.soundAccuracy,
+					rhythmIntonation: aiFeedbackForCalibration.rhythmIntonation,
+					phraseAccuracy: aiFeedbackForCalibration.phraseAccuracy
+				},
+				{
+					soundAccuracy: args.soundAccuracy,
+					rhythmIntonation: args.rhythmIntonation,
+					phraseAccuracy: args.phraseAccuracy
+				}
+			);
+		}
 
 		if (reviewKind === 'initial') {
 			await ctx.db.patch(request._id, {
