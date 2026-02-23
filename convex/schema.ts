@@ -28,7 +28,9 @@ export default defineSchema({
 		grammarTags: v.optional(v.array(v.string())),
 		phoneticTags: v.optional(v.array(v.string())),
 		domainTags: v.optional(v.array(v.string())),
-		referenceAudioUrl: v.optional(v.string())
+		referenceAudioUrl: v.optional(v.string()),
+		phonetic: v.optional(v.string()),
+		translationStatus: v.optional(v.string())
 	})
 		.index('by_session', ['sessionId'])
 		.index('by_user', ['userId'])

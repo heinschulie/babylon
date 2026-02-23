@@ -22,6 +22,9 @@
 				markedSeen = true;
 				client.mutation(api.humanReviews.markFeedbackSeen, {
 					practiceSessionId
+				}).catch((err) => {
+					console.error('Failed to mark feedback seen:', err);
+					markedSeen = false;
 				});
 			}
 		}

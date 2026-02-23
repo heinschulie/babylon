@@ -278,6 +278,9 @@
 	}
 
 	.app-header {
+		position: sticky;
+		top: 0;
+		z-index: 40;
 		border-bottom: 1px solid var(--theme-header-border);
 		background: color-mix(in oklab, var(--theme-header-surface) 95%, transparent);
 		backdrop-filter: blur(10px);

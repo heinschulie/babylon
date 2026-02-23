@@ -102,23 +102,33 @@ export const create = mutation({
 export const createDirect = mutation({
 	args: {
 		english: v.string(),
-		translation: v.string(),
+		translation: v.optional(v.string()),
 		languageCode: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
 		const language = requireSupportedLanguage(args.languageCode ?? 'xh-ZA');
-		const category = inferPhraseCategory(args.english, args.translation);
+		const needsTranslation = !args.translation?.trim();
+		const category = inferPhraseCategory(args.english, args.translation ?? '');
 
 		const phraseId = await ctx.db.insert('phrases', {
 			userId,
 			english: args.english,
-			translation: args.translation,
+			translation: args.translation?.trim() ?? '',
 			languageCode: language.bcp47,
 			categoryKey: category.key,
 			categoryLabel: category.label,
+			translationStatus: needsTranslation ? 'pending' : 'ready',
 			createdAt: Date.now()
 		});
+
+		if (needsTranslation) {
+			await ctx.scheduler.runAfter(0, internal.translatePhrase.translateAndPhoneticize, {
+				phraseId,
+				english: args.english,
+				languageCode: language.bcp47
+			});
+		}
 
 		const prefs = await ctx.db
 			.query('userPreferences')

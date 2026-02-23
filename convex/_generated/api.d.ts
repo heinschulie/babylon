@@ -35,6 +35,8 @@ import type * as practiceSessions from "../practiceSessions.js";
 import type * as preferences from "../preferences.js";
 import type * as sessions from "../sessions.js";
 import type * as translateNode from "../translateNode.js";
+import type * as translatePhrase from "../translatePhrase.js";
+import type * as translatePhraseData from "../translatePhraseData.js";
 import type * as verifierAccess from "../verifierAccess.js";
 
 import type {
@@ -71,6 +73,8 @@ declare const fullApi: ApiFromModules<{
   preferences: typeof preferences;
   sessions: typeof sessions;
   translateNode: typeof translateNode;
+  translatePhrase: typeof translatePhrase;
+  translatePhraseData: typeof translatePhraseData;
   verifierAccess: typeof verifierAccess;
 }>;
 

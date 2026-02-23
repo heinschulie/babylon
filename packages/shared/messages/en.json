@@ -37,5 +37,6 @@
   "state_failed": "Failed",
   "state_playing": "Playing...",
   "error_enter_both": "Please enter both English and translation.",
+  "error_enter_english": "Please enter an English phrase.",
   "error_failed_add_phrase": "Failed to add phrase"
 }

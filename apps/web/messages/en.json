@@ -20,6 +20,8 @@
   "library_feedback_banner": "Your verifier has reviewed your practice",
   "library_fab_label": "Start practice",
   "library_fab_unit": "min",
+  "library_add_phrase_desc": "Enter an English phrase and we'll translate it for you.",
+  "library_translating": "Translating...",
   "login_kicker": "Fast Return",
   "login_title": "Welcome Back",
   "login_description": "Sign in and jump straight into your next phrase sprint.",
