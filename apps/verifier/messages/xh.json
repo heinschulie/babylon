@@ -94,5 +94,14 @@
   "claim_record_failed": "Ukuqala ukushicilela akuphumelelanga.",
   "claim_release_failed": "Ukukhulula akuphumelelanga.",
   "claim_upload_failed": "Ukulayisha i-odio yomzekelo akuphumelelanga.",
-  "claim_submit_failed": "Ukuthumela uphononongo akuphumelelanga."
+  "claim_submit_failed": "Ukuthumela uphononongo akuphumelelanga.",
+  "vsettings_push_title": "[TODO] Push Notifications",
+  "vsettings_push_desc": "[TODO] Get notified when new recordings are available to review",
+  "vsettings_push_enabled": "[TODO] Notifications are enabled",
+  "vsettings_push_test": "[TODO] Send Test",
+  "vsettings_push_test_sent": "[TODO] Test notification sent!",
+  "vsettings_push_test_failed": "[TODO] Failed to send test notification",
+  "vsettings_push_enable": "[TODO] Enable Notifications",
+  "vsettings_push_enabling": "[TODO] Enabling...",
+  "vsettings_push_disable": "[TODO] Disable"
 }

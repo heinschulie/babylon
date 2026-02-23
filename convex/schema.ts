@@ -218,7 +218,8 @@ export default defineSchema({
 		notificationsPerPhrase: v.number(),
 		pushSubscription: v.optional(v.string()), // JSON stringified PushSubscription
 		timeZone: v.optional(v.string()), // IANA time zone for local-midnight resets
-		uiLocale: v.optional(v.string()) // UI language (e.g. en, xh)
+		uiLocale: v.optional(v.string()), // UI language (e.g. en, xh)
+		uiSkin: v.optional(v.string()) // UI skin (e.g. "default", "mono")
 	}).index('by_user', ['userId']),
 
 	// Billing subscriptions (provider state)

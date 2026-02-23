@@ -4,6 +4,7 @@
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
+	import { requestNotificationPermission } from '@babylon/shared/notifications';
 	import { Button } from '@babylon/ui/button';
 	import * as Card from '@babylon/ui/card';
 	import { Input } from '@babylon/ui/input';
@@ -15,6 +16,7 @@
 	const verifierState = useQuery(api.verifierAccess.getMyVerifierState, {});
 	const supportedLanguages = useQuery(api.verifierAccess.listSupportedLanguages, {});
 	const verifierStats = useQuery(api.verifierAccess.getMyStats, {});
+	const preferences = useQuery(api.preferences.get, {});
 
 	let selectedLanguage = $state('xh-ZA');
 	let onboardingFirstName = $state('');
@@ -22,6 +24,10 @@
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 	let message = $state<string | null>(null);
+	let enabling = $state(false);
+	let testing = $state(false);
+	let testResult = $state<{ success: boolean; message: string } | null>(null);
+	let notificationsEnabled = $derived(!!preferences.data?.pushSubscription);
 
 	$effect(() => {
 		if (!$isLoading && !$isAuthenticated) goto(resolve('/login'));
@@ -41,6 +47,43 @@
 		if (!isLocale(locale)) return;
 		await client.mutation(api.preferences.upsert, { uiLocale: locale });
 		setLocale(locale);
+	}
+
+	async function enableNotifications() {
+		enabling = true;
+		try {
+			const subscription = await requestNotificationPermission();
+			if (subscription) {
+				await client.mutation(api.preferences.upsert, {
+					pushSubscription: JSON.stringify(subscription.toJSON())
+				});
+			}
+		} catch (e) {
+			console.error('Failed to enable notifications:', e);
+		} finally {
+			enabling = false;
+		}
+	}
+
+	async function disableNotifications() {
+		await client.mutation(api.preferences.upsert, { pushSubscription: '' });
+	}
+
+	async function sendTestNotification() {
+		testing = true;
+		testResult = null;
+		try {
+			await client.action(api.notificationsNode.sendTest, {});
+			testResult = { success: true, message: m.vsettings_push_test_sent() };
+		} catch (e) {
+			testResult = {
+				success: false,
+				message: e instanceof Error ? e.message : m.vsettings_push_test_failed()
+			};
+		} finally {
+			testing = false;
+			setTimeout(() => (testResult = null), 5000);
+		}
 	}
 
 	async function saveOnboarding() {
@@ -135,6 +178,35 @@
 			</div>
 			{#if verifierState.data?.profile}
 				<p class="meta-text">{m.vsettings_active({ name: verifierState.data.profile.firstName })}</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Header>
+			<Card.Title>{m.vsettings_push_title()}</Card.Title>
+			<Card.Description>{m.vsettings_push_desc()}</Card.Description>
+		</Card.Header>
+		<Card.Content class="space-y-4">
+			{#if notificationsEnabled}
+				<p class="text-green-600">{m.vsettings_push_enabled()}</p>
+				<div class="flex items-center gap-4 flex-wrap">
+					<Button onclick={sendTestNotification} disabled={testing} variant="outline">
+						{testing ? '...' : m.vsettings_push_test()}
+					</Button>
+					<Button onclick={disableNotifications} variant="ghost" size="sm">
+						{m.vsettings_push_disable()}
+					</Button>
+					{#if testResult}
+						<span class="{testResult.success ? 'text-green-600' : 'text-destructive'}">
+							{testResult.message}
+						</span>
+					{/if}
+				</div>
+			{:else}
+				<Button onclick={enableNotifications} disabled={enabling}>
+					{enabling ? m.vsettings_push_enabling() : m.vsettings_push_enable()}
+				</Button>
 			{/if}
 		</Card.Content>
 	</Card.Root>

@@ -29,11 +29,12 @@ export const get = query({
 				notificationsPerPhrase: DEFAULT_PREFERENCES.notificationsPerPhrase,
 				pushSubscription: undefined,
 				timeZone: DEFAULT_PREFERENCES.timeZone,
-				uiLocale: 'en'
+				uiLocale: 'en',
+				uiSkin: 'default'
 			};
 		}
 
-		return { ...prefs, uiLocale: prefs.uiLocale ?? 'en' };
+		return { ...prefs, uiLocale: prefs.uiLocale ?? 'en', uiSkin: prefs.uiSkin ?? 'default' };
 	}
 });
 
@@ -45,7 +46,8 @@ export const upsert = mutation({
 		notificationsPerPhrase: v.optional(v.number()),
 		pushSubscription: v.optional(v.string()),
 		timeZone: v.optional(v.string()),
-		uiLocale: v.optional(v.string())
+		uiLocale: v.optional(v.string()),
+		uiSkin: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
@@ -64,7 +66,8 @@ export const upsert = mutation({
 				}),
 				...(args.pushSubscription !== undefined && { pushSubscription: args.pushSubscription }),
 				...(args.timeZone !== undefined && { timeZone: args.timeZone }),
-				...(args.uiLocale !== undefined && { uiLocale: args.uiLocale })
+				...(args.uiLocale !== undefined && { uiLocale: args.uiLocale }),
+				...(args.uiSkin !== undefined && { uiSkin: args.uiSkin })
 			});
 			return existing._id;
 		}
@@ -77,7 +80,8 @@ export const upsert = mutation({
 				args.notificationsPerPhrase ?? DEFAULT_PREFERENCES.notificationsPerPhrase,
 			pushSubscription: args.pushSubscription,
 			timeZone: args.timeZone ?? DEFAULT_PREFERENCES.timeZone,
-			uiLocale: args.uiLocale
+			uiLocale: args.uiLocale,
+			uiSkin: args.uiSkin
 		});
 	}
 });

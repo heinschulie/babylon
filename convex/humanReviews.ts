@@ -439,6 +439,8 @@ export const submitReview = mutation({
 			throw new Error('Review request not found');
 		}
 
+		const attempt = await ctx.db.get(request.attemptId);
+
 		if (request.status !== 'claimed' || request.claimedByVerifierUserId !== userId) {
 			throw new Error('You do not hold this claim');
 		}
@@ -573,6 +575,15 @@ export const submitReview = mutation({
 				resolvedAt: now,
 				updatedAt: now
 			});
+			if (attempt?.practiceSessionId) {
+				await ctx.scheduler.runAfter(0, internal.notificationsNode.sendPushToUser, {
+					userId: request.learnerUserId,
+					title: 'Results are back!',
+					body: `${verifierFirstName} reviewed your recording`,
+					url: `/practice/session/${attempt.practiceSessionId}#feedback`,
+					tag: `review-${request._id}`
+				});
+			}
 			return { requestId: request._id, status: 'completed' };
 		}
 
@@ -605,6 +616,15 @@ export const submitReview = mutation({
 					});
 				}
 
+				if (attempt?.practiceSessionId) {
+					await ctx.scheduler.runAfter(0, internal.notificationsNode.sendPushToUser, {
+						userId: request.learnerUserId,
+						title: 'Dispute resolved',
+						body: 'Your flagged review has been resolved',
+						url: `/practice/session/${attempt.practiceSessionId}#feedback`,
+						tag: `dispute-${request._id}`
+					});
+				}
 				return { requestId: request._id, status: 'dispute_resolved' };
 			}
 

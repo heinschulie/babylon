@@ -97,6 +97,80 @@ export const scheduleForPhrase = internalMutation({
 });
 
 /**
+ * Daily cron: reschedule spaced-repetition notifications for all push-enabled users.
+ * Picks the N least-recently-practiced phrases per user.
+ */
+export const rescheduleDaily = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const allPrefs = await ctx.db.query('userPreferences').collect();
+		const pushUsers = allPrefs.filter((p) => p.pushSubscription);
+
+		for (const prefs of pushUsers) {
+			// Clean up old unsent notifications (scheduled >24h ago, never sent)
+			const oldNotifications = await ctx.db
+				.query('scheduledNotifications')
+				.withIndex('by_user_scheduled', (q) => q.eq('userId', prefs.userId))
+				.collect();
+
+			const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+			for (const notif of oldNotifications) {
+				if (!notif.sent && notif.scheduledFor < cutoff) {
+					await ctx.db.delete(notif._id);
+				}
+			}
+
+			// Get user's phrases
+			const phrases = await ctx.db
+				.query('phrases')
+				.withIndex('by_user', (q) => q.eq('userId', prefs.userId))
+				.collect();
+
+			if (phrases.length === 0) continue;
+
+			// Score each phrase by recency of last attempt (never-attempted = highest priority)
+			const phraseScores: Array<{ phraseId: (typeof phrases)[0]['_id']; lastAttemptAt: number }> = [];
+			for (const phrase of phrases) {
+				const latestAttempt = await ctx.db
+					.query('attempts')
+					.withIndex('by_phrase', (q) => q.eq('phraseId', phrase._id))
+					.order('desc')
+					.first();
+				phraseScores.push({
+					phraseId: phrase._id,
+					lastAttemptAt: latestAttempt?._creationTime ?? 0
+				});
+			}
+
+			// Sort: oldest/never-attempted first
+			phraseScores.sort((a, b) => a.lastAttemptAt - b.lastAttemptAt);
+
+			// Pick top N phrases to remind about (1 notification each)
+			const count = prefs.notificationsPerPhrase ?? 3;
+			const phrasesToRemind = phraseScores.slice(0, count);
+
+			const quietStart = prefs.quietHoursStart ?? 22;
+			const quietEnd = prefs.quietHoursEnd ?? 8;
+
+			for (const { phraseId } of phrasesToRemind) {
+				const times = generateRandomTimes(1, quietStart, quietEnd);
+				for (const scheduledFor of times) {
+					const notificationId = await ctx.db.insert('scheduledNotifications', {
+						phraseId,
+						userId: prefs.userId,
+						scheduledFor,
+						sent: false
+					});
+					await ctx.scheduler.runAt(scheduledFor, internal.notificationsNode.send, {
+						notificationId
+					});
+				}
+			}
+		}
+	}
+});
+
+/**
  * Get a phrase by ID (internal query for notifications).
  */
 export const getPhraseById = internalQuery({
@@ -136,6 +210,64 @@ export const markSent = internalMutation({
 	args: { notificationId: v.id('scheduledNotifications') },
 	handler: async (ctx, { notificationId }) => {
 		await ctx.db.patch(notificationId, { sent: true });
+	}
+});
+
+/**
+ * Get session review info: count of pending/claimed humanReviewRequests and their languages.
+ */
+export const getSessionReviewInfo = internalQuery({
+	args: { practiceSessionId: v.id('practiceSessions') },
+	handler: async (ctx, { practiceSessionId }) => {
+		const attempts = await ctx.db
+			.query('attempts')
+			.withIndex('by_practice_session', (q) => q.eq('practiceSessionId', practiceSessionId))
+			.collect();
+
+		const requests = [];
+		for (const attempt of attempts) {
+			const req = await ctx.db
+				.query('humanReviewRequests')
+				.withIndex('by_attempt', (q) => q.eq('attemptId', attempt._id))
+				.unique();
+			if (req && (req.status === 'pending' || req.status === 'claimed')) {
+				requests.push(req);
+			}
+		}
+
+		const languages = [...new Set(requests.map((r) => r.languageCode))];
+		return { count: requests.length, languages };
+	}
+});
+
+/**
+ * Get push-enabled verifier userIds for a given language.
+ */
+export const getVerifierPushSubscriptions = internalQuery({
+	args: { languageCode: v.string() },
+	handler: async (ctx, { languageCode }) => {
+		const memberships = await ctx.db
+			.query('verifierLanguageMemberships')
+			.withIndex('by_language_active', (q) => q.eq('languageCode', languageCode).eq('active', true))
+			.collect();
+
+		const verifierUserIds: string[] = [];
+		for (const mem of memberships) {
+			const profile = await ctx.db
+				.query('verifierProfiles')
+				.withIndex('by_user', (q) => q.eq('userId', mem.userId))
+				.unique();
+			if (!profile?.active) continue;
+
+			const prefs = await ctx.db
+				.query('userPreferences')
+				.withIndex('by_user', (q) => q.eq('userId', mem.userId))
+				.unique();
+			if (prefs?.pushSubscription) {
+				verifierUserIds.push(mem.userId);
+			}
+		}
+		return verifierUserIds;
 	}
 });
 
