@@ -857,14 +857,19 @@ export const getUnseenFeedback = query({
 
 		if (unseen.length === 0) return null;
 
-		const latest = unseen[0];
-		const attempt = await ctx.db.get(latest.attemptId);
+		// Find first unseen request whose attempt has a practiceSessionId
+		for (const req of unseen) {
+			const attempt = await ctx.db.get(req.attemptId);
+			if (attempt?.practiceSessionId) {
+				return {
+					practiceSessionId: attempt.practiceSessionId,
+					attemptId: req.attemptId,
+					count: unseen.length
+				};
+			}
+		}
 
-		return {
-			practiceSessionId: attempt?.practiceSessionId ?? null,
-			attemptId: latest.attemptId,
-			count: unseen.length
-		};
+		return null;
 	}
 });
 

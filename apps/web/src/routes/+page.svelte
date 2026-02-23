@@ -24,7 +24,6 @@
 
 	let dialogOpen = $state(false);
 	let english = $state('');
-	let translation = $state('');
 	let creating = $state(false);
 	let error = $state('');
 
@@ -35,8 +34,8 @@
 	);
 
 	async function createPhrase() {
-		if (!english.trim() || !translation.trim()) {
-			error = m.error_enter_both();
+		if (!english.trim()) {
+			error = m.error_enter_english();
 			return;
 		}
 
@@ -45,12 +44,10 @@
 		try {
 			await client.mutation(api.phrases.createDirect, {
 				english: english.trim(),
-				translation: translation.trim(),
 				languageCode: 'xh-ZA'
 			});
 			dialogOpen = false;
 			english = '';
-			translation = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : m.error_failed_add_phrase();
 		} finally {
@@ -78,16 +75,12 @@
 				<Dialog.Content>
 					<Dialog.Header>
 						<Dialog.Title>{m.library_add_phrase()}</Dialog.Title>
-						<Dialog.Description>{m.library_target_language()}</Dialog.Description>
+						<Dialog.Description>{m.library_add_phrase_desc()}</Dialog.Description>
 					</Dialog.Header>
 					<div class="space-y-4 py-4">
 						<div class="space-y-2">
 							<Label for="english">{m.library_english_label()}</Label>
 							<Input id="english" bind:value={english} placeholder={m.library_english_placeholder()} />
-						</div>
-						<div class="space-y-2">
-							<Label for="translation">{m.library_translation_label()}</Label>
-							<Input id="translation" bind:value={translation} placeholder={m.library_translation_placeholder()} />
 						</div>
 						{#if error}
 							<p class="text-sm text-destructive">{error}</p>
@@ -148,9 +141,16 @@
 										<p class="info-kicker">{m.library_label_english()}</p>
 										<p class="mt-2 text-xl font-semibold leading-tight sm:text-2xl">{phrase.english}</p>
 										<p class="info-kicker mt-5">{m.library_label_xhosa()}</p>
-										<p class="target-phrase mt-2 font-black">
-											{phrase.translation}
-										</p>
+										{#if phrase.translationStatus === 'pending'}
+											<p class="target-phrase mt-2 font-black opacity-40">{m.library_translating()}</p>
+										{:else}
+											<p class="target-phrase mt-2 font-black">{phrase.translation}</p>
+										{/if}
+										{#if phrase.phonetic}
+											<p class="mt-2 text-xl font-semibold leading-tight sm:text-2xl text-muted-foreground">
+												{phrase.phonetic}
+											</p>
+										{/if}
 									</li>
 								{/each}
 							</ul>
