@@ -289,6 +289,7 @@
 	.app-header__bar {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 0.5rem;
 		max-width: 48rem;
 		margin-inline: auto;
@@ -316,11 +317,11 @@
 	.app-header__nav {
 		display: flex;
 		gap: 0.28rem;
+		width: 100%;
 		overflow-x: auto;
+		justify-content: space-around;
 		white-space: nowrap;
 		scrollbar-width: none;
-		flex: 1;
-		justify-content: space-between;
 	}
 
 	.app-header__nav::-webkit-scrollbar {
@@ -382,7 +383,8 @@
 			),
 			var(--theme-phrase-max-size-mobile)
 		);
-		line-height: 0.9;
+		line-height: 1.05;
+		padding-bottom: 0.08em;
 		letter-spacing: -0.02em;
 		max-block-size: var(--theme-phrase-max-height-mobile);
 		overflow: hidden;
