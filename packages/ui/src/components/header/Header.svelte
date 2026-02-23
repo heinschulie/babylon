@@ -69,12 +69,12 @@
 						<path d="M20 21a8 8 0 0 0-16 0"/>
 					</svg>
 				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end" sideOffset={8}>
-					<DropdownMenu.Item onclick={() => goto(r(settingsHref))}>
+				<DropdownMenu.Content align="end" sideOffset={8} style="background: var(--secondary); min-width: 14rem; padding: 6px;">
+					<DropdownMenu.Item onclick={() => goto(r(settingsHref))} style="padding: 10px; margin: 0 8px; font-size: 1rem;">
 						{settingsLabel}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={handleLogout}>
+					<DropdownMenu.Item onclick={handleLogout} style="padding: 10px; margin: 0 8px; font-size: 1rem;">
 						{logoutLabel}
 					</DropdownMenu.Item>
 				</DropdownMenu.Content>

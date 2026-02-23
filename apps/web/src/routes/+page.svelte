@@ -4,7 +4,7 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 	import { Button } from '@babylon/ui/button';
-	import * as Card from '@babylon/ui/card';
+	import * as Accordion from '@babylon/ui/accordion';
 	import * as Dialog from '@babylon/ui/dialog';
 	import { Input } from '@babylon/ui/input';
 	import { Label } from '@babylon/ui/label';
@@ -120,24 +120,27 @@
 		{:else if phraseGroups.error}
 			<p class="text-destructive">{m.library_error_loading({ message: phraseGroups.error.message })}</p>
 		{:else if !phraseGroups.data || phraseGroups.data.length === 0}
-			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
-				<Card.Header>
-					<Card.Title>{m.library_no_phrases()}</Card.Title>
-					<Card.Description>{m.library_no_phrases_desc()}</Card.Description>
-				</Card.Header>
-			</Card.Root>
+			<div>
+				<h2 class="text-3xl sm:text-4xl">{m.library_no_phrases()}</h2>
+				<p class="text-muted-foreground text-body-desc leading-relaxed">{m.library_no_phrases_desc()}</p>
+			</div>
 		{:else}
-			<div class="space-y-4">
+			{@const allKeys = phraseGroups.data.map(g => g.key)}
+			<Accordion.Root type="multiple" value={allKeys}>
 				{#each phraseGroups.data as group (group.key)}
-					<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
-						<Card.Header class="border-b border-border/50 pb-4">
-							<Card.Title class="text-3xl sm:text-4xl">{group.label}</Card.Title>
-							<Card.Description>{m.library_phrase_count({ count: group.phrases.length })}</Card.Description>
-						</Card.Header>
-						<Card.Content>
+					<Accordion.Item value={group.key} class="border-none">
+						<Accordion.Trigger class="text-3xl sm:text-4xl font-display uppercase leading-heading tracking-heading hover:no-underline py-0 gap-2 text-start justify-start">
+							<div>
+								<span>{group.label}</span>
+								<p class="text-muted-foreground text-xs leading-relaxed font-body font-normal normal-case tracking-normal">
+									{m.library_phrase_count({ count: group.phrases.length })}
+								</p>
+							</div>
+						</Accordion.Trigger>
+						<Accordion.Content class="text-base">
 							<ul class="space-y-3">
 								{#each group.phrases as phrase (phrase._id)}
-									<li class="phrase-card border border-border/60 bg-background/70 p-4 sm:p-5">
+									<li class="phrase-card p-4 sm:p-5">
 										<p class="info-kicker">{m.library_label_english()}</p>
 										<p class="mt-2 text-xl font-semibold leading-tight sm:text-2xl">{phrase.english}</p>
 										<p class="info-kicker mt-5">{m.library_label_xhosa()}</p>
@@ -154,10 +157,10 @@
 									</li>
 								{/each}
 							</ul>
-						</Card.Content>
-					</Card.Root>
+						</Accordion.Content>
+					</Accordion.Item>
 				{/each}
-			</div>
+			</Accordion.Root>
 		{/if}
 	</section>
 </div>
