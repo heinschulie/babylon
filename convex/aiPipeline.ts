@@ -52,7 +52,9 @@ export const processAttempt = action({
 				transcript: transcriptResult.transcript ?? undefined,
 				confidence: transcriptResult.confidence,
 				errorTags: feedbackResult.errorTags,
-				score: feedbackResult.score,
+				soundAccuracy: feedbackResult.soundAccuracy,
+				rhythmIntonation: feedbackResult.rhythmIntonation,
+				phraseAccuracy: feedbackResult.phraseAccuracy,
 				feedbackText: feedbackResult.feedbackText
 			});
 
@@ -119,27 +121,47 @@ async function getActionUserId(ctx: { auth: { getUserIdentity: () => Promise<{ s
 	throw new Error('Not authenticated');
 }
 
+function clampScore(val: unknown): number | undefined {
+	if (typeof val !== 'number') return undefined;
+	return Math.max(1, Math.min(5, Math.round(val)));
+}
+
 async function generateFeedbackWithClaude(input: {
 	englishPrompt: string;
 	targetPhrase: string;
 	transcript: string | null;
-}): Promise<{ feedbackText: string; score?: number; errorTags?: string[] }> {
+}): Promise<{
+	feedbackText: string;
+	soundAccuracy?: number;
+	rhythmIntonation?: number;
+	phraseAccuracy?: number;
+	errorTags?: string[];
+}> {
 	const apiKey = process.env.ANTHROPIC_API_KEY;
 	if (!apiKey) {
 		return { feedbackText: 'AI feedback is not configured yet.' };
 	}
 
 	const prompt = [
-		'You are a Xhosa pronunciation coach for English speakers learning isiXhosa.',
-		'The learner has attempted to say a specific Xhosa phrase. A speech-to-text system transcribed their attempt.',
-		'IMPORTANT: The transcript is the system\'s best guess at what the learner said while attempting the TARGET Xhosa phrase. Do NOT interpret it as a word in any other language (Zulu, Swahili, English, etc.). Always analyse it as an attempt at the target Xhosa phrase.',
-		'If the transcript is empty or garbled, assume the microphone didn\'t pick up clearly and encourage them to try again.',
-		'Be encouraging but honest — not sycophantic.',
-		'Focus on specific pronunciation guidance: click sounds, vowel clarity, syllable stress, word separation.',
-		'Format your response as: one short encouraging/summary sentence, then a numbered list breaking down each word or sub-phrase that needs correction.',
-		'Each numbered item should name the word/sound, what the learner said vs what it should be, and a concise tip. Spell out target syllables e.g. "MA-si", "HAM-be".',
-		'Only list items that need correction — skip words that were fine. Keep it concise.'
-	].join(' ');
+		'You are a Xhosa pronunciation coach grading an English speaker\'s isiXhosa attempt.',
+		'',
+		'A speech-to-text system transcribed the learner\'s audio. The transcript is the system\'s best guess at what the learner said while attempting the TARGET Xhosa phrase. Do NOT interpret it as a word in any other language. Always analyse it as an attempt at the target phrase.',
+		'',
+		'Grade the attempt on three dimensions (1-5 integer each):',
+		'',
+		'1. **Sound Accuracy** (soundAccuracy): How accurately the learner produces individual sounds — clicks (c, q, x), vowels, consonants. 5 = native-like sound production, 1 = most sounds unrecognisable.',
+		'',
+		'2. **Rhythm & Intonation** (rhythmIntonation): Natural flow, stress patterns, syllable timing, and tonal contour. 5 = natural isiXhosa prosody, 1 = flat/choppy/wrong stress throughout.',
+		'',
+		'3. **Phrase Accuracy** (phraseAccuracy): Overall correctness of the full phrase — right words in right order, no omissions or substitutions. 5 = complete and correct, 1 = mostly wrong or missing words.',
+		'',
+		'If the transcript is empty or garbled, score all dimensions as 1 and encourage re-recording.',
+		'',
+		'Also provide brief coaching feedback: one encouraging summary sentence, then a numbered list of specific corrections needed. Each item should name the word/sound, what was said vs target, and a tip. Spell out syllables e.g. "MA-si". Skip words that were fine. Be encouraging but honest.',
+		'',
+		'Respond with ONLY valid JSON in this exact format:',
+		'{"soundAccuracy": <1-5>, "rhythmIntonation": <1-5>, "phraseAccuracy": <1-5>, "feedback": "<coaching text>"}'
+	].join('\n');
 
 	const response = await fetch('https://api.anthropic.com/v1/messages', {
 		method: 'POST',
@@ -150,7 +172,7 @@ async function generateFeedbackWithClaude(input: {
 		},
 		body: JSON.stringify({
 			model: 'claude-sonnet-4-20250514',
-			max_tokens: 300,
+			max_tokens: 500,
 			system: prompt,
 			messages: [
 				{
@@ -167,6 +189,16 @@ async function generateFeedbackWithClaude(input: {
 	}
 
 	const data = await response.json();
-	const text = data?.content?.[0]?.text ?? 'Feedback not available.';
-	return { feedbackText: text };
+	const text = data?.content?.[0]?.text ?? '';
+	try {
+		const parsed = JSON.parse(text);
+		return {
+			soundAccuracy: clampScore(parsed.soundAccuracy),
+			rhythmIntonation: clampScore(parsed.rhythmIntonation),
+			phraseAccuracy: clampScore(parsed.phraseAccuracy),
+			feedbackText: parsed.feedback ?? 'Feedback not available.'
+		};
+	} catch {
+		return { feedbackText: text || 'Feedback not available.' };
+	}
 }

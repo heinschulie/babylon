@@ -40,12 +40,36 @@
 		setLocale(locale);
 	}
 
+	const SKINS = ['default', 'mono'] as const;
+	type Skin = (typeof SKINS)[number];
+
+	let currentSkin = $state<Skin>('default');
+
+	function applySkin(skin: Skin) {
+		const el = document.documentElement;
+		if (skin === 'default') {
+			el.removeAttribute('data-skin');
+		} else {
+			el.setAttribute('data-skin', skin);
+		}
+		localStorage.setItem('skin', skin);
+	}
+
+	async function switchSkin(skin: Skin) {
+		currentSkin = skin;
+		applySkin(skin);
+		await client.mutation(api.preferences.upsert, { uiSkin: skin });
+	}
+
 	$effect(() => {
 		if (preferences.data) {
 			quietStart = preferences.data.quietHoursStart;
 			quietEnd = preferences.data.quietHoursEnd;
 			perPhrase = preferences.data.notificationsPerPhrase;
 			timeZone = preferences.data.timeZone ?? timeZone;
+			if (preferences.data.uiSkin) {
+				currentSkin = preferences.data.uiSkin as Skin;
+			}
 		}
 	});
 
@@ -178,6 +202,29 @@
 					<option value={locale}>{localeDisplayName(locale)}</option>
 				{/each}
 			</select>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Header>
+			<Card.Title>{m.settings_appearance_title()}</Card.Title>
+			<Card.Description>{m.settings_appearance_desc()}</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<div class="flex gap-3">
+				{#each SKINS as skin}
+					<button
+						onclick={() => switchSkin(skin)}
+						class="flex-1 border-2 p-4 text-center transition-colors {currentSkin === skin
+							? 'border-primary bg-primary/10'
+							: 'border-border hover:border-muted-foreground'}"
+					>
+						<span class="font-display text-lg uppercase tracking-wide">
+							{skin === 'default' ? m.settings_skin_default() : m.settings_skin_mono()}
+						</span>
+					</button>
+				{/each}
+			</div>
 		</Card.Content>
 	</Card.Root>
 

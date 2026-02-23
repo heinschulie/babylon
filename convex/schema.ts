@@ -189,11 +189,26 @@ export default defineSchema({
 		transcript: v.optional(v.string()),
 		confidence: v.optional(v.number()),
 		errorTags: v.optional(v.array(v.string())),
-		score: v.optional(v.number()),
+		soundAccuracy: v.optional(v.number()),
+		rhythmIntonation: v.optional(v.number()),
+		phraseAccuracy: v.optional(v.number()),
 		feedbackText: v.optional(v.string()),
 		ttsAudioUrl: v.optional(v.string()),
 		createdAt: v.number()
 	}).index('by_attempt', ['attemptId']),
+
+	// Per-phrase AI vs human score calibration tracking
+	aiCalibration: defineTable({
+		phraseId: v.id('phrases'),
+		comparisonCount: v.number(),
+		sumDeltaSoundAccuracy: v.number(),
+		sumDeltaRhythmIntonation: v.number(),
+		sumDeltaPhraseAccuracy: v.number(),
+		sumAbsDeltaSoundAccuracy: v.number(),
+		sumAbsDeltaRhythmIntonation: v.number(),
+		sumAbsDeltaPhraseAccuracy: v.number(),
+		lastUpdatedAt: v.number()
+	}).index('by_phrase', ['phraseId']),
 
 	// User notification preferences
 	userPreferences: defineTable({
@@ -203,7 +218,8 @@ export default defineSchema({
 		notificationsPerPhrase: v.number(),
 		pushSubscription: v.optional(v.string()), // JSON stringified PushSubscription
 		timeZone: v.optional(v.string()), // IANA time zone for local-midnight resets
-		uiLocale: v.optional(v.string()) // UI language (e.g. en, xh)
+		uiLocale: v.optional(v.string()), // UI language (e.g. en, xh)
+		uiSkin: v.optional(v.string()) // UI skin (e.g. "default", "mono")
 	}).index('by_user', ['userId']),
 
 	// Billing subscriptions (provider state)

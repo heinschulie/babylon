@@ -169,9 +169,11 @@
 							<p class="practice-review-phrase">{attempt.phraseTranslation}</p>
 							<p class="meta-text">{attempt.phraseEnglish}</p>
 						</div>
-						{#if attempt.status === 'feedback_ready' && attempt.score != null}
+						{#if attempt.status === 'feedback_ready' && attempt.aiSoundAccuracy != null}
 							<div class="practice-review-trigger__scores">
-								<span class="practice-review-score">{attempt.score}/5</span>
+								<span class="practice-review-score" title={m.practice_score_sound()}>S{attempt.aiSoundAccuracy}</span>
+								<span class="practice-review-score" title={m.practice_score_rhythm()}>R{attempt.aiRhythmIntonation}</span>
+								<span class="practice-review-score" title={m.practice_score_phrase()}>P{attempt.aiPhraseAccuracy}</span>
 							</div>
 						{:else if attempt.status === 'processing'}
 							<span class="meta-text">{m.state_processing()}</span>

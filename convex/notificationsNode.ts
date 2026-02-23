@@ -74,6 +74,76 @@ export const send = internalAction({
 });
 
 /**
+ * Notify all push-enabled verifiers when a learner ends a session with pending reviews.
+ */
+export const notifyVerifiersNewWork = internalAction({
+	args: { practiceSessionId: v.id('practiceSessions') },
+	handler: async (ctx, { practiceSessionId }) => {
+		const info = await ctx.runQuery(internal.notifications.getSessionReviewInfo, {
+			practiceSessionId
+		});
+		if (info.count === 0) return;
+
+		for (const languageCode of info.languages) {
+			const verifierUserIds = await ctx.runQuery(
+				internal.notifications.getVerifierPushSubscriptions,
+				{ languageCode }
+			);
+
+			for (const userId of verifierUserIds) {
+				await ctx.runAction(internal.notificationsNode.sendPushToUser, {
+					userId,
+					title: 'New work available',
+					body: `${info.count} new recording${info.count > 1 ? 's' : ''} to review`,
+					url: '/work',
+					tag: `new-work-${practiceSessionId}`
+				});
+			}
+		}
+	}
+});
+
+/**
+ * Send a push notification to a user by userId. Generic action for event-driven notifications.
+ */
+export const sendPushToUser = internalAction({
+	args: {
+		userId: v.string(),
+		title: v.string(),
+		body: v.string(),
+		url: v.string(),
+		tag: v.string()
+	},
+	handler: async (ctx, { userId, title, body, url, tag }) => {
+		const prefs = await ctx.runQuery(internal.notifications.getPreferencesByUserId, { userId });
+		if (!prefs?.pushSubscription) return;
+
+		const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY;
+		const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+		const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
+
+		if (!vapidPublicKey || !vapidPrivateKey) {
+			console.error('VAPID keys not configured');
+			return;
+		}
+
+		webpush.setVapidDetails(
+			`mailto:noreply@${new URL(siteUrl).hostname}`,
+			vapidPublicKey,
+			vapidPrivateKey
+		);
+
+		const payload = JSON.stringify({ title, body, url, tag });
+
+		try {
+			await webpush.sendNotification(JSON.parse(prefs.pushSubscription), payload);
+		} catch (error) {
+			console.error(`Failed to send push to user ${userId}:`, error);
+		}
+	}
+});
+
+/**
  * Send a test push notification. Runs in Node.js runtime.
  */
 export const sendTest = action({

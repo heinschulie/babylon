@@ -48,7 +48,9 @@ export const insertAiFeedback = internalMutation({
 		transcript: v.optional(v.string()),
 		confidence: v.optional(v.number()),
 		errorTags: v.optional(v.array(v.string())),
-		score: v.optional(v.number()),
+		soundAccuracy: v.optional(v.number()),
+		rhythmIntonation: v.optional(v.number()),
+		phraseAccuracy: v.optional(v.number()),
 		feedbackText: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -57,7 +59,9 @@ export const insertAiFeedback = internalMutation({
 			transcript: args.transcript,
 			confidence: args.confidence,
 			errorTags: args.errorTags,
-			score: args.score,
+			soundAccuracy: args.soundAccuracy,
+			rhythmIntonation: args.rhythmIntonation,
+			phraseAccuracy: args.phraseAccuracy,
 			feedbackText: args.feedbackText,
 			createdAt: Date.now()
 		});

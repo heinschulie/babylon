@@ -80,7 +80,7 @@
   "claim_ai_title": "AI Analysis",
   "claim_transcript": "Transcript",
   "claim_feedback": "Feedback",
-  "claim_ai_score": "AI Score: {score}/5",
+  "claim_ai_scores": "AI: S{sound} R{rhythm} P{phrase}",
   "claim_ai_correct_q": "Is this analysis correct?",
   "claim_ai_incorrect": "Incorrect",
   "claim_ai_correct": "Correct",
@@ -94,5 +94,14 @@
   "claim_record_failed": "Failed to start recording.",
   "claim_release_failed": "Failed to release.",
   "claim_upload_failed": "Failed to upload exemplar audio.",
-  "claim_submit_failed": "Failed to submit review."
+  "claim_submit_failed": "Failed to submit review.",
+  "vsettings_push_title": "Push Notifications",
+  "vsettings_push_desc": "Get notified when new recordings are available to review",
+  "vsettings_push_enabled": "Notifications are enabled",
+  "vsettings_push_test": "Send Test",
+  "vsettings_push_test_sent": "Test notification sent!",
+  "vsettings_push_test_failed": "Failed to send test notification",
+  "vsettings_push_enable": "Enable Notifications",
+  "vsettings_push_enabling": "Enabling...",
+  "vsettings_push_disable": "Disable"
 }

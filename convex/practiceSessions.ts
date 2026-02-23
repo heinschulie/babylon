@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
 
 export const start = mutation({
@@ -30,6 +31,9 @@ export const end = mutation({
 		}
 		await ctx.db.patch(args.practiceSessionId, {
 			endedAt: Date.now()
+		});
+		await ctx.scheduler.runAfter(0, internal.notificationsNode.notifyVerifiersNewWork, {
+			practiceSessionId: args.practiceSessionId
 		});
 	}
 });

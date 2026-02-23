@@ -3,9 +3,28 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="theme-color" content="#0f172a" />
+		<meta name="theme-color" content="#f5f5f0" id="theme-color" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<script>
+			(function() {
+				var d = document.documentElement;
+				var t = localStorage.getItem('theme');
+				var s = localStorage.getItem('skin');
+				var mq = matchMedia('(prefers-color-scheme: dark)');
+				function applyDark(dark) {
+					d.classList.toggle('dark', dark);
+					document.getElementById('theme-color').content = dark ? '#171717' : '#f5f5f0';
+				}
+				applyDark(t === 'dark' || (!t && mq.matches));
+				mq.addEventListener('change', function(e) {
+					if (!localStorage.getItem('theme')) applyDark(e.matches);
+				});
+				if (s && s !== 'default') {
+					d.setAttribute('data-skin', s);
+				}
+			})();
+		</script>
 		<link rel="manifest" href="/manifest.json" />
 		<link rel="apple-touch-icon" href="/icon-192.png" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />

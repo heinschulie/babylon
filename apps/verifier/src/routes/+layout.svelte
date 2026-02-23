@@ -35,6 +35,23 @@
 			}
 		}
 	});
+
+	let skinSynced = false;
+	$effect(() => {
+		if (preferences.data?.uiSkin && !skinSynced) {
+			skinSynced = true;
+			const saved = preferences.data.uiSkin;
+			const current = document.documentElement.getAttribute('data-skin') ?? 'default';
+			if (saved !== current) {
+				if (saved === 'default') {
+					document.documentElement.removeAttribute('data-skin');
+				} else {
+					document.documentElement.setAttribute('data-skin', saved);
+				}
+				localStorage.setItem('skin', saved);
+			}
+		}
+	});
 </script>
 
 <svelte:head>
