@@ -13,6 +13,27 @@
 	const client = useConvexClient();
 	const preferences = useQuery(api.preferences.get, {});
 	const billing = useQuery(api.billing.getStatus, {});
+	const profileImageUrl = useQuery(api.preferences.getProfileImageUrl, {});
+
+	let uploadingAvatar = $state(false);
+
+	async function handleAvatarUpload(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0];
+		if (!file) return;
+		uploadingAvatar = true;
+		try {
+			const uploadUrl = await client.mutation(api.preferences.generateProfileImageUploadUrl, {});
+			const res = await fetch(uploadUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': file.type },
+				body: file
+			});
+			const { storageId } = await res.json();
+			await client.mutation(api.preferences.upsert, { profileImageStorageId: storageId });
+		} finally {
+			uploadingAvatar = false;
+		}
+	}
 
 	let quietStart = $state(22);
 	let quietEnd = $state(8);
@@ -186,6 +207,31 @@
 		<p class="info-kicker">{m.settings_kicker()}</p>
 		<h1 class="text-5xl sm:text-6xl">{m.settings_title()}</h1>
 	</div>
+
+	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Header>
+			<Card.Title>{m.settings_profile_pic_title()}</Card.Title>
+			<Card.Description>{m.settings_profile_pic_desc()}</Card.Description>
+		</Card.Header>
+		<Card.Content class="flex items-center gap-6">
+			<div class="settings-avatar">
+				{#if profileImageUrl.data}
+					<img src={profileImageUrl.data} alt="" class="settings-avatar__img" />
+				{:else}
+					<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="8" r="4"/>
+						<path d="M20 21a8 8 0 0 0-16 0"/>
+					</svg>
+				{/if}
+			</div>
+			<div>
+				<input type="file" accept="image/*" id="avatar-upload" class="hidden" onchange={handleAvatarUpload} />
+				<Button variant="outline" onclick={() => document.getElementById('avatar-upload')?.click()} disabled={uploadingAvatar}>
+					{uploadingAvatar ? m.settings_profile_pic_uploading() : m.settings_profile_pic_change()}
+				</Button>
+			</div>
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 		<Card.Header>

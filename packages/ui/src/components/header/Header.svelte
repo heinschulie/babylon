@@ -18,6 +18,9 @@
 		logoutLabel?: string;
 		homeAriaLabel?: string;
 		profileAriaLabel?: string;
+		theoryHref?: string;
+		theoryLabel?: string;
+		avatarUrl?: string | null;
 	}
 
 	let {
@@ -26,7 +29,10 @@
 		settingsLabel = 'Settings',
 		logoutLabel = 'Logout',
 		homeAriaLabel = 'Home',
-		profileAriaLabel = 'Profile menu'
+		profileAriaLabel = 'Profile menu',
+		theoryHref,
+		theoryLabel,
+		avatarUrl
 	}: Props = $props();
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,6 +45,9 @@
 
 	function isActive(path: string): boolean {
 		const resolved = r(path);
+		if (resolved === '/') {
+			return page.url.pathname === '/';
+		}
 		return page.url.pathname === resolved || page.url.pathname.startsWith(`${resolved}/`);
 	}
 </script>
@@ -64,12 +73,21 @@
 
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger class="app-header__avatar" aria-label={profileAriaLabel}>
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="12" cy="8" r="4"/>
-						<path d="M20 21a8 8 0 0 0-16 0"/>
-					</svg>
+					{#if avatarUrl}
+						<img src={avatarUrl} alt="" class="app-header__avatar-img" />
+					{:else}
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="12" cy="8" r="4"/>
+							<path d="M20 21a8 8 0 0 0-16 0"/>
+						</svg>
+					{/if}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end" sideOffset={8} style="background: var(--secondary); min-width: 14rem; padding: 6px;">
+					{#if theoryLabel}
+						<DropdownMenu.Item onclick={() => goto(r(theoryHref ?? '/theory'))} style="padding: 10px; margin: 0 8px; font-size: 1rem;">
+							{theoryLabel}
+						</DropdownMenu.Item>
+					{/if}
 					<DropdownMenu.Item onclick={() => goto(r(settingsHref))} style="padding: 10px; margin: 0 8px; font-size: 1rem;">
 						{settingsLabel}
 					</DropdownMenu.Item>

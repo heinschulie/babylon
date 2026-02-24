@@ -25,6 +25,10 @@
 		$isAuthenticated ? {} : 'skip'
 	);
 
+	const profileImage = useQuery(api.preferences.getProfileImageUrl, () =>
+		$isAuthenticated ? {} : 'skip'
+	);
+
 	let localeSynced = false;
 	$effect(() => {
 		if (preferences.data?.uiLocale && !localeSynced) {
@@ -60,12 +64,15 @@
 
 <Header
 	links={[
-		{ label: m.nav_library(), href: '/' },
-		{ label: m.nav_practice(), href: '/practice' }
+		{ label: m.nav_practice(), href: '/' },
+		{ label: m.nav_library(), href: '/library' }
 	]}
 	settingsLabel={m.nav_settings()}
 	logoutLabel={m.nav_logout()}
 	homeAriaLabel={m.aria_home()}
 	profileAriaLabel={m.aria_profile_menu()}
+	theoryLabel={m.nav_theory()}
+	theoryHref="/theory"
+	avatarUrl={profileImage.data ?? null}
 />
 {@render children()}

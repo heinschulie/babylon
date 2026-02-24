@@ -142,7 +142,7 @@
 
 <div class="page-shell page-shell--narrow page-stack">
 	<div class="page-stack">
-		<a href={resolve('/practice')} class="meta-text underline">&larr; {m.session_back()}</a>
+		<a href={resolve('/')} class="meta-text underline">&larr; {m.session_back()}</a>
 		<h1 class="text-5xl sm:text-6xl">{m.session_review()}</h1>
 		{#if sessionData.data}
 			<p class="meta-text">

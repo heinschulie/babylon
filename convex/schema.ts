@@ -221,7 +221,8 @@ export default defineSchema({
 		pushSubscription: v.optional(v.string()), // JSON stringified PushSubscription
 		timeZone: v.optional(v.string()), // IANA time zone for local-midnight resets
 		uiLocale: v.optional(v.string()), // UI language (e.g. en, xh)
-		uiSkin: v.optional(v.string()) // UI skin (e.g. "default", "mono")
+		uiSkin: v.optional(v.string()), // UI skin (e.g. "default", "mono")
+		profileImageStorageId: v.optional(v.string()) // Convex storage ID for profile pic
 	}).index('by_user', ['userId']),
 
 	// Billing subscriptions (provider state)
