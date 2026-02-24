@@ -192,5 +192,18 @@
   "theory_section_tone_title": "[TODO] Tone Matters",
   "theory_section_tone_body": "[TODO] isiXhosa is a tonal language. The pitch of a syllable — whether your voice goes high or low — can change the meaning of a word entirely. This is different from English, where pitch mainly conveys emotion or emphasis.\n\nFor example, the word 'ukúbala' (to count) and 'ukùbala' (to write) differ only in tone. The syllables and consonants are identical; only the pitch pattern changes.\n\nAs a beginner, do not stress about mastering tone from day one. Focus on imitating native speakers as closely as possible. Over time, your ear will start picking up the pitch patterns naturally. Listening is more effective than studying tone rules in a textbook.",
   "theory_section_patterns_title": "[TODO] Grammar Is Patterns, Not Rules",
-  "theory_section_patterns_body": "[TODO] isiXhosa grammar is built on repeating patterns rather than long lists of exceptions. The subject concord — a prefix on the verb that agrees with the noun class of the subject — is the foundation of nearly every sentence.\n\nBasic sentence structure follows Subject-Verb-Object order: 'Umfana udlala ibhola' (The boy plays ball). The verb 'udlala' carries the prefix 'u-' because 'umfana' (boy) is Class 1.\n\nNegation follows a pattern too: the prefix changes and a suffix '-i' is added. 'Ndiyahamba' (I am going) becomes 'Andihambhi' (I am not going). Past tense adds '-ile' or '-e' to the verb stem: 'ndihambile' (I went).\n\nThe more you practise, the more these patterns become second nature. isiXhosa rewards consistency — the same prefixes, suffixes, and concords appear again and again across different contexts. Trust the patterns and they will carry you."
+  "theory_section_patterns_body": "[TODO] isiXhosa grammar is built on repeating patterns rather than long lists of exceptions. The subject concord — a prefix on the verb that agrees with the noun class of the subject — is the foundation of nearly every sentence.\n\nBasic sentence structure follows Subject-Verb-Object order: 'Umfana udlala ibhola' (The boy plays ball). The verb 'udlala' carries the prefix 'u-' because 'umfana' (boy) is Class 1.\n\nNegation follows a pattern too: the prefix changes and a suffix '-i' is added. 'Ndiyahamba' (I am going) becomes 'Andihambhi' (I am not going). Past tense adds '-ile' or '-e' to the verb stem: 'ndihambile' (I went).\n\nThe more you practise, the more these patterns become second nature. isiXhosa rewards consistency — the same prefixes, suffixes, and concords appear again and again across different contexts. Trust the patterns and they will carry you.",
+  "vocab_back": "Buyela Ekuziqeqesheni",
+  "vocab_kicker": "[TODO] Build Your Vocabulary",
+  "vocab_title": "[TODO] Vocabulary Sets",
+  "vocab_desc": "[TODO] Learn isiXhosa words by category with visual flashcards.",
+  "vocab_back_to_sets": "[TODO] Back to Sets",
+  "vocab_set_not_found": "[TODO] Vocabulary set not found.",
+  "vocab_reveal": "[TODO] Reveal Translation",
+  "vocab_prev": "[TODO] Prev",
+  "vocab_next": "[TODO] Next",
+  "practice_vocab_kicker": "[TODO] Vocabulary",
+  "practice_vocab_title": "[TODO] Learn New Words",
+  "practice_vocab_desc": "[TODO] Build vocabulary with visual flashcards before practicing phrases.",
+  "practice_vocab_go": "[TODO] Browse Sets"
 }

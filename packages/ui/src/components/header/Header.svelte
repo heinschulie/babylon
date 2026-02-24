@@ -21,6 +21,7 @@
 		theoryHref?: string;
 		theoryLabel?: string;
 		avatarUrl?: string | null;
+		logoSrc?: string;
 	}
 
 	let {
@@ -32,7 +33,8 @@
 		profileAriaLabel = 'Profile menu',
 		theoryHref,
 		theoryLabel,
-		avatarUrl
+		avatarUrl,
+		logoSrc
 	}: Props = $props();
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,7 +58,11 @@
 	<header class="app-header">
 		<div class="app-header__bar">
 			<a href={r('/')} class="app-header__icon" aria-label={homeAriaLabel}>
-				<span class="app-header__icon-placeholder"></span>
+				{#if logoSrc}
+					<img src={logoSrc} alt="" class="app-header__logo-img" />
+				{:else}
+					<span class="app-header__icon-placeholder"></span>
+				{/if}
 			</a>
 
 			<nav class="app-header__nav">
@@ -82,7 +88,7 @@
 						</svg>
 					{/if}
 				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end" sideOffset={8} style="background: var(--secondary); min-width: 14rem; padding: 6px;">
+				<DropdownMenu.Content align="end" sideOffset={8} class="app-header__dropdown" style="min-width: 14rem; padding: 6px;">
 					{#if theoryLabel}
 						<DropdownMenu.Item onclick={() => goto(r(theoryHref ?? '/theory'))} style="padding: 10px; margin: 0 8px; font-size: 1rem;">
 							{theoryLabel}

@@ -7,7 +7,7 @@ self.addEventListener('push', function (event) {
 	const title = data.title || 'Language Recall';
 	const options = {
 		body: data.body || 'Time to practice!',
-		icon: '/icon-192.png',
+		icon: '/thetha_logo.png',
 		badge: '/badge-72.png',
 		tag: data.tag || 'recall-notification',
 		data: {

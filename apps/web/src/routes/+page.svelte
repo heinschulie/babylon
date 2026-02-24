@@ -488,6 +488,24 @@
 			</Card.Root>
 		</header>
 
+		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+			<Card.Content>
+				<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+					<div class="space-y-2">
+						<p class="info-kicker">{m.practice_vocab_kicker()}</p>
+						<p class="text-xl font-semibold">{m.practice_vocab_title()}</p>
+						<p class="meta-text">{m.practice_vocab_desc()}</p>
+					</div>
+					<a
+						href={resolve('/vocabulary')}
+						class="inline-flex items-center justify-center border border-border bg-background px-6 py-2 text-sm font-semibold uppercase tracking-widest transition-colors hover:bg-secondary"
+					>
+						{m.practice_vocab_go()}
+					</a>
+				</div>
+			</Card.Content>
+		</Card.Root>
+
 		{#if !allPhrases.data || allPhrases.data.length === 0}
 			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
 				<Card.Header>

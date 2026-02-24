@@ -1294,9 +1294,9 @@ Swipeable/tappable flashcard flow:
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npx convex dev --once` pushes without error (Unsplash action)
-- [ ] `bun run build` succeeds
-- [ ] `bun run check` passes
+- [x] `npx convex dev --once` pushes without error (Unsplash action)
+- [x] `bun run build` succeeds
+- [x] `bun run check` passes
 - [ ] `UNSPLASH_ACCESS_KEY` env var set in Convex
 
 #### Manual Verification
