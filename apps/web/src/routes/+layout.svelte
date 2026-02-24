@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { setupConvex } from 'convex-svelte';
 	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { CONVEX_URL } from '@babylon/shared/convex';
@@ -22,6 +21,10 @@
 	});
 
 	const preferences = useQuery(api.preferences.get, () =>
+		$isAuthenticated ? {} : 'skip'
+	);
+
+	const profileImage = useQuery(api.preferences.getProfileImageUrl, () =>
 		$isAuthenticated ? {} : 'skip'
 	);
 
@@ -55,17 +58,21 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href="/thetha_logo.avif" type="image/avif" />
 </svelte:head>
 
 <Header
+	logoSrc="/thetha_logo.avif"
 	links={[
-		{ label: m.nav_library(), href: '/' },
-		{ label: m.nav_practice(), href: '/practice' }
+		{ label: m.nav_practice(), href: '/' },
+		{ label: m.nav_library(), href: '/library' }
 	]}
 	settingsLabel={m.nav_settings()}
 	logoutLabel={m.nav_logout()}
 	homeAriaLabel={m.aria_home()}
 	profileAriaLabel={m.aria_profile_menu()}
+	theoryLabel={m.nav_theory()}
+	theoryHref="/theory"
+	avatarUrl={profileImage.data ?? null}
 />
 {@render children()}

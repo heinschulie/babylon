@@ -28,6 +28,7 @@ import type * as lib_billing from "../lib/billing.js";
 import type * as lib_languages from "../lib/languages.js";
 import type * as lib_payfast from "../lib/payfast.js";
 import type * as lib_phraseCategories from "../lib/phraseCategories.js";
+import type * as lib_vocabularySets from "../lib/vocabularySets.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsNode from "../notificationsNode.js";
 import type * as phrases from "../phrases.js";
@@ -37,6 +38,7 @@ import type * as sessions from "../sessions.js";
 import type * as translateNode from "../translateNode.js";
 import type * as translatePhrase from "../translatePhrase.js";
 import type * as translatePhraseData from "../translatePhraseData.js";
+import type * as unsplash from "../unsplash.js";
 import type * as verifierAccess from "../verifierAccess.js";
 
 import type {
@@ -66,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   "lib/languages": typeof lib_languages;
   "lib/payfast": typeof lib_payfast;
   "lib/phraseCategories": typeof lib_phraseCategories;
+  "lib/vocabularySets": typeof lib_vocabularySets;
   notifications: typeof notifications;
   notificationsNode: typeof notificationsNode;
   phrases: typeof phrases;
@@ -75,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   translateNode: typeof translateNode;
   translatePhrase: typeof translatePhrase;
   translatePhraseData: typeof translatePhraseData;
+  unsplash: typeof unsplash;
   verifierAccess: typeof verifierAccess;
 }>;
 

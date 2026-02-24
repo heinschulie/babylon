@@ -38,6 +38,29 @@ export const get = query({
 	}
 });
 
+// Get profile image URL from storage
+export const getProfileImageUrl = query({
+	args: {},
+	handler: async (ctx) => {
+		const userId = await getAuthUserId(ctx);
+		const prefs = await ctx.db
+			.query('userPreferences')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.unique();
+		if (!prefs?.profileImageStorageId) return null;
+		return await ctx.storage.getUrl(prefs.profileImageStorageId);
+	}
+});
+
+// Generate upload URL for profile images (no billing check)
+export const generateProfileImageUploadUrl = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await getAuthUserId(ctx);
+		return await ctx.storage.generateUploadUrl();
+	}
+});
+
 // Upsert user preferences
 export const upsert = mutation({
 	args: {
@@ -47,7 +70,8 @@ export const upsert = mutation({
 		pushSubscription: v.optional(v.string()),
 		timeZone: v.optional(v.string()),
 		uiLocale: v.optional(v.string()),
-		uiSkin: v.optional(v.string())
+		uiSkin: v.optional(v.string()),
+		profileImageStorageId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
@@ -67,7 +91,8 @@ export const upsert = mutation({
 				...(args.pushSubscription !== undefined && { pushSubscription: args.pushSubscription }),
 				...(args.timeZone !== undefined && { timeZone: args.timeZone }),
 				...(args.uiLocale !== undefined && { uiLocale: args.uiLocale }),
-				...(args.uiSkin !== undefined && { uiSkin: args.uiSkin })
+				...(args.uiSkin !== undefined && { uiSkin: args.uiSkin }),
+				...(args.profileImageStorageId !== undefined && { profileImageStorageId: args.profileImageStorageId })
 			});
 			return existing._id;
 		}
@@ -81,7 +106,8 @@ export const upsert = mutation({
 			pushSubscription: args.pushSubscription,
 			timeZone: args.timeZone ?? DEFAULT_PREFERENCES.timeZone,
 			uiLocale: args.uiLocale,
-			uiSkin: args.uiSkin
+			uiSkin: args.uiSkin,
+			profileImageStorageId: args.profileImageStorageId
 		});
 	}
 });

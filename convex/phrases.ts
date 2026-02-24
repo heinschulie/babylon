@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
 import { inferPhraseCategory, PHRASE_CATEGORIES } from './lib/phraseCategories';
@@ -284,5 +284,23 @@ export const remove = mutation({
 		}
 
 		await ctx.db.delete(args.id);
+	}
+});
+
+// Re-categorize all phrases using the latest category definitions.
+// Run once after deploying new categories: npx convex run phrases:recategorizeAll
+export const recategorizeAll = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const phrases = await ctx.db.query('phrases').collect();
+		for (const phrase of phrases) {
+			const category = inferPhraseCategory(phrase.english, phrase.translation);
+			if (phrase.categoryKey !== category.key) {
+				await ctx.db.patch(phrase._id, {
+					categoryKey: category.key,
+					categoryLabel: category.label
+				});
+			}
+		}
 	}
 });

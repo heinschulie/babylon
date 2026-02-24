@@ -1,20 +1,54 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '@babylon/convex';
+	import { api, type Id } from '@babylon/convex';
 	import { Button } from '@babylon/ui/button';
 	import * as Accordion from '@babylon/ui/accordion';
-	import * as Dialog from '@babylon/ui/dialog';
-	import { Input } from '@babylon/ui/input';
-	import { Label } from '@babylon/ui/label';
+	import * as Card from '@babylon/ui/card';
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
+	import { fly } from 'svelte/transition';
 	import * as m from '$lib/paraglide/messages.js';
 
+	function relativeTime(timestamp: number): string {
+		const now = Date.now();
+		const diff = now - timestamp;
+		const minutes = Math.floor(diff / 60000);
+		const hours = Math.floor(diff / 3600000);
+		const days = Math.floor(diff / 86400000);
+
+		if (minutes < 1) return m.time_just_now();
+		if (minutes < 60) return m.time_minutes_ago({ count: minutes });
+
+		const date = new Date(timestamp);
+		const today = new Date();
+		const yesterday = new Date(today);
+		yesterday.setDate(yesterday.getDate() - 1);
+
+		if (date.toDateString() === today.toDateString()) return m.time_earlier_today();
+		if (date.toDateString() === yesterday.toDateString()) return m.time_yesterday();
+		if (days < 7) return m.time_days_ago({ count: days });
+		if (days < 30) return m.time_weeks_ago({ count: Math.floor(days / 7) });
+		return date.toLocaleDateString();
+	}
+
 	const client = useConvexClient();
-	const phraseGroups = useQuery(api.phrases.listGroupedByCategory, {});
-	const billingStatus = useQuery(api.billing.getStatus, {});
-	const unseenFeedback = useQuery(api.humanReviews.getUnseenFeedback, {});
+	const allPhrases = useQuery(api.phrases.listAllByUser, {});
+	const practiceSessions = useQuery(api.practiceSessions.list, {});
+	const streak = useQuery(api.practiceSessions.getStreak, {});
+
+	const activePracticeSessionId = $derived(
+		(page.url.searchParams.get('run') as Id<'practiceSessions'> | null) ?? null
+	);
+	const activePracticeSession = useQuery(
+		api.practiceSessions.get,
+		() => (activePracticeSessionId ? { practiceSessionId: activePracticeSessionId } : 'skip')
+	);
+	const sessionAttempts = useQuery(
+		api.attempts.listByPracticeSessionAsc,
+		() => (activePracticeSessionId ? { practiceSessionId: activePracticeSessionId } : 'skip')
+	);
 
 	$effect(() => {
 		if (!$isLoading && !$isAuthenticated) {
@@ -22,153 +56,744 @@
 		}
 	});
 
-	let dialogOpen = $state(false);
-	let english = $state('');
-	let creating = $state(false);
-	let error = $state('');
+	function shuffle<T>(arr: T[]): T[] {
+		const a = [...arr];
+		for (let i = a.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[a[i], a[j]] = [a[j], a[i]];
+		}
+		return a;
+	}
 
-	const minutesRemaining = $derived(
-		billingStatus.data
-			? Math.max(0, Math.round(billingStatus.data.minutesLimit - billingStatus.data.minutesUsed))
-			: null
-	);
+	let queue: typeof allPhrases.data = $state([]);
+	let currentIndex = $state(0);
+	const queueModes = ['once', 'shuffle', 'repeat'] as const;
+	type QueueMode = (typeof queueModes)[number];
+	let queueMode = $state<QueueMode>('once');
 
-	async function createPhrase() {
-		if (!english.trim()) {
-			error = m.error_enter_english();
+	function cycleQueueMode() {
+		const nextIndex = (queueModes.indexOf(queueMode) + 1) % queueModes.length;
+		queueMode = queueModes[nextIndex];
+		if (queueMode === 'shuffle') {
+			queue = shuffle(queue!);
+		}
+	}
+	let sessionDone = $state(false);
+	let pendingSubmissions = $state(0);
+	let initialized = $state(false);
+	let recorder: MediaRecorder | null = $state(null);
+	let recording = $state(false);
+	let audioChunks: Blob[] = $state([]);
+	let audioBlob: Blob | null = $state(null);
+	let audioUrl: string | null = $state(null);
+	let recordError = $state('');
+	let processing = $state(false);
+	let durationMs = $state(0);
+	let starting = $state(false);
+	let ending = $state(false);
+
+	// Review screen audio state — keyed by attempt ID
+	let reviewPlayers = $state<Record<string, {
+		el: HTMLAudioElement | null;
+		playing: boolean;
+		progress: number;
+		duration: number;
+	}>>({});
+	let verifierPlayers = $state<Record<string, {
+		el: HTMLAudioElement | null;
+		playing: boolean;
+		progress: number;
+		duration: number;
+	}>>({});
+	let playedVerifierClips = $state<Set<string>>(new Set());
+
+	function toggleReviewPlayback(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (!p?.el) return;
+		if (p.playing) { p.el.pause(); } else { p.el.play(); }
+	}
+
+	function toggleVerifierPlayback(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (!p?.el) return;
+		if (p.playing) { p.el.pause(); } else { p.el.play(); }
+	}
+
+	function onReviewTimeUpdate(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (!p?.el || !p.el.duration) return;
+		p.progress = p.el.currentTime / p.el.duration;
+	}
+
+	function onVerifierTimeUpdate(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (!p?.el || !p.el.duration) return;
+		p.progress = p.el.currentTime / p.el.duration;
+	}
+
+	function onReviewPlayEnded(attemptId: string) {
+		const p = reviewPlayers[attemptId];
+		if (p) { p.playing = false; p.progress = 0; }
+	}
+
+	function onVerifierPlayEnded(attemptId: string) {
+		const p = verifierPlayers[attemptId];
+		if (p) { p.playing = false; p.progress = 0; }
+		playedVerifierClips.add(attemptId);
+		playedVerifierClips = new Set(playedVerifierClips);
+	}
+
+	const defaultPlayer = { el: null, playing: false, progress: 0, duration: 0 } as const;
+
+	function rp(attemptId: string) {
+		return reviewPlayers[attemptId] ?? defaultPlayer;
+	}
+
+	function vp(attemptId: string) {
+		return verifierPlayers[attemptId] ?? defaultPlayer;
+	}
+
+	// Pre-seed player entries when attempts data arrives
+	$effect(() => {
+		const attempts = sessionAttempts.data?.attempts;
+		if (!attempts) return;
+		for (const a of attempts) {
+			if (a.audioUrl && !reviewPlayers[a._id]) {
+				reviewPlayers[a._id] = { el: null, playing: false, progress: 0, duration: 0 };
+			}
+			if (a.humanReview?.initialReview?.audioUrl && !verifierPlayers[a._id]) {
+				verifierPlayers[a._id] = { el: null, playing: false, progress: 0, duration: 0 };
+			}
+		}
+	});
+
+	function registerReviewAudio(attemptId: string, el: HTMLAudioElement) {
+		if (!reviewPlayers[attemptId]) {
+			reviewPlayers[attemptId] = { el: null, playing: false, progress: 0, duration: 0 };
+		}
+		reviewPlayers[attemptId].el = el;
+		if (el.duration && !isNaN(el.duration)) reviewPlayers[attemptId].duration = el.duration * 1000;
+	}
+
+	function registerVerifierAudio(attemptId: string, el: HTMLAudioElement) {
+		if (!verifierPlayers[attemptId]) {
+			verifierPlayers[attemptId] = { el: null, playing: false, progress: 0, duration: 0 };
+		}
+		verifierPlayers[attemptId].el = el;
+		if (el.duration && !isNaN(el.duration)) verifierPlayers[attemptId].duration = el.duration * 1000;
+	}
+	let playerEl: HTMLAudioElement | null = $state(null);
+	let playing = $state(false);
+	let playProgress = $state(0);
+
+	$effect(() => {
+		if (activePracticeSessionId && allPhrases.data && allPhrases.data.length > 0 && !initialized) {
+			queue = shuffle(allPhrases.data);
+			currentIndex = 0;
+			initialized = true;
+		}
+		if (!activePracticeSessionId && initialized) {
+			initialized = false;
+			queue = [];
+			currentIndex = 0;
+			sessionDone = false;
+			pendingSubmissions = 0;
+			recording = false;
+			recordError = '';
+			audioChunks = [];
+			audioBlob = null;
+			audioUrl = null;
+			durationMs = 0;
+		}
+	});
+
+	const currentPhrase = $derived(queue && queue.length > 0 ? queue[currentIndex] : null);
+	const queueLength = $derived(queue?.length ?? 0);
+	const queuePosition = $derived(currentPhrase ? currentIndex + 1 : 0);
+
+	function formatDuration(ms: number): string {
+		if (!ms) return '0:00';
+		const totalSeconds = Math.floor(ms / 1000);
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
+
+	const recorderMimeCandidates = [
+		'audio/webm;codecs=opus',
+		'audio/webm',
+		'audio/mp4',
+		'audio/ogg;codecs=opus'
+	];
+
+	function getPreferredRecorderMimeType(): string {
+		if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+			return '';
+		}
+		return recorderMimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
+	}
+
+	async function startPracticeSession() {
+		starting = true;
+		try {
+			const practiceSessionId = await client.mutation(api.practiceSessions.start, {});
+			const practiceUrl = new URL(resolve('/'), window.location.origin);
+			practiceUrl.searchParams.set('run', practiceSessionId);
+			await goto(`${practiceUrl.pathname}${practiceUrl.search}`);
+		} finally {
+			starting = false;
+		}
+	}
+
+	async function endPracticeSession() {
+		if (!activePracticeSessionId) return;
+		ending = true;
+		try {
+			await client.mutation(api.practiceSessions.end, {
+				practiceSessionId: activePracticeSessionId
+			});
+			await goto(resolve('/'));
+		} finally {
+			ending = false;
+		}
+	}
+
+	async function handleSubmit() {
+		if (!audioBlob || !currentPhrase || !activePracticeSessionId) return;
+
+		processing = true;
+		recordError = '';
+
+		try {
+			const phraseSnapshot = { ...currentPhrase };
+			const blobSnapshot = audioBlob;
+			const durationSnapshot = durationMs;
+
+			// 1. Create attempt + upload audio (must be sync — need IDs)
+			const attemptId = await client.mutation(api.attempts.create, {
+				phraseId: phraseSnapshot._id,
+				practiceSessionId: activePracticeSessionId,
+				durationMs: durationSnapshot
+			});
+
+			const uploadUrl = await client.mutation(api.audioUploads.generateUploadUrl, {});
+			const uploadResponse = await fetch(uploadUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': blobSnapshot.type || 'audio/webm' },
+				body: blobSnapshot
+			});
+
+			if (!uploadResponse.ok) throw new Error(m.practice_upload_failed());
+
+			const uploadResult = await uploadResponse.json();
+			const storageId = uploadResult.storageId as string;
+
+			const audioAssetId = await client.mutation(api.audioAssets.create, {
+				storageKey: storageId,
+				contentType: blobSnapshot.type || 'audio/webm',
+				phraseId: phraseSnapshot._id,
+				attemptId,
+				durationMs: durationSnapshot
+			});
+
+			await client.mutation(api.attempts.attachAudio, {
+				attemptId,
+				audioAssetId
+			});
+
+			// 2. Fire-and-forget AI processing
+			pendingSubmissions++;
+			client.action(api.aiPipeline.processAttempt, {
+				attemptId,
+				phraseId: phraseSnapshot._id,
+				englishPrompt: phraseSnapshot.english,
+				targetPhrase: phraseSnapshot.translation
+			}).finally(() => {
+				pendingSubmissions--;
+			});
+
+			// 3. Immediately advance
+			advanceToNext();
+		} catch (err) {
+			recordError = err instanceof Error ? err.message : m.practice_submit_failed();
+		} finally {
+			processing = false;
+		}
+	}
+
+	function advanceToNext() {
+		const nextIndex = currentIndex + 1;
+
+		if (nextIndex >= queue!.length) {
+			if (queueMode === 'once') {
+				sessionDone = true;
+				resetRecordingState();
+				return;
+			} else if (queueMode === 'shuffle') {
+				queue = shuffle(queue!);
+				currentIndex = 0;
+			} else {
+				// repeat — restart from 0 without reshuffle
+				currentIndex = 0;
+			}
+		} else {
+			currentIndex = nextIndex;
+		}
+
+		resetRecordingState();
+	}
+
+	function resetRecordingState() {
+		recording = false;
+		recordError = '';
+		audioChunks = [];
+		audioBlob = null;
+		audioUrl = null;
+		durationMs = 0;
+		if (playerEl) {
+			playerEl.pause();
+			playerEl = null;
+		}
+		playing = false;
+		playProgress = 0;
+	}
+
+	function handleSkip() {
+		advanceToNext();
+	}
+
+	async function startRecording() {
+		recordError = '';
+		audioChunks = [];
+		audioBlob = null;
+		audioUrl = null;
+		durationMs = 0;
+
+		if (!navigator.mediaDevices?.getUserMedia) {
+			recordError = m.practice_browser_unsupported();
 			return;
 		}
 
-		creating = true;
-		error = '';
 		try {
-			await client.mutation(api.phrases.createDirect, {
-				english: english.trim(),
-				languageCode: 'xh-ZA'
-			});
-			dialogOpen = false;
-			english = '';
-		} catch (e) {
-			error = e instanceof Error ? e.message : m.error_failed_add_phrase();
-		} finally {
-			creating = false;
+			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			const preferredMimeType = getPreferredRecorderMimeType();
+			const mediaRecorder = preferredMimeType
+				? new MediaRecorder(stream, { mimeType: preferredMimeType })
+				: new MediaRecorder(stream);
+			recorder = mediaRecorder;
+
+			const startTime = Date.now();
+
+			mediaRecorder.ondataavailable = (event) => {
+				if (event.data && event.data.size > 0) {
+					audioChunks = [...audioChunks, event.data];
+				}
+			};
+
+			mediaRecorder.onstop = () => {
+				const blobMimeType = mediaRecorder.mimeType || audioChunks[0]?.type || 'audio/webm';
+				const blob = new Blob(audioChunks, { type: blobMimeType });
+				audioBlob = blob;
+				audioUrl = URL.createObjectURL(blob);
+				durationMs = Date.now() - startTime;
+				stream.getTracks().forEach((track) => track.stop());
+			};
+
+			mediaRecorder.start();
+			recording = true;
+		} catch (err) {
+			recordError = err instanceof Error ? err.message : m.practice_record_failed();
 		}
 	}
+
+	function stopRecording() {
+		if (!recorder || recorder.state !== 'recording') {
+			return;
+		}
+		recorder.stop();
+		recording = false;
+	}
+
+	function discardRecording() {
+		if (playerEl) {
+			playerEl.pause();
+			playerEl = null;
+		}
+		playing = false;
+		playProgress = 0;
+		audioChunks = [];
+		audioBlob = null;
+		audioUrl = null;
+		durationMs = 0;
+		recordError = '';
+	}
+
+	function togglePlayback() {
+		if (!playerEl) return;
+		if (playing) {
+			playerEl.pause();
+		} else {
+			playerEl.play();
+		}
+	}
+
+	function onTimeUpdate() {
+		if (!playerEl || !playerEl.duration) return;
+		playProgress = playerEl.currentTime / playerEl.duration;
+	}
+
+	function onPlayEnded() {
+		playing = false;
+		playProgress = 0;
+	}
+
 </script>
 
-<div class="page-shell page-shell--narrow page-stack">
-	<header class="page-stack">
-		<div>
-			<p class="info-kicker">{m.library_kicker()}</p>
-			<h1 class="text-5xl sm:text-6xl">{m.library_title()}</h1>
-			<p class="meta-text mt-3 max-w-2xl">
-				{m.library_description()}
-			</p>
-		</div>
-		<div>
-			<Dialog.Root bind:open={dialogOpen}>
-				<Dialog.Trigger>
-					{#snippet child({ props })}
-						<Button {...props} variant="outline" class="w-full" size="lg">{m.library_add_phrase()}</Button>
-					{/snippet}
-				</Dialog.Trigger>
-				<Dialog.Content>
-					<Dialog.Header>
-						<Dialog.Title>{m.library_add_phrase()}</Dialog.Title>
-						<Dialog.Description>{m.library_add_phrase_desc()}</Dialog.Description>
-					</Dialog.Header>
-					<div class="space-y-4 py-4">
-						<div class="space-y-2">
-							<Label for="english">{m.library_english_label()}</Label>
-							<Input id="english" bind:value={english} placeholder={m.library_english_placeholder()} />
-						</div>
-						{#if error}
-							<p class="text-sm text-destructive">{error}</p>
-						{/if}
-					</div>
-					<Dialog.Footer>
-						<Button variant="outline" onclick={() => (dialogOpen = false)}>{m.btn_cancel()}</Button>
-						<Button onclick={createPhrase} disabled={creating}>
-							{creating ? m.library_adding() : m.library_add_phrase()}
-						</Button>
-					</Dialog.Footer>
-				</Dialog.Content>
-			</Dialog.Root>
-		</div>
-	</header>
-
-	{#if unseenFeedback.data?.practiceSessionId}
-		<a
-			href={resolve(`/practice/session/${unseenFeedback.data.practiceSessionId}#feedback`)}
-			class="feedback-banner"
-		>
-			<div class="feedback-banner__content">
-				<span class="feedback-banner__icon">
-					<img src="/fire.gif" alt="" />
-				</span>
-				<span class="feedback-banner__text">
-					{m.library_feedback_banner()}
-				</span>
-				<span class="feedback-banner__arrow">&rarr;</span>
-			</div>
-		</a>
-	{/if}
-
-	<section class="page-stack">
-		{#if phraseGroups.isLoading}
-			<p class="meta-text">{m.library_loading()}</p>
-		{:else if phraseGroups.error}
-			<p class="text-destructive">{m.library_error_loading({ message: phraseGroups.error.message })}</p>
-		{:else if !phraseGroups.data || phraseGroups.data.length === 0}
+{#if !activePracticeSessionId}
+	<div class="page-shell page-shell--narrow page-stack">
+		<header class="page-stack">
 			<div>
-				<h2 class="text-3xl sm:text-4xl">{m.library_no_phrases()}</h2>
-				<p class="text-muted-foreground text-body-desc leading-relaxed">{m.library_no_phrases_desc()}</p>
+				<p class="info-kicker">{m.practice_kicker()}</p>
+				<h1 class="text-5xl sm:text-6xl">{m.practice_title()}</h1>
 			</div>
-		{:else}
-			{@const allKeys = phraseGroups.data.map(g => g.key)}
-			<Accordion.Root type="multiple" value={allKeys}>
-				{#each phraseGroups.data as group (group.key)}
-					<Accordion.Item value={group.key} class="border-none">
-						<Accordion.Trigger class="text-3xl sm:text-4xl font-display uppercase leading-heading tracking-heading hover:no-underline py-0 gap-2 text-start justify-start">
-							<div>
-								<span>{group.label}</span>
-								<p class="text-muted-foreground text-xs leading-relaxed font-body font-normal normal-case tracking-normal">
-									{m.library_phrase_count({ count: group.phrases.length })}
-								</p>
-							</div>
-						</Accordion.Trigger>
-						<Accordion.Content class="text-base">
-							<ul class="space-y-3">
-								{#each group.phrases as phrase (phrase._id)}
-									<li class="phrase-card p-4 sm:p-5">
-										<p class="info-kicker">{m.library_label_english()}</p>
-										<p class="mt-2 text-xl font-semibold leading-tight sm:text-2xl">{phrase.english}</p>
-										<p class="info-kicker mt-5">{m.library_label_xhosa()}</p>
-										{#if phrase.translationStatus === 'pending'}
-											<p class="target-phrase mt-2 font-black opacity-40">{m.library_translating()}</p>
-										{:else}
-											<p class="target-phrase mt-2 font-black">{phrase.translation}</p>
-										{/if}
-										{#if phrase.phonetic}
-											<p class="mt-2 text-xl font-semibold leading-tight sm:text-2xl text-muted-foreground">
-												{phrase.phonetic}
-											</p>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						</Accordion.Content>
-					</Accordion.Item>
-				{/each}
-			</Accordion.Root>
-		{/if}
-	</section>
-</div>
 
-<!-- Practice FAB -->
-{#if $isAuthenticated}
-	<a href={resolve('/practice')} class="practice-fab" aria-label={m.library_fab_label()}>
-		<span class="practice-fab__minutes">{minutesRemaining ?? '—'}</span>
-		<span class="practice-fab__label">{m.library_fab_unit()}</span>
-	</a>
+			{#if streak.data}
+				<div class="streak-display">
+					<span class="streak-display__number">{streak.data.streak}</span>
+					<span class="streak-display__days">days streak</span>
+					<span class="streak-display__label">{m.practice_streak_subtitle()} <img src="/fire.gif" alt="" class="practice-review-fire" style="display:inline; vertical-align:middle;" /></span>
+				</div>
+			{/if}
+
+			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+				<Card.Content>
+					<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+						<div class="space-y-2">
+							<p class="info-kicker">{m.practice_quick_start()}</p>
+							<p class="text-xl font-semibold">
+								{m.practice_ready({ count: allPhrases.data?.length ?? 0 })}
+							</p>
+							<p class="meta-text">{m.practice_tip()}</p>
+						</div>
+						<Button
+							onclick={startPracticeSession}
+							disabled={starting || !allPhrases.data || allPhrases.data.length === 0}
+							size="lg"
+							class="w-full sm:w-auto"
+						>
+							{starting ? m.practice_starting() : m.practice_start()}
+						</Button>
+					</div>
+				</Card.Content>
+			</Card.Root>
+		</header>
+
+		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+			<Card.Content>
+				<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+					<div class="space-y-2">
+						<p class="info-kicker">{m.practice_vocab_kicker()}</p>
+						<p class="text-xl font-semibold">{m.practice_vocab_title()}</p>
+						<p class="meta-text">{m.practice_vocab_desc()}</p>
+					</div>
+					<a
+						href={resolve('/vocabulary')}
+						class="inline-flex items-center justify-center border border-border bg-background px-6 py-2 text-sm font-semibold uppercase tracking-widest transition-colors hover:bg-secondary"
+					>
+						{m.practice_vocab_go()}
+					</a>
+				</div>
+			</Card.Content>
+		</Card.Root>
+
+		{#if !allPhrases.data || allPhrases.data.length === 0}
+			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+				<Card.Header>
+					<Card.Title>{m.practice_no_phrases()}</Card.Title>
+					<Card.Description>{m.practice_no_phrases_desc()}</Card.Description>
+				</Card.Header>
+				<Card.Footer>
+					<a href={resolve('/library')} class="meta-text underline">{m.practice_go_library()}</a>
+				</Card.Footer>
+			</Card.Root>
+		{/if}
+
+		<Accordion.Root type="single">
+			<Accordion.Item value="recent">
+				<Accordion.Trigger class="text-3xl sm:text-4xl font-display uppercase leading-heading tracking-heading hover:no-underline py-0 gap-2 text-start justify-start">
+					<div>
+						<span>{m.practice_recent()}</span>
+						<p class="text-muted-foreground text-xs leading-relaxed font-body font-normal normal-case tracking-normal">
+							{m.practice_recent_desc()}
+						</p>
+					</div>
+				</Accordion.Trigger>
+				<Accordion.Content>
+					{#if practiceSessions.isLoading}
+						<p class="meta-text">{m.practice_loading_sessions()}</p>
+					{:else if !practiceSessions.data || practiceSessions.data.length === 0}
+						<p class="meta-text">{m.practice_no_sessions()}</p>
+					{:else}
+						<ul class="space-y-3">
+							{#each practiceSessions.data as session}
+								<li>
+									<a
+										href={resolve(`/practice/session/${session._id}`)}
+										class="flex items-center justify-between border border-border/60 bg-background/70 p-4 transition-colors hover:bg-background/90"
+									>
+										<div>
+											<span class="font-semibold">{relativeTime(session.startedAt)}</span>
+											<span class="meta-text ml-2">{m.library_phrase_count({ count: session.phraseCount })}</span>
+										</div>
+										{#if session.avgScores}
+											<div class="practice-review-trigger__scores">
+												<span class="practice-review-score" title={m.practice_score_sound()}>S{session.avgScores.sound}</span>
+												<span class="practice-review-score" title={m.practice_score_rhythm()}>R{session.avgScores.rhythm}</span>
+												<span class="practice-review-score" title={m.practice_score_phrase()}>P{session.avgScores.phrase}</span>
+											</div>
+										{/if}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</Accordion.Content>
+			</Accordion.Item>
+		</Accordion.Root>
+	</div>
+
+	<!-- Practice FAB -->
+	{#if $isAuthenticated && !activePracticeSessionId}
+		<button
+			class="practice-fab"
+			onclick={startPracticeSession}
+			disabled={starting || !allPhrases.data || allPhrases.data.length === 0}
+			aria-label={m.practice_fab_start()}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+				fill="currentColor" stroke="none">
+				<polygon points="5,3 19,12 5,21" />
+			</svg>
+		</button>
+	{/if}
+{:else}
+	{#if allPhrases.isLoading || activePracticeSession.isLoading}
+		<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
+			<p class="meta-text">{m.practice_loading_session()}</p>
+		</div>
+	{:else if !allPhrases.data || allPhrases.data.length === 0}
+		<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
+			<Card.Root class="w-full border border-border/60 bg-background/85 backdrop-blur-sm">
+				<Card.Header class="text-center">
+					<Card.Title class="text-2xl">{m.practice_no_phrases_title()}</Card.Title>
+					<Card.Description>{m.practice_no_phrases_body()}</Card.Description>
+				</Card.Header>
+				<Card.Footer class="justify-center">
+					<a href={resolve('/library')} class="meta-text underline">
+						{m.practice_back_library()}
+					</a>
+				</Card.Footer>
+			</Card.Root>
+		</div>
+	{:else if sessionDone}
+		<div class="page-shell page-shell--narrow page-stack">
+			<div class="page-stack">
+				<h1 class="text-5xl sm:text-6xl">{m.practice_review_title()}</h1>
+				<p class="meta-text">
+					{#if pendingSubmissions > 0}
+						{m.practice_processing_count({ count: pendingSubmissions })}
+					{:else}
+						{m.practice_all_received()}
+					{/if}
+				</p>
+			</div>
+
+			{#if sessionAttempts.isLoading}
+				<p class="meta-text">{m.practice_loading_results()}</p>
+			{:else if sessionAttempts.data}
+				<Accordion.Root type="single">
+					{#each sessionAttempts.data.attempts as attempt (attempt._id)}
+						{@const hasVerifier = !!attempt.humanReview?.initialReview}
+						{@const showFire = hasVerifier && attempt.humanReview?.initialReview?.audioUrl && !playedVerifierClips.has(attempt._id)}
+						<Accordion.Item value={attempt._id}>
+							<Accordion.Trigger class="practice-review-trigger">
+								{#if showFire}
+									<img src="/fire.gif" alt="" class="practice-review-fire" />
+								{/if}
+								<div class="practice-review-trigger__content">
+									<p class="practice-review-phrase">{attempt.phraseTranslation}</p>
+									<p class="meta-text">{attempt.phraseEnglish}</p>
+								</div>
+								{#if attempt.status === 'feedback_ready' && attempt.aiSoundAccuracy != null}
+									<div class="practice-review-trigger__scores">
+										<span class="practice-review-score" title={m.practice_score_sound()}>S{attempt.aiSoundAccuracy}</span>
+										<span class="practice-review-score" title={m.practice_score_rhythm()}>R{attempt.aiRhythmIntonation}</span>
+										<span class="practice-review-score" title={m.practice_score_phrase()}>P{attempt.aiPhraseAccuracy}</span>
+									</div>
+								{:else if attempt.status === 'processing'}
+									<span class="meta-text">{m.state_processing()}</span>
+								{:else if attempt.status === 'failed'}
+									<span class="text-destructive text-sm">{m.state_failed()}</span>
+								{/if}
+								{#if hasVerifier}
+									<div class="practice-review-trigger__verifier-scores">
+										<span class="practice-review-vscore" title={m.practice_score_sound()}>S{attempt.humanReview.initialReview.soundAccuracy}</span>
+										<span class="practice-review-vscore" title={m.practice_score_rhythm()}>R{attempt.humanReview.initialReview.rhythmIntonation}</span>
+										<span class="practice-review-vscore" title={m.practice_score_phrase()}>P{attempt.humanReview.initialReview.phraseAccuracy}</span>
+									</div>
+								{/if}
+							</Accordion.Trigger>
+							<Accordion.Content>
+								<div class="practice-review-detail">
+									{#if attempt.feedbackText}
+										<p class="text-sm">{attempt.feedbackText}</p>
+									{/if}
+									{#if attempt.audioUrl}
+										<div>
+											<p class="info-kicker mb-1">{m.practice_your_recording()}</p>
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<!-- svelte-ignore a11y_no_static_element_interactions -->
+											<div class="practice-player" onclick={() => toggleReviewPlayback(attempt._id)}>
+												<div class="practice-player__fill" style="width: {(rp(attempt._id).progress) * 100}%"></div>
+												<span class="practice-player__label">
+													{rp(attempt._id).playing ? m.state_playing() : formatDuration(rp(attempt._id).duration)}
+												</span>
+											</div>
+											<audio
+												src={attempt.audioUrl}
+												ontimeupdate={() => onReviewTimeUpdate(attempt._id)}
+												onplay={() => { rp(attempt._id).playing = true; }}
+												onpause={() => { rp(attempt._id).playing = false; }}
+												onended={() => onReviewPlayEnded(attempt._id)}
+												oncanplay={(e) => registerReviewAudio(attempt._id, e.currentTarget as HTMLAudioElement)}
+											></audio>
+										</div>
+									{/if}
+									{#if attempt.humanReview?.initialReview?.audioUrl}
+										<div>
+											<p class="info-kicker mb-1">{m.practice_verifier_example()}</p>
+											<!-- svelte-ignore a11y_click_events_have_key_events -->
+											<!-- svelte-ignore a11y_no_static_element_interactions -->
+											<div class="practice-player practice-player--verifier" onclick={() => toggleVerifierPlayback(attempt._id)}>
+												<div class="practice-player__fill" style="width: {(vp(attempt._id).progress) * 100}%"></div>
+												<span class="practice-player__label">
+													{vp(attempt._id).playing ? m.state_playing() : formatDuration(vp(attempt._id).duration)}
+												</span>
+											</div>
+											<audio
+												src={attempt.humanReview.initialReview.audioUrl}
+												ontimeupdate={() => onVerifierTimeUpdate(attempt._id)}
+												onplay={() => { vp(attempt._id).playing = true; }}
+												onpause={() => { vp(attempt._id).playing = false; }}
+												onended={() => onVerifierPlayEnded(attempt._id)}
+												oncanplay={(e) => registerVerifierAudio(attempt._id, e.currentTarget as HTMLAudioElement)}
+											></audio>
+										</div>
+									{/if}
+								</div>
+							</Accordion.Content>
+						</Accordion.Item>
+					{/each}
+				</Accordion.Root>
+
+				<div class="grid grid-cols-2 gap-2">
+					<Button onclick={() => { sessionDone = false; initialized = false; startPracticeSession(); }} size="lg">
+						{m.practice_new_session()}
+					</Button>
+					<Button onclick={endPracticeSession} variant="outline" size="lg" disabled={ending}>
+						{ending ? m.practice_ending() : m.practice_finish()}
+					</Button>
+				</div>
+			{/if}
+		</div>
+	{:else if currentPhrase}
+		<div class="practice-session">
+			<!-- Top: session info + mode toggle -->
+			<div class="practice-session__header">
+				<div class="practice-session__header-info">
+					<p class="info-kicker">{m.practice_phrase_of({ position: queuePosition, length: queueLength })}</p>
+					<p class="meta-text">
+						{m.practice_session_started({ time: new Date(activePracticeSession.data?.startedAt ?? Date.now()).toLocaleTimeString() })}
+					</p>
+				</div>
+				<div class="practice-session__header-mode">
+					<button
+						class="practice-mode-btn active"
+						onclick={cycleQueueMode}
+						aria-label={m.practice_queue_mode({ mode: queueMode })}
+					>
+						{#if queueMode === 'once'}
+							1x
+						{:else if queueMode === 'shuffle'}
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.7l-.327-.517"/></svg>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+						{/if}
+					</button>
+				</div>
+			</div>
+
+			<!-- Center: phrase area -->
+			<div class="practice-session__phrase">
+				{#key currentIndex}
+					<div
+						class="phrase-card text-center"
+						in:fly={{ x: 200, duration: 320 }}
+						out:fly={{ x: -200, duration: 320 }}
+					>
+						<p class="target-phrase font-black">{currentPhrase.english}</p>
+					</div>
+				{/key}
+			</div>
+
+			<!-- Bottom: controls -->
+			<div class="practice-session__controls">
+				{#if recordError}
+					<p class="text-destructive text-sm">{recordError}</p>
+				{/if}
+
+				{#if audioUrl}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="practice-player" onclick={togglePlayback}>
+						<div class="practice-player__fill" style="width: {playProgress * 100}%"></div>
+						<span class="practice-player__label">
+							{playing ? m.state_playing() : formatDuration(durationMs)}
+						</span>
+					</div>
+					<audio
+						bind:this={playerEl}
+						src={audioUrl}
+						ontimeupdate={onTimeUpdate}
+						onplay={() => (playing = true)}
+						onpause={() => (playing = false)}
+						onended={onPlayEnded}
+					></audio>
+				{:else if recording}
+					<Button onclick={stopRecording} size="lg" class="practice-record-btn w-full">
+						{m.practice_stop_recording()}
+					</Button>
+				{:else}
+					<Button onclick={startRecording} size="lg" class="practice-record-btn w-full">
+						{m.practice_start_recording()}
+					</Button>
+				{/if}
+
+				<div class="flex gap-2">
+					<Button onclick={handleSubmit} class="flex-1" size="lg" disabled={!audioBlob || processing}>
+						{processing ? m.practice_uploading() : m.btn_submit()}
+					</Button>
+					{#if audioUrl}
+						<Button onclick={discardRecording} variant="outline" size="lg">{m.btn_discard()}</Button>
+					{:else}
+						<Button onclick={handleSkip} variant="outline" size="lg">{m.btn_skip()}</Button>
+					{/if}
+				</div>
+
+				<button class="meta-text underline text-center" onclick={endPracticeSession}>
+					{ending ? m.practice_ending() : m.practice_end_session()}
+				</button>
+			</div>
+		</div>
+	{/if}
 {/if}
