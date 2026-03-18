@@ -691,11 +691,27 @@ export const flagAttemptReview = mutation({
 		if (!request.initialReviewId) {
 			throw new Error('No completed review to flag');
 		}
+
+		const existingOpenFlag = (
+			await ctx.db
+				.query('humanReviewFlags')
+				.withIndex('by_request', (q) => q.eq('requestId', request._id))
+				.filter((q) => q.eq(q.field('status'), 'open'))
+				.collect()
+		).find((flag) => flag.learnerUserId === userId);
+		if (existingOpenFlag) {
+			return {
+				requestId: request._id,
+				flagId: existingOpenFlag._id,
+				duplicate: true
+			};
+		}
+
 		if (request.status !== 'completed' && request.status !== 'dispute_resolved') {
 			throw new Error('Review cannot be flagged in its current state');
 		}
 
-		await ctx.db.insert('humanReviewFlags', {
+		const flagId = await ctx.db.insert('humanReviewFlags', {
 			requestId: request._id,
 			attemptId: request.attemptId,
 			learnerUserId: userId,
@@ -717,6 +733,12 @@ export const flagAttemptReview = mutation({
 			priorityAt: 0,
 			updatedAt: now
 		});
+
+		return {
+			requestId: request._id,
+			flagId,
+			duplicate: false
+		};
 	}
 });
 

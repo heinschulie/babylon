@@ -3,6 +3,14 @@
 import { v } from 'convex/values';
 import { internalAction } from './_generated/server';
 import { internal } from './_generated/api';
+import { classifyExternalFetchError, fetchWithTimeout } from './lib/fetchWithTimeout';
+import {
+	classifyAppErrorCode,
+	readSafeErrorBodySnippet,
+	summarizeErrorForLog
+} from './lib/safeErrors';
+
+const TRANSLATE_PHRASE_TIMEOUT_MS = 20_000;
 
 export const translateAndPhoneticize = internalAction({
 	args: {
@@ -42,7 +50,7 @@ export const translateAndPhoneticize = internalAction({
 		].join('\n');
 
 		try {
-			const response = await fetch('https://api.anthropic.com/v1/messages', {
+			const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -54,11 +62,22 @@ export const translateAndPhoneticize = internalAction({
 					max_tokens: 300,
 					system: prompt,
 					messages: [{ role: 'user', content: `Translate to isiXhosa: "${args.english}"` }]
-				})
+				}),
+				timeoutMs: TRANSLATE_PHRASE_TIMEOUT_MS,
+				service: 'anthropic',
+				operation: 'translate_phrase',
+				retries: 0
 			});
 
 			if (!response.ok) {
-				throw new Error(`Claude API error: ${await response.text()}`);
+				const bodySnippet = await readSafeErrorBodySnippet(response);
+				console.error('Translate phrase provider error', {
+					errorCode: 'upstream_response',
+					status: response.status,
+					statusText: response.statusText,
+					bodySnippet
+				});
+				throw new Error('Translation provider error');
 			}
 
 			const data = await response.json();
@@ -72,7 +91,11 @@ export const translateAndPhoneticize = internalAction({
 				status: 'ready'
 			});
 		} catch (error) {
-			console.error('Translation error:', error);
+			console.error('Translation error', {
+				errorCode: classifyAppErrorCode(error),
+				errorType: classifyExternalFetchError(error),
+				...summarizeErrorForLog(error)
+			});
 			await ctx.runMutation(internal.translatePhraseData.patchTranslation, {
 				phraseId: args.phraseId,
 				translation: args.english,

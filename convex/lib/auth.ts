@@ -1,11 +1,11 @@
-import type { QueryCtx, MutationCtx } from '../_generated/server';
+import type { QueryCtx, MutationCtx, ActionCtx } from '../_generated/server';
 
 /**
  * Get authenticated user ID from context.
  * Uses Convex native identity first (works in tests with withIdentity),
  * falls back to BetterAuth component for production.
  */
-export async function getAuthUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
+export async function getAuthUserId(ctx: QueryCtx | MutationCtx | ActionCtx): Promise<string> {
 	// Try Convex native identity first (works in tests)
 	const identity = await ctx.auth.getUserIdentity();
 	if (identity?.subject) {
