@@ -3,6 +3,17 @@
 import { v } from 'convex/values';
 import { action } from './_generated/server';
 import { internal } from './_generated/api';
+import { classifyExternalFetchError, fetchWithTimeout } from './lib/fetchWithTimeout';
+import {
+	classifyAppErrorCode,
+	readSafeErrorBodySnippet,
+	summarizeErrorForLog,
+	toClientSafeError
+} from './lib/safeErrors';
+
+const AI_PROCESSING_STALE_AFTER_MS = 5 * 60 * 1000;
+const WHISPER_TIMEOUT_MS = 45_000;
+const CLAUDE_FEEDBACK_TIMEOUT_MS = 35_000;
 
 export const processAttempt = action({
 	args: {
@@ -18,6 +29,25 @@ export const processAttempt = action({
 		});
 		if (!attempt || attempt.userId !== userId) {
 			throw new Error('Attempt not found or not authorized');
+		}
+
+		const aiRunId = `airun_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+		const claimResult = await ctx.runMutation(internal.aiPipelineData.patchAttemptStatus, {
+			attemptId: args.attemptId,
+			status: 'processing',
+			mode: 'claim_ai_processing',
+			aiRunId,
+			staleAfterMs: AI_PROCESSING_STALE_AFTER_MS
+		});
+
+		if (claimResult.outcome === 'already_ready') {
+			return { skipped: true, reason: 'already_ready' as const };
+		}
+		if (claimResult.outcome === 'in_progress') {
+			return { skipped: true, reason: 'in_progress' as const };
+		}
+		if (claimResult.outcome === 'missing') {
+			throw new Error('Attempt not found');
 		}
 
 		try {
@@ -60,16 +90,20 @@ export const processAttempt = action({
 
 			await ctx.runMutation(internal.aiPipelineData.patchAttemptStatus, {
 				attemptId: args.attemptId,
-				status: 'feedback_ready'
+				status: 'feedback_ready',
+				mode: 'finish_ai_processing',
+				expectedAiRunId: aiRunId
 			});
 
 			return { feedbackText: feedbackResult.feedbackText };
 		} catch (error) {
 			await ctx.runMutation(internal.aiPipelineData.patchAttemptStatus, {
 				attemptId: args.attemptId,
-				status: 'failed'
+				status: 'failed',
+				mode: 'finish_ai_processing',
+				expectedAiRunId: aiRunId
 			});
-			throw error;
+			throw toClientSafeError(error, 'Could not process audio feedback right now. Please try again.');
 		}
 	}
 });
@@ -89,17 +123,38 @@ async function transcribeWithWhisper(input: {
 	form.append('model', 'whisper-1');
 	// Whisper doesn't support all language codes via API; let it auto-detect.
 
-	const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${apiKey}`
-		},
-		body: form
-	});
+	let response: Response;
+	try {
+		response = await fetchWithTimeout('https://api.openai.com/v1/audio/transcriptions', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${apiKey}`
+			},
+			body: form,
+			timeoutMs: WHISPER_TIMEOUT_MS,
+			service: 'openai',
+			operation: 'whisper_transcription',
+			retries: 0
+		});
+	} catch (error) {
+		console.error('Whisper request failed', {
+			errorCode: classifyAppErrorCode(error),
+			errorType: classifyExternalFetchError(error),
+			timeoutMs: WHISPER_TIMEOUT_MS,
+			...summarizeErrorForLog(error)
+		});
+		throw error;
+	}
 
 	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`Whisper API error: ${errorText}`);
+		const bodySnippet = await readSafeErrorBodySnippet(response);
+		console.error('Whisper API error', {
+			errorCode: 'upstream_response',
+			status: response.status,
+			statusText: response.statusText,
+			bodySnippet
+		});
+		throw new Error('Transcription provider error');
 	}
 
 	const data = await response.json();
@@ -163,29 +218,50 @@ async function generateFeedbackWithClaude(input: {
 		'{"soundAccuracy": <1-5>, "rhythmIntonation": <1-5>, "phraseAccuracy": <1-5>, "feedback": "<coaching text>"}'
 	].join('\n');
 
-	const response = await fetch('https://api.anthropic.com/v1/messages', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'x-api-key': apiKey,
-			'anthropic-version': '2023-06-01'
-		},
-		body: JSON.stringify({
-			model: 'claude-sonnet-4-20250514',
-			max_tokens: 500,
-			system: prompt,
-			messages: [
-				{
-					role: 'user',
-					content: `English prompt: ${input.englishPrompt}\nTarget Xhosa: ${input.targetPhrase}\nUser transcript: ${input.transcript ?? 'N/A'}`
-				}
-			]
-		})
-	});
+	let response: Response;
+	try {
+		response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'x-api-key': apiKey,
+				'anthropic-version': '2023-06-01'
+			},
+			body: JSON.stringify({
+				model: 'claude-sonnet-4-20250514',
+				max_tokens: 500,
+				system: prompt,
+				messages: [
+					{
+						role: 'user',
+						content: `English prompt: ${input.englishPrompt}\nTarget Xhosa: ${input.targetPhrase}\nUser transcript: ${input.transcript ?? 'N/A'}`
+					}
+				]
+			}),
+			timeoutMs: CLAUDE_FEEDBACK_TIMEOUT_MS,
+			service: 'anthropic',
+			operation: 'generate_feedback',
+			retries: 0
+		});
+	} catch (error) {
+		console.error('Claude feedback request failed', {
+			errorCode: classifyAppErrorCode(error),
+			errorType: classifyExternalFetchError(error),
+			timeoutMs: CLAUDE_FEEDBACK_TIMEOUT_MS,
+			...summarizeErrorForLog(error)
+		});
+		throw error;
+	}
 
 	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`Claude API error: ${errorText}`);
+		const bodySnippet = await readSafeErrorBodySnippet(response);
+		console.error('Claude API error', {
+			errorCode: 'upstream_response',
+			status: response.status,
+			statusText: response.statusText,
+			bodySnippet
+		});
+		throw new Error('Feedback provider error');
 	}
 
 	const data = await response.json();
@@ -199,6 +275,9 @@ async function generateFeedbackWithClaude(input: {
 			feedbackText: parsed.feedback ?? 'Feedback not available.'
 		};
 	} catch {
-		return { feedbackText: text || 'Feedback not available.' };
+		console.warn('Claude feedback returned non-JSON response', {
+			errorCode: 'upstream_invalid_response'
+		});
+		return { feedbackText: 'Feedback not available right now. Please try again.' };
 	}
 }

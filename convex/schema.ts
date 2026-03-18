@@ -72,6 +72,10 @@ export default defineSchema({
 		offlineId: v.optional(v.string()),
 		durationMs: v.optional(v.number()),
 		status: v.string(), // queued | processing | feedback_ready | failed
+		aiProcessingStatus: v.optional(v.string()), // processing | feedback_ready | failed
+		aiProcessingStartedAt: v.optional(v.number()),
+		aiProcessedAt: v.optional(v.number()),
+		aiRunId: v.optional(v.string()),
 		createdAt: v.number()
 	})
 		.index('by_user', ['userId'])
@@ -84,6 +88,12 @@ export default defineSchema({
 		userId: v.string(),
 		startedAt: v.number(),
 		endedAt: v.optional(v.number()),
+		attemptCount: v.optional(v.number()),
+		phraseCount: v.optional(v.number()),
+		aiScoreCount: v.optional(v.number()),
+		aiScoreSumSound: v.optional(v.number()),
+		aiScoreSumRhythm: v.optional(v.number()),
+		aiScoreSumPhrase: v.optional(v.number()),
 		createdAt: v.number()
 	})
 		.index('by_user_started', ['userId', 'startedAt'])

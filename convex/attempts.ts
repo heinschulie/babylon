@@ -10,7 +10,96 @@ import {
 import { requireSupportedLanguage } from './lib/languages';
 import { internal } from './_generated/api';
 
-async function buildHumanReviewSummary(ctx: any, attemptId: string) {
+function pickLatestAiFeedback(feedbackRows: any[]) {
+	return [...feedbackRows].sort((a, b) => {
+		if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+		return (b._creationTime ?? 0) - (a._creationTime ?? 0);
+	})[0] ?? null;
+}
+
+type AttemptResultCaches = {
+	phraseById: Map<string, Promise<any>>;
+	audioAssetById: Map<string, Promise<any>>;
+	storageUrlByKey: Map<string, Promise<string | null>>;
+};
+
+function createAttemptResultCaches(): AttemptResultCaches {
+	return {
+		phraseById: new Map(),
+		audioAssetById: new Map(),
+		storageUrlByKey: new Map()
+	};
+}
+
+function getCached<T>(
+	cache: Map<string, Promise<T>>,
+	key: string,
+	load: () => Promise<T>
+): Promise<T> {
+	const existing = cache.get(key);
+	if (existing) {
+		return existing;
+	}
+	const pending = load();
+	cache.set(key, pending);
+	return pending;
+}
+
+async function updatePracticeSessionAttemptAggregates(
+	ctx: any,
+	args: { practiceSessionId: string; phraseAlreadyCounted: boolean }
+) {
+	const session = await ctx.db.get(args.practiceSessionId);
+	if (!session) return;
+
+	// Fast path for new-format sessions with aggregate counters already initialized.
+	if (typeof session.attemptCount === 'number' && typeof session.phraseCount === 'number') {
+		await ctx.db.patch(args.practiceSessionId, {
+			attemptCount: session.attemptCount + 1,
+			phraseCount: session.phraseCount + (args.phraseAlreadyCounted ? 0 : 1)
+		});
+		return;
+	}
+
+	// Legacy fallback: recompute from session attempts if aggregate fields are missing.
+	const existingAttemptsForSession = await ctx.db
+		.query('attempts')
+		.withIndex('by_practice_session', (q: any) => q.eq('practiceSessionId', args.practiceSessionId))
+		.collect();
+
+	await ctx.db.patch(args.practiceSessionId, {
+		attemptCount: existingAttemptsForSession.length,
+		phraseCount: new Set(existingAttemptsForSession.map((a: any) => a.phraseId)).size
+	});
+}
+
+async function getStorageUrlCached(
+	ctx: any,
+	caches: AttemptResultCaches | undefined,
+	storageKey: string
+) {
+	if (!caches) {
+		return await ctx.storage.getUrl(storageKey);
+	}
+	return await getCached(caches.storageUrlByKey, storageKey, async () => ctx.storage.getUrl(storageKey));
+}
+
+async function getDocCached(
+	ctx: any,
+	caches: AttemptResultCaches | undefined,
+	kind: 'phrase' | 'audioAsset',
+	id: string
+) {
+	if (!caches) {
+		return await ctx.db.get(id);
+	}
+	if (kind === 'phrase') {
+		return await getCached(caches.phraseById, id, async () => ctx.db.get(id));
+	}
+	return await getCached(caches.audioAssetById, id, async () => ctx.db.get(id));
+}
+
+async function buildHumanReviewSummary(ctx: any, attemptId: string, caches?: AttemptResultCaches) {
 	const reviewRequest = await ctx.db
 		.query('humanReviewRequests')
 		.withIndex('by_attempt', (q: any) => q.eq('attemptId', attemptId))
@@ -25,10 +114,10 @@ async function buildHumanReviewSummary(ctx: any, attemptId: string) {
 		: null;
 	const initialReviewAudioAsset =
 		initialReview?.exemplarAudioAssetId
-			? await ctx.db.get(initialReview.exemplarAudioAssetId)
+			? await getDocCached(ctx, caches, 'audioAsset', initialReview.exemplarAudioAssetId)
 			: null;
 	const initialReviewAudioUrl = initialReviewAudioAsset?.storageKey
-		? await ctx.storage.getUrl(initialReviewAudioAsset.storageKey)
+		? await getStorageUrlCached(ctx, caches, initialReviewAudioAsset.storageKey)
 		: null;
 
 	const allReviews = await ctx.db
@@ -75,9 +164,9 @@ async function buildHumanReviewSummary(ctx: any, attemptId: string) {
 	};
 }
 
-async function getLearnerAudioAssetForAttempt(ctx: any, attempt: any) {
+async function getLearnerAudioAssetForAttempt(ctx: any, attempt: any, caches?: AttemptResultCaches) {
 	if (attempt.audioAssetId) {
-		const linkedAudioAsset = await ctx.db.get(attempt.audioAssetId);
+		const linkedAudioAsset = await getDocCached(ctx, caches, 'audioAsset', attempt.audioAssetId);
 		if (linkedAudioAsset) {
 			return linkedAudioAsset;
 		}
@@ -102,18 +191,21 @@ async function getLearnerAudioAssetForAttempt(ctx: any, attempt: any) {
 	return [...audioAssets].sort((a, b) => a.createdAt - b.createdAt)[0] ?? null;
 }
 
-async function buildAttemptResult(ctx: any, attempt: any) {
-	const audioAsset = await getLearnerAudioAssetForAttempt(ctx, attempt);
+async function buildAttemptResult(ctx: any, attempt: any, caches?: AttemptResultCaches) {
+	const [audioAsset, feedbackRows, humanReview, phrase] = await Promise.all([
+		getLearnerAudioAssetForAttempt(ctx, attempt, caches),
+		ctx.db
+			.query('aiFeedback')
+			.withIndex('by_attempt', (q: any) => q.eq('attemptId', attempt._id))
+			.collect(),
+		buildHumanReviewSummary(ctx, attempt._id, caches),
+		getDocCached(ctx, caches, 'phrase', attempt.phraseId)
+	]);
+	const feedback = pickLatestAiFeedback(feedbackRows);
 
-	const feedback = await ctx.db
-		.query('aiFeedback')
-		.withIndex('by_attempt', (q: any) => q.eq('attemptId', attempt._id))
-		.unique();
-
-	const humanReview = await buildHumanReviewSummary(ctx, attempt._id);
-
-	const audioUrl = audioAsset?.storageKey ? await ctx.storage.getUrl(audioAsset.storageKey) : null;
-	const phrase = await ctx.db.get(attempt.phraseId);
+	const audioUrl = audioAsset?.storageKey
+		? await getStorageUrlCached(ctx, caches, audioAsset.storageKey)
+		: null;
 
 	return {
 		...attempt,
@@ -131,6 +223,11 @@ async function buildAttemptResult(ctx: any, attempt: any) {
 	};
 }
 
+async function buildAttemptResults(ctx: any, attempts: any[]) {
+	const caches = createAttemptResultCaches();
+	return await Promise.all(attempts.map((attempt) => buildAttemptResult(ctx, attempt, caches)));
+}
+
 // Create an attempt (audio upload may follow)
 export const create = mutation({
 	args: {
@@ -144,11 +241,26 @@ export const create = mutation({
 		const userId = await getAuthUserId(ctx);
 		await assertRecordingAllowed(ctx, userId, 0);
 
+		const phrase = await ctx.db.get(args.phraseId);
+		if (!phrase || phrase.userId !== userId) {
+			throw new Error('Phrase not found or not authorized');
+		}
+
 		if (args.practiceSessionId) {
 			const practiceSession = await ctx.db.get(args.practiceSessionId);
 			if (!practiceSession || practiceSession.userId !== userId) {
 				throw new Error('Practice session not found or not authorized');
 			}
+		}
+
+		let phraseAlreadyCountedInSession = false;
+		if (args.practiceSessionId) {
+			const existingForPhrase = await ctx.db
+				.query('attempts')
+				.withIndex('by_practice_session', (q) => q.eq('practiceSessionId', args.practiceSessionId!))
+				.filter((q) => q.eq(q.field('phraseId'), args.phraseId))
+				.take(1);
+			phraseAlreadyCountedInSession = existingForPhrase.length > 0;
 		}
 
 		const attemptId = await ctx.db.insert('attempts', {
@@ -161,6 +273,13 @@ export const create = mutation({
 			status: 'queued',
 			createdAt: Date.now()
 		});
+
+		if (args.practiceSessionId) {
+			await updatePracticeSessionAttemptAggregates(ctx, {
+				practiceSessionId: args.practiceSessionId,
+				phraseAlreadyCounted: phraseAlreadyCountedInSession
+			});
+		}
 
 		return attemptId;
 	}
@@ -246,12 +365,7 @@ export const listByPhrase = query({
 			.order('desc')
 			.collect();
 
-		const results = [];
-		for (const attempt of attempts) {
-			results.push(await buildAttemptResult(ctx, attempt));
-		}
-
-		return results;
+		return await buildAttemptResults(ctx, attempts);
 	}
 });
 
@@ -272,14 +386,9 @@ export const listByPracticeSession = query({
 			.order('desc')
 			.collect();
 
-		const results = [];
-		for (const attempt of attempts) {
-			results.push(await buildAttemptResult(ctx, attempt));
-		}
-
 		return {
 			practiceSession,
-			attempts: results
+			attempts: await buildAttemptResults(ctx, attempts)
 		};
 	}
 });
@@ -301,14 +410,9 @@ export const listByPracticeSessionAsc = query({
 			.order('asc')
 			.collect();
 
-		const results = [];
-		for (const attempt of attempts) {
-			results.push(await buildAttemptResult(ctx, attempt));
-		}
-
 		return {
 			practiceSession,
-			attempts: results
+			attempts: await buildAttemptResults(ctx, attempts)
 		};
 	}
 });

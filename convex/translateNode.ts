@@ -2,7 +2,20 @@
 
 import { v } from 'convex/values';
 import { action } from './_generated/server';
+import { getAuthUserId } from './lib/auth';
+import { classifyExternalFetchError, fetchWithTimeout } from './lib/fetchWithTimeout';
 import { normalizeLanguage } from './lib/languages';
+import { classifyAppErrorCode, summarizeErrorForLog } from './lib/safeErrors';
+import {
+	assertMaxLength,
+	enforceLocalRateLimit,
+	requireNonEmptyTrimmed
+} from './lib/publicActionGuards';
+
+const MAX_ENGLISH_LENGTH = 500;
+const MAX_USER_TRANSLATION_LENGTH = 500;
+const MAX_TARGET_LANGUAGE_LENGTH = 64;
+const GOOGLE_TRANSLATE_TIMEOUT_MS = 8_000;
 
 /**
  * Verify translation spelling using Google Translate API.
@@ -14,7 +27,22 @@ export const verifyTranslation = action({
 		userTranslation: v.string(),
 		targetLanguage: v.string()
 	},
-	handler: async (_ctx, { english, userTranslation, targetLanguage }) => {
+	handler: async (ctx, { english, userTranslation, targetLanguage }) => {
+		const userId = await getAuthUserId(ctx);
+		enforceLocalRateLimit({
+			bucket: 'translate.verifyTranslation',
+			subject: userId,
+			limit: 30,
+			windowMs: 60_000
+		});
+
+		const normalizedEnglish = requireNonEmptyTrimmed(english, 'english');
+		const normalizedUserTranslation = requireNonEmptyTrimmed(userTranslation, 'userTranslation');
+		const normalizedTargetLanguage = requireNonEmptyTrimmed(targetLanguage, 'targetLanguage');
+		assertMaxLength(normalizedEnglish, 'english', MAX_ENGLISH_LENGTH);
+		assertMaxLength(normalizedUserTranslation, 'userTranslation', MAX_USER_TRANSLATION_LENGTH);
+		assertMaxLength(normalizedTargetLanguage, 'targetLanguage', MAX_TARGET_LANGUAGE_LENGTH);
+
 		const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
 
 		if (!apiKey) {
@@ -29,10 +57,10 @@ export const verifyTranslation = action({
 
 		try {
 			// Map common language names to Google Translate language codes
-			const languageCode = getLanguageCode(targetLanguage);
+			const languageCode = getLanguageCode(normalizedTargetLanguage);
 
 			// Call Google Translate API
-			const response = await fetch(
+			const response = await fetchWithTimeout(
 				`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
 				{
 					method: 'POST',
@@ -40,17 +68,24 @@ export const verifyTranslation = action({
 						'Content-Type': 'application/json'
 					},
 					body: JSON.stringify({
-						q: english,
+						q: normalizedEnglish,
 						source: 'en',
 						target: languageCode,
 						format: 'text'
-					})
+					}),
+					timeoutMs: GOOGLE_TRANSLATE_TIMEOUT_MS,
+					service: 'google_translate',
+					operation: 'verify_translation',
+					retries: 0
 				}
 			);
 
 			if (!response.ok) {
-				const error = await response.text();
-				console.error('Google Translate API error:', error);
+				console.error('Google Translate API error', {
+					errorCode: 'upstream_response',
+					status: response.status,
+					statusText: response.statusText
+				});
 				return {
 					verified: true,
 					suggestedTranslation: null,
@@ -62,7 +97,7 @@ export const verifyTranslation = action({
 			const googleTranslation = data.data.translations[0].translatedText;
 
 			// Compare translations (normalize for comparison)
-			const normalizedUser = normalizeForComparison(userTranslation);
+			const normalizedUser = normalizeForComparison(normalizedUserTranslation);
 			const normalizedGoogle = normalizeForComparison(googleTranslation);
 
 			// Calculate similarity
@@ -72,14 +107,18 @@ export const verifyTranslation = action({
 			return {
 				verified: isAcceptable,
 				suggestedTranslation: googleTranslation,
-				userTranslation: userTranslation,
+				userTranslation: normalizedUserTranslation,
 				similarity: Math.round(similarity * 100),
 				message: isAcceptable
 					? 'Translation looks correct!'
 					: `Your translation may have spelling differences. Google suggests: "${googleTranslation}"`
 			};
 		} catch (error) {
-			console.error('Translation verification error:', error);
+			console.error('Translation verification error', {
+				errorCode: classifyAppErrorCode(error),
+				errorType: classifyExternalFetchError(error),
+				...summarizeErrorForLog(error)
+			});
 			return {
 				verified: true,
 				suggestedTranslation: null,
@@ -97,7 +136,20 @@ export const getSuggestion = action({
 		english: v.string(),
 		targetLanguage: v.string()
 	},
-	handler: async (_ctx, { english, targetLanguage }) => {
+	handler: async (ctx, { english, targetLanguage }) => {
+		const userId = await getAuthUserId(ctx);
+		enforceLocalRateLimit({
+			bucket: 'translate.getSuggestion',
+			subject: userId,
+			limit: 20,
+			windowMs: 60_000
+		});
+
+		const normalizedEnglish = requireNonEmptyTrimmed(english, 'english');
+		const normalizedTargetLanguage = requireNonEmptyTrimmed(targetLanguage, 'targetLanguage');
+		assertMaxLength(normalizedEnglish, 'english', MAX_ENGLISH_LENGTH);
+		assertMaxLength(normalizedTargetLanguage, 'targetLanguage', MAX_TARGET_LANGUAGE_LENGTH);
+
 		const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
 
 		if (!apiKey) {
@@ -109,9 +161,9 @@ export const getSuggestion = action({
 		}
 
 		try {
-			const languageCode = getLanguageCode(targetLanguage);
+			const languageCode = getLanguageCode(normalizedTargetLanguage);
 
-			const response = await fetch(
+			const response = await fetchWithTimeout(
 				`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
 				{
 					method: 'POST',
@@ -119,15 +171,24 @@ export const getSuggestion = action({
 						'Content-Type': 'application/json'
 					},
 					body: JSON.stringify({
-						q: english,
+						q: normalizedEnglish,
 						source: 'en',
 						target: languageCode,
 						format: 'text'
-					})
+					}),
+					timeoutMs: GOOGLE_TRANSLATE_TIMEOUT_MS,
+					service: 'google_translate',
+					operation: 'get_suggestion',
+					retries: 0
 				}
 			);
 
 			if (!response.ok) {
+				console.error('Google Translate suggestion API error', {
+					errorCode: 'upstream_response',
+					status: response.status,
+					statusText: response.statusText
+				});
 				return {
 					success: false,
 					suggestion: null,
@@ -144,7 +205,11 @@ export const getSuggestion = action({
 				message: 'Translation suggestion retrieved'
 			};
 		} catch (error) {
-			console.error('Get suggestion error:', error);
+			console.error('Get suggestion error', {
+				errorCode: classifyAppErrorCode(error),
+				errorType: classifyExternalFetchError(error),
+				...summarizeErrorForLog(error)
+			});
 			return {
 				success: false,
 				suggestion: null,

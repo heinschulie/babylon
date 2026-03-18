@@ -4,6 +4,11 @@ import { v } from 'convex/values';
 import { internalAction, action } from './_generated/server';
 import { internal } from './_generated/api';
 import * as webpush from 'web-push';
+import {
+	summarizeErrorForLog,
+	summarizePushSubscriptionForLog,
+	toClientSafeError
+} from './lib/safeErrors';
 
 /**
  * Send a push notification. Runs in Node.js runtime.
@@ -63,12 +68,26 @@ export const send = internalAction({
 				tag: `phrase-${phrase._id}`
 			});
 
-			await webpush.sendNotification(JSON.parse(prefs.pushSubscription), payload);
+			const subscription = parsePushSubscription(prefs.pushSubscription);
+			if (!subscription) {
+				console.warn('Skipping notification due to invalid push subscription', {
+					notificationId,
+					userId: notification.userId,
+					subscription: summarizePushSubscriptionForLog(prefs.pushSubscription)
+				});
+				return;
+			}
+
+			await webpush.sendNotification(subscription, payload);
 
 			// Mark as sent
 			await ctx.runMutation(internal.notifications.markSent, { notificationId });
 		} catch (error) {
-			console.error('Failed to send notification:', error);
+			console.error('Failed to send notification', {
+				notificationId,
+				userId: notification.userId,
+				...summarizeErrorForLog(error)
+			});
 		}
 	}
 });
@@ -136,9 +155,21 @@ export const sendPushToUser = internalAction({
 		const payload = JSON.stringify({ title, body, url, tag });
 
 		try {
-			await webpush.sendNotification(JSON.parse(prefs.pushSubscription), payload);
+			const subscription = parsePushSubscription(prefs.pushSubscription);
+			if (!subscription) {
+				console.warn('Skipping push to user due to invalid push subscription', {
+					userId,
+					subscription: summarizePushSubscriptionForLog(prefs.pushSubscription)
+				});
+				return;
+			}
+
+			await webpush.sendNotification(subscription, payload);
 		} catch (error) {
-			console.error(`Failed to send push to user ${userId}:`, error);
+			console.error('Failed to send push to user', {
+				userId,
+				...summarizeErrorForLog(error)
+			});
 		}
 	}
 });
@@ -182,14 +213,32 @@ export const sendTest = action({
 				tag: 'test-notification'
 			});
 
-			await webpush.sendNotification(JSON.parse(prefs.pushSubscription), payload);
+			const subscription = parsePushSubscription(prefs.pushSubscription);
+			if (!subscription) {
+				console.warn('Invalid push subscription for test notification', {
+					userId,
+					subscription: summarizePushSubscriptionForLog(prefs.pushSubscription)
+				});
+				throw new Error('Push notification subscription is invalid. Please enable notifications again.');
+			}
+
+			await webpush.sendNotification(subscription, payload);
 
 			return { success: true };
 		} catch (error) {
-			console.error('Failed to send test notification:', error);
-			throw new Error(
-				`Failed to send notification: ${error instanceof Error ? error.message : 'Unknown error'}`
-			);
+			console.error('Failed to send test notification', {
+				userId,
+				...summarizeErrorForLog(error)
+			});
+			throw toClientSafeError(error, 'Failed to send test notification. Please try again.');
 		}
 	}
 });
+
+function parsePushSubscription(raw: string): webpush.PushSubscription | null {
+	try {
+		return JSON.parse(raw) as webpush.PushSubscription;
+	} catch {
+		return null;
+	}
+}
