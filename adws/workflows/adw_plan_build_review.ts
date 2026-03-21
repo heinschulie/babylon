@@ -18,8 +18,7 @@ import {
   createDefaultStepUsage,
   createCommentStep,
   createFinalStatusComment,
-  getWorkflowModels,
-  standardizeGetAdw,
+  getAdwEnv,
 } from "../src/utils";
 
 const WORKFLOW = "plan_build_review";
@@ -30,16 +29,11 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
   const logger = createLogger(adwId, WORKFLOW);
   logger.info(`Starting ADW Plan-Build-Review — ADW ID: ${adwId}`);
 
-  const adw = await standardizeGetAdw(adwId, WORKFLOW);
-  if (!adw) { logger.error(`ADW not found: ${adwId}`); return false; }
-
-  const { prompt, working_dir: workingDir } = adw.input_data;
-  const models = getWorkflowModels();
+  const { prompt, workingDir, models } = getAdwEnv();
   const commentStep = createCommentStep(issueNumber);
   const commentFinalStatus = createFinalStatusComment(issueNumber);
 
-  if (!prompt) { logger.error("No prompt in input_data"); return false; }
-  if (!workingDir) { logger.error("No working_dir in input_data"); return false; }
+  if (!prompt) { logger.error("No ADW_PROMPT set"); return false; }
 
   logger.info(`Prompt: ${prompt.slice(0, 200)}...`);
   logger.info(`Working Dir: ${workingDir}`);

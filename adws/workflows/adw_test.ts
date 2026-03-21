@@ -28,7 +28,7 @@ import {
   type QueryResult,
 } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
-import { makeAdwId, parseJson, exec, createStepBanner, createDefaultStepUsage, createCommentStep, createFinalStatusComment, getWorkflowModels, fmtDuration } from "../src/utils";
+import { makeAdwId, parseJson, exec, createStepBanner, createDefaultStepUsage, createCommentStep, createFinalStatusComment, getAdwEnv, fmtDuration } from "../src/utils";
 import { ADWState } from "../src/state";
 import {
   makeIssueComment,
@@ -248,9 +248,7 @@ async function runWorkflow(
   if (skipE2e) logger.info("E2E tests will be skipped");
 
   try {
-    // Fetch ADW config
-    const models = getWorkflowModels();
-    const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
+    const { workingDir, models } = getAdwEnv();
 
     // Create comment functions
     const commentStep = createCommentStep(issueNumber);

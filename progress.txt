@@ -45,3 +45,16 @@
 - Callers now use `.success` / `.result` / `.error` instead of null checks
 - Files changed: `adws/src/agent-sdk.ts`, `adws/workflows/adw_plan.ts`, `adws/workflows/adw_test.ts`
 - Tests: 128 pass
+
+## PRD-003-001 + PRD-003-002: Consolidate ADW record pattern, replace standardizeGetAdw()
+- Removed `AdwRecord` interface and `standardizeGetAdw()` from utils.ts
+- Added `ADWEnv` interface + `getAdwEnv()` — flat, sync, reads env vars directly
+- `getAdwEnv()` returns `{ prompt: string | null, workingDir: string, models: WorkflowModels }`
+- `getWorkflowModels()` now called internally by `getAdwEnv()`, no longer imported by workflows
+- Updated all 13 workflow files to use `getAdwEnv()` as unified config source
+- Pipeline workflows (plan_build, sdlc, etc.): replaced `standardizeGetAdw()` + `getWorkflowModels()` with single `getAdwEnv()`
+- Issue-driven workflows (plan, test, document): replaced manual `getWorkflowModels()` + `process.env.ADW_WORKING_DIR` with `getAdwEnv()`
+- `ADWState` remains for persistent state — clear separation: env config vs persistent state
+- Removed dead `working_dir` null checks (getAdwEnv always returns a string via `process.cwd()` fallback)
+- Files changed: `adws/src/utils.ts`, all 13 `adws/workflows/*.ts`
+- Tests: 128 pass

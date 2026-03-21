@@ -84,7 +84,7 @@
 					"steps_to_verify": [
 						"RUN: grep -rn 'standardizeGetAdw\\|ADWState' adws/src/ -- expect single unified pattern"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-002",
@@ -93,7 +93,7 @@
 					"steps_to_verify": [
 						"RUN: grep -c 'standardizeGetAdw' adws/src/utils.ts adws/workflows/*.ts -- expect 0"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

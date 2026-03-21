@@ -30,6 +30,18 @@ import { readdirSync, statSync, renameSync, mkdirSync, existsSync } from "fs";
 import { join, isAbsolute } from "path";
 import { runResearchCodebaseStep, runProduceReadmeStep, runUpdatePrimeStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus, type TaggedLogger } from "../src/logger";
+import {
+  createStepBanner,
+  createDefaultStepUsage,
+  createCommentStep,
+  createFinalStatusComment,
+  getAdwEnv,
+  fmtDuration,
+  discoverApps,
+  slugify,
+  findMostRecentMd,
+  extractMdPath,
+} from "../src/utils";
 
 const STEP_README = "produce-readme";
 const DOCS_DIR = "docs";
@@ -37,118 +49,22 @@ const APPS_DIR = "apps";
 const BACKEND_TOPIC = "backend";
 const BACKEND_DIR = "convex";
 
-/** Discover frontend app directories under apps/. */
-function discoverApps(workingDir: string): string[] {
-  const appsPath = join(workingDir, APPS_DIR);
-  try {
-    return readdirSync(appsPath)
-      .filter((entry) => {
-        const entryPath = join(appsPath, entry);
-        return statSync(entryPath).isDirectory() && !entry.startsWith(".");
-      });
-  } catch {
-    return [];
-  }
-}
 
-/** Slugify a topic name for use as a filename. */
-function slugify(topic: string): string {
-  return topic
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
-/** Extract a .md path from agent result text, or return null. */
-function extractMdPath(resultText: string, workingDir: string): string | null {
-  const absMatch = resultText.match(/\/[^\s`"']+\.md/);
-  if (absMatch) {
-    const matched = absMatch[0];
-    // Only trust it as absolute if it actually exists on disk
-    if (isAbsolute(matched) && existsSync(matched)) return matched;
-    // Otherwise treat as relative to workingDir
-    const asRelative = join(workingDir, matched);
-    if (existsSync(asRelative)) return asRelative;
-  }
-
-  const relMatch = resultText.match(/(?:temp\/research\/[^\s`"']+\.md)/);
-  if (relMatch) return join(workingDir, relMatch[0]);
-
-  return null;
-}
-
-/** Find the most recently created .md file in a directory. */
-function findMostRecentMd(dir: string): string | null {
-  try {
-    const mdFiles = readdirSync(dir)
-      .filter((f) => f.endsWith(".md"))
-      .map((f) => ({
-        path: join(dir, f),
-        mtime: statSync(join(dir, f)).mtimeMs,
-      }))
-      .sort((a, b) => b.mtime - a.mtime);
-    return mdFiles.length > 0 ? mdFiles[0].path : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Stub: fetch ADW record. */
-async function getAdw(
-  adwId: string
-): Promise<Record<string, unknown> | null> {
-  const prompt = process.env.ADW_PROMPT;
-  const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
-
-  if (!prompt) {
-    console.error(
-      "No ADW_PROMPT env var set. Defaulting to standard topics."
-    );
-    return {
-      adw_id: adwId,
-      orchestrator_agent_id: "stub-orchestrator",
-      input_data: {
-        prompt: "codebase-structure,runtime,deployment,backend,billing,auth",
-        working_dir: workingDir,
-      },
-    };
-  }
-
-  return {
-    adw_id: adwId,
-    orchestrator_agent_id: "stub-orchestrator",
-    input_data: { prompt, working_dir: workingDir },
-  };
-}
-
-async function runWorkflow(adwId: string): Promise<boolean> {
+async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean> {
   const startTime = Date.now();
   const logger = createLogger(adwId, "research-codebase_produce-readme_update-prime");
 
   logger.info(`Starting ADW Research→README Workflow — ADW ID: ${adwId}`);
 
-  const adw = await getAdw(adwId);
-  if (!adw) {
-    logger.error(`ADW not found: ${adwId}`);
-    return false;
-  }
+  const { prompt: topicsRaw, workingDir, models } = getAdwEnv();
 
-  const inputData = adw.input_data as Record<string, string>;
-  const topicsRaw = inputData.prompt;
-  const workingDir = inputData.working_dir;
-
-  // Per-phase model selection: research uses a fast model, generation uses a capable one
-  const researchModel = process.env.ADW_RESEARCH_MODEL ?? "claude-haiku-4-5-20251001";
-  const readmeModel = process.env.ADW_README_MODEL ?? "claude-sonnet-4-20250514";
-  const primeModel = process.env.ADW_PRIME_MODEL ?? "claude-sonnet-4-20250514";
+  // Create comment functions
+  const commentStep = createCommentStep(issueNumber);
+  const commentFinalStatus = createFinalStatusComment(issueNumber);
 
   if (!topicsRaw) {
-    logger.error("No topics (ADW_PROMPT) found in ADW input_data");
-    return false;
-  }
-  if (!workingDir) {
-    logger.error("No working_dir found in ADW input_data");
+    logger.error("No topics (ADW_PROMPT) set");
     return false;
   }
 
@@ -172,7 +88,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
   logger.info(`Discovered apps: ${appNames.length > 0 ? appNames.join(", ") : "(none)"}`);
   logger.info(`All topics: ${allTopics.join(", ")}`);
   logger.info(`Working Dir: ${workingDir}`);
-  logger.info(`Models — research: ${researchModel}, readme: ${readmeModel}, prime: ${primeModel}`);
+  logger.info(`Models — research: ${models.research}, readme: ${models.default}, prime: ${models.default}`);
 
   // Collect usage from every step for the final summary
   const allStepUsages: { step: string; usage: StepUsage }[] = [];
@@ -181,7 +97,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     // =========================================================================
     // Research ALL topics in parallel (static + per-app)
     // =========================================================================
-    logger.info(`\n${"═".repeat(60)}\n  PARALLEL RESEARCH — ${allTopics.length} topics\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(`PARALLEL RESEARCH — ${allTopics.length} topics`)}`);
 
     const researchPromises = allTopics.map(async (topic) => {
       const slug = slugify(topic);
@@ -191,7 +107,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
       tlog.info("Starting research...");
 
       const researchResult = await runResearchCodebaseStep(topic, {
-        model: researchModel,
+        model: models.research,
         cwd: workingDir,
         logger: tlog,
       });
@@ -314,7 +230,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
       }
     }
 
-    logger.info(`\n${"═".repeat(60)}\n  PARALLEL README GENERATION — ${readmeTargets.length} READMEs\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(`PARALLEL README GENERATION — ${readmeTargets.length} READMEs`)}`);
     for (const t of readmeTargets) {
       logger.info(`  [${t.name}] ${t.outputPath}${t.mode ? ` (${t.mode})` : ""}`);
     }
@@ -324,7 +240,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
       tlog.info("Generating README...");
 
       const result = await runProduceReadmeStep(target.sourcePaths, target.outputPath, {
-        model: readmeModel,
+        model: models.default,
         cwd: workingDir,
         logger: tlog,
         mode: target.mode,
@@ -352,11 +268,11 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     // =========================================================================
     // Update prime command with fresh context from new READMEs
     // =========================================================================
-    logger.info(`\n${"═".repeat(60)}\n  UPDATE PRIME COMMAND\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner("UPDATE PRIME COMMAND")}`);
 
     const primeLog = taggedLogger(logger, "update-prime", { logDir: logger.logDir, step: "update-prime" });
     const primeResult = await runUpdatePrimeStep({
-      model: primeModel,
+      model: models.default,
       cwd: workingDir,
       logger: primeLog,
     });
@@ -378,7 +294,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     const ok = readmeSuccesses > 0;
 
     logger.info(`\n${"═".repeat(60)}`);
-    logger.info(`  WORKFLOW COMPLETE — ${Math.round((Date.now() - startTime) / 1000)}s`);
+    logger.info(`  WORKFLOW COMPLETE — ${fmtDuration(Date.now() - startTime)}`);
     logger.info(`  Research docs (${allDocPaths.length}):`);
     allDocPaths.forEach((p) => logger.info(`    - ${p}`));
     logger.info(`  READMEs (${readmeSuccesses}/${readmeTargets.length}):`);
@@ -399,9 +315,36 @@ async function runWorkflow(adwId: string): Promise<boolean> {
       totals: totalUsage,
     });
 
+    // Create step statuses for final comment
+    const stepStatuses = allStepUsages.map((s) => ({
+      step: s.step,
+      ok: true, // All completed steps are considered successful if we reach here
+      usage: s.usage,
+    }));
+
+    await commentFinalStatus({
+      workflow: "research-codebase_produce-readme_update-prime",
+      adwId,
+      ok,
+      startTime,
+      steps: stepStatuses,
+      totals: totalUsage
+    });
+
     return ok;
   } catch (e) {
     logger.error(`Workflow exception: ${e}`);
+    const totals = allStepUsages.length > 0 ? sumUsage(allStepUsages.map((s) => s.usage)) : createDefaultStepUsage();
+    writeWorkflowStatus(logger.logDir, { workflow: "research-codebase_produce-readme_update-prime", adwId, ok: false, startTime, totals });
+
+    const stepStatuses = allStepUsages.map((s) => ({
+      step: s.step,
+      ok: false,
+      usage: s.usage,
+    }));
+
+    await commentStep(`Workflow exception ❌: ${String(e).slice(0, 200)}`);
+    await commentFinalStatus({ workflow: "research-codebase_produce-readme_update-prime", adwId, ok: false, startTime, steps: stepStatuses, totals });
     return false;
   }
 }
@@ -411,6 +354,7 @@ if (import.meta.main) {
     args: Bun.argv.slice(2),
     options: {
       "adw-id": { type: "string" },
+      "issue": { type: "string" },
     },
     strict: true,
   });
@@ -418,11 +362,11 @@ if (import.meta.main) {
   const adwId = values["adw-id"];
   if (!adwId) {
     console.error(
-      "Usage: ADW_PROMPT='auth,schema,i18n' bun run adws/workflows/adw_research-codebase_produce-readme_update-prime.ts --adw-id <id>"
+      "Usage: ADW_PROMPT='auth,schema,i18n' bun run adws/workflows/adw_research-codebase_produce-readme_update-prime.ts --adw-id <id> [--issue <number>]"
     );
     process.exit(1);
   }
 
-  const success = await runWorkflow(adwId);
+  const success = await runWorkflow(adwId, values["issue"]);
   process.exit(success ? 0 : 1);
 }

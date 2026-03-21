@@ -24,7 +24,7 @@ import {
   createStepBanner,
   extractPlanPath,
   createDefaultStepUsage,
-  getWorkflowModels,
+  getAdwEnv,
   createCommentStep,
   createFinalStatusComment,
   fmtDuration,
@@ -44,9 +44,7 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
 
   logger.info(`Starting ADW Plan Workflow — ADW ID: ${adwId}, Issue: #${issueNumber}`);
 
-  // Per-phase model selection
-  const models = getWorkflowModels();
-  const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
+  const { workingDir, models } = getAdwEnv();
 
   // Create comment functions
   const commentStep = createCommentStep(issueNumber);

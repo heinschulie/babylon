@@ -18,7 +18,16 @@ import { existsSync, readdirSync } from "fs";
 import { join, dirname } from "path";
 import { runDocumentStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
-import { exec, getProjectRoot } from "../src/utils";
+import {
+  exec,
+  getProjectRoot,
+  getAdwEnv,
+  createStepBanner,
+  createDefaultStepUsage,
+  createCommentStep,
+  createFinalStatusComment,
+  fmtDuration,
+} from "../src/utils";
 import { commitChanges, finalizeGitOperations } from "../src/git-ops";
 import { ADWState } from "../src/state";
 
@@ -94,8 +103,8 @@ async function runWorkflow(adwId: string): Promise<boolean> {
   const startTime = Date.now();
   const logger = createLogger(adwId, WORKFLOW_NAME);
   const projectRoot = getProjectRoot();
-  const model = process.env.ADW_MODEL ?? "claude-sonnet-4-20250514";
-  const allStepUsages: { step: string; usage: StepUsage }[] = [];
+  const { models } = getAdwEnv();
+  const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
 
   logger.info(`Starting ADW Document Workflow — ADW ID: ${adwId}`);
 
@@ -147,29 +156,29 @@ async function runWorkflow(adwId: string): Promise<boolean> {
 
   logger.info(`Spec path: ${specPath ?? "(none)"}`);
   logger.info(`Screenshots dir: ${screenshotsDir ?? "(none)"}`);
-  logger.info(`Model: ${model}`);
+  logger.info(`Model: ${models.default}`);
 
   try {
     // Step 1: Document
-    logger.info(`\n${"═".repeat(60)}\n  STEP 1/${TOTAL_STEPS}: ${STEP_DOCUMENT.toUpperCase()}\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(STEP_DOCUMENT, 1, TOTAL_STEPS)}`);
 
     const docLog = taggedLogger(logger, STEP_DOCUMENT, { logDir: logger.logDir, step: STEP_DOCUMENT });
     const docResult = await runDocumentStep(adwId, {
-      model,
+      model: models.default,
       cwd: projectRoot,
       logger: docLog,
       specPath: specPath ?? undefined,
       screenshotsDir: screenshotsDir ?? undefined,
     });
 
-    if (docResult.usage) {
-      allStepUsages.push({ step: STEP_DOCUMENT, usage: docResult.usage });
-      docLog.info(`Usage: ${formatUsage(docResult.usage)}`);
-    }
+    const docUsage = docResult.usage ?? createDefaultStepUsage();
+    const docOk = docResult.success;
+    allStepUsages.push({ step: STEP_DOCUMENT, ok: docOk, usage: docUsage });
+    docLog.info(`Usage: ${formatUsage(docUsage)}`);
 
     if (!docResult.success) {
       docLog.error(`Failed: ${docResult.error ?? docResult.result}`);
-      docLog.finalize(false, docResult.usage);
+      docLog.finalize(false, docUsage);
 
       const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
       writeWorkflowStatus(logger.logDir, {
@@ -181,7 +190,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
       });
       return false;
     }
-    docLog.finalize(true, docResult.usage);
+    docLog.finalize(true, docUsage);
 
     const documentationPath = docResult.result?.trim() ?? null;
     logger.info(`Documentation generated: ${documentationPath ?? "(unknown path)"}`);
@@ -208,7 +217,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
 
     logger.info(`\n${"═".repeat(60)}`);
-    logger.info(`  WORKFLOW COMPLETE — ${Math.round((Date.now() - startTime) / 1000)}s`);
+    logger.info(`  WORKFLOW COMPLETE — ${fmtDuration(Date.now() - startTime)}`);
     if (documentationPath) logger.info(`  Documentation: ${documentationPath}`);
     logger.info(`\n  USAGE PER STEP:`);
     for (const { step, usage } of allStepUsages) {

@@ -26,7 +26,18 @@ import {
   type QueryResult,
 } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
-import { parseReviewResult, type ReviewResult } from "../src/utils";
+import {
+  parseReviewResult,
+  extractReviewVerdict,
+  type ReviewResult,
+  createStepBanner,
+  extractPlanPath,
+  createDefaultStepUsage,
+  createCommentStep,
+  createFinalStatusComment,
+  getAdwEnv,
+  fmtDuration,
+} from "../src/utils";
 import { postReviewToIssue } from "../src/github";
 
 const MAX_REVIEW_RETRY_ATTEMPTS = 3;
@@ -35,20 +46,6 @@ const STEP_REVIEW = "review";
 const STEP_PATCH_PLAN = "patch-plan";
 const STEP_PATCH_BUILD = "patch-build";
 
-/** Stub: fetch ADW record. */
-async function getAdw(
-  adwId: string
-): Promise<Record<string, unknown> | null> {
-  const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
-  const model = process.env.ADW_MODEL ?? "claude-sonnet-4-20250514";
-  const reviewModel = process.env.ADW_REVIEW_MODEL ?? model;
-
-  return {
-    adw_id: adwId,
-    orchestrator_agent_id: "stub-orchestrator",
-    input_data: { working_dir: workingDir, model, review_model: reviewModel },
-  };
-}
 
 /** Find spec file — either from CLI arg or most recent in specs/. */
 function findSpecFile(specPathArg: string | undefined, workingDir: string): string | null {
@@ -82,26 +79,14 @@ async function runWorkflow(
   const startTime = Date.now();
   const logger = createLogger(adwId, "review");
 
-  // Per-phase models
-  const model = process.env.ADW_MODEL ?? "claude-sonnet-4-20250514";
-  const reviewModel = process.env.ADW_REVIEW_MODEL ?? model;
-
   logger.info(`Starting ADW Review Workflow — ADW ID: ${adwId}`);
   if (skipResolution) logger.info("Resolution loop disabled (--skip-resolution)");
 
-  const adw = await getAdw(adwId);
-  if (!adw) {
-    logger.error(`ADW not found: ${adwId}`);
-    return false;
-  }
+  const { workingDir, models } = getAdwEnv();
 
-  const inputData = adw.input_data as Record<string, string>;
-  const workingDir = inputData.working_dir;
-
-  if (!workingDir) {
-    logger.error("No working_dir found in ADW input_data");
-    return false;
-  }
+  // Create comment functions
+  const commentStep = createCommentStep(issueNumber);
+  const commentFinalStatus = createFinalStatusComment(issueNumber);
 
   // Find spec file
   const specPath = findSpecFile(specPathArg, workingDir);
@@ -112,8 +97,8 @@ async function runWorkflow(
 
   logger.info(`Working Dir: ${workingDir}`);
   logger.info(`Spec: ${specPath}`);
-  logger.info(`Review Model: ${reviewModel}`);
-  logger.info(`Patch Model: ${model}`);
+  logger.info(`Review Model: ${models.review}`);
+  logger.info(`Patch Model: ${models.default}`);
 
   const allStepUsages: { step: string; usage: StepUsage }[] = [];
   const maxAttempts = skipResolution ? 1 : MAX_REVIEW_RETRY_ATTEMPTS;
@@ -127,9 +112,7 @@ async function runWorkflow(
       // Review step
       // =====================================================================
       const reviewStepName = `${STEP_REVIEW}-${attempt}`;
-      logger.info(
-        `\n${"═".repeat(60)}\n  REVIEW ATTEMPT ${attempt}/${maxAttempts}\n${"═".repeat(60)}`
-      );
+      logger.info(`\n${createStepBanner(`REVIEW ATTEMPT ${attempt}/${maxAttempts}`)}`);
 
       const reviewLog = taggedLogger(logger, "reviewer", {
         logDir: logger.logDir,
@@ -137,7 +120,7 @@ async function runWorkflow(
       });
 
       const reviewQueryResult = await runReviewStep(adwId, specPath, {
-        model: reviewModel,
+        model: models.review,
         cwd: workingDir,
         logger: reviewLog,
       });
@@ -168,55 +151,46 @@ async function runWorkflow(
         reviewResult = parseReviewResult(reviewQueryResult.result);
       }
 
-      // Log review summary
-      const blockerCount = reviewResult.review_issues.filter(
-        (i) => i.issue_severity === "blocker"
-      ).length;
-
-      if (reviewResult.success) {
-        logger.info("Review passed — no blocking issues");
-        ok = true;
-        break;
-      }
-
-      logger.warn(
-        `Review found ${reviewResult.review_issues.length} issues (${blockerCount} blockers)`
-      );
+      // Evaluate verdict using shared utility
+      const { ok: passed, verdict } = extractReviewVerdict(reviewResult);
 
       if (reviewResult.review_summary) {
         logger.info(`Summary: ${reviewResult.review_summary}`);
       }
 
-      // If no blockers, last attempt, or skip-resolution — stop
-      if (blockerCount === 0 || attempt === maxAttempts || skipResolution) {
-        if (skipResolution && blockerCount > 0) {
-          logger.info(`Skipping resolution for ${blockerCount} blocker issues`);
-        }
-        if (attempt === maxAttempts && blockerCount > 0) {
-          logger.warn(
-            `Reached max retry attempts (${maxAttempts}) with ${blockerCount} blockers remaining`
-          );
-        }
-        ok = blockerCount === 0;
+      if (passed) {
+        logger.info(`Review passed — ${verdict}`);
+        ok = true;
         break;
       }
 
-      // =================================================================
-      // Resolution: patch plan + build for each blocker
-      // =================================================================
+      // Review failed — collect blockers for resolution
       const blockers = reviewResult.review_issues.filter(
         (i) => i.issue_severity === "blocker"
       );
 
-      logger.info(
-        `\n${"═".repeat(60)}\n  RESOLVING ${blockers.length} BLOCKER(S) (attempt ${attempt})\n${"═".repeat(60)}`
+      logger.warn(
+        `Review found ${reviewResult.review_issues.length} issues (${blockers.length} blockers)`
       );
+
+      // If last attempt or skip-resolution — stop without resolving
+      if (attempt === maxAttempts || skipResolution) {
+        if (skipResolution) {
+          logger.info(`Skipping resolution for ${blockers.length} blocker issues`);
+        } else {
+          logger.warn(
+            `Reached max retry attempts (${maxAttempts}) with ${blockers.length} blockers remaining`
+          );
+        }
+        break;
+      }
+
+      logger.info(`\n${createStepBanner(`RESOLVING ${blockers.length} BLOCKER(S) (attempt ${attempt})`)}`);
 
       let resolvedCount = 0;
 
       for (let idx = 0; idx < blockers.length; idx++) {
         const issue = blockers[idx];
-        const issueTag = `issue-${issue.review_issue_number}`;
         logger.info(
           `\n--- Resolving blocker ${idx + 1}/${blockers.length}: #${issue.review_issue_number} ---`
         );
@@ -234,7 +208,7 @@ async function runWorkflow(
         const changeRequest = `${issue.issue_description}\n\nSuggested resolution: ${issue.issue_resolution}`;
 
         const patchResult = await runPatchPlanStep(adwId, changeRequest, {
-          model,
+          model: models.default,
           cwd: workingDir,
           logger: plannerLog,
           specPath,
@@ -282,7 +256,7 @@ async function runWorkflow(
         });
 
         const buildResult = await runBuildStep(patchPlanPath, {
-          model,
+          model: models.default,
           cwd: workingDir,
           logger: builderLog,
         });
@@ -319,12 +293,12 @@ async function runWorkflow(
     // Summary
     // ===================================================================
     const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
-    const verdict = ok ? "PASS" : "FAIL";
+    const { verdict: finalVerdict } = extractReviewVerdict(reviewResult);
 
     logger.info(`\n${"═".repeat(60)}`);
     logger.info(`  WORKFLOW COMPLETE — ${Math.round((Date.now() - startTime) / 1000)}s`);
     logger.info(`  Spec: ${specPath}`);
-    logger.info(`  Verdict: ${verdict}`);
+    logger.info(`  Verdict: ${finalVerdict}`);
     if (reviewResult.review_summary) {
       logger.info(`  Summary: ${reviewResult.review_summary}`);
     }
@@ -345,6 +319,16 @@ async function runWorkflow(
       adwId,
       ok,
       startTime,
+      totals: totalUsage,
+    });
+
+    // Post final status comment
+    await commentFinalStatus({
+      workflow: "review",
+      adwId,
+      ok,
+      startTime,
+      steps: allStepUsages.map(s => ({ step: s.step, ok: true, usage: s.usage })),
       totals: totalUsage,
     });
 
