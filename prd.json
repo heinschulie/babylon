@@ -16,7 +16,7 @@
 						"RUN: grep -q 'createFinalStatusComment' adws/workflows/adw_document.ts -- expect match (properly initialized)",
 						"RUN: bun run adws/workflows/adw_document.ts --adw-id test123 2>&1 | grep -v 'ReferenceError' -- expect no ReferenceError"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-002",
@@ -35,7 +35,7 @@
 						"RUN: grep -q '\"issue\"' adws/workflows/adw_document.ts -- expect match",
 						"RUN: grep 'runWorkflow' adws/workflows/adw_document.ts | grep -q 'issueNumber' -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

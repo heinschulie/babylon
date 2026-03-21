@@ -116,3 +116,12 @@
 - File: 457 → 321 lines (30% reduction)
 - Files changed: `adws/src/agent-sdk.ts`
 - Tests: 128 pass
+
+## PRD-001-001 + PRD-001-003: Fix adw_document.ts ReferenceError + add --issue CLI
+- `commentFinalStatus` in catch block was undeclared — ReferenceError on any exception
+- Added `issueNumber?: string` param to `runWorkflow()`
+- Created `commentStep` + `commentFinalStatus` via factory functions before try block
+- Added `--issue` CLI arg, wired through to `runWorkflow()`
+- Also fixed adw_test.ts: `commentStep`/`commentFinalStatus` were scoped inside try, unreachable from catch — hoisted above try
+- Files changed: `adws/workflows/adw_document.ts`, `adws/workflows/adw_test.ts`
+- Tests: 68 pass (verifier failures pre-existing)
