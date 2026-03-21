@@ -1,132 +1,97 @@
 {
-	"project": "ADW Workflow Standardization",
-	"version": "1.0.0",
+	"project": "ADW Workflow Standardization — Quality Remediation",
+	"version": "2.0.0",
 	"created": "2026-03-21",
 	"phases": [
 		{
 			"phase": 1,
-			"name": "Step Runner Abstraction & Boilerplate Elimination",
+			"name": "Error Handling Consistency Across Tier-2 Workflows",
 			"items": [
 				{
 					"id": "PRD-001-001",
-					"category": "Refactor - Step Runner",
-					"description": "Create a runStep() abstraction in adws/src/agent-sdk.ts that encapsulates the per-step boilerplate: usage tracking, logging, finalize, comment posting, status updates, and early return on failure",
+					"category": "Bug - Error Handling",
+					"description": "Fix adw_document.ts catch block: commentFinalStatus is referenced (line 249) but never declared — runWorkflow() takes no issueNumber and never calls createFinalStatusComment(). This is a latent ReferenceError crash on any exception.",
 					"steps_to_verify": [
-						"RUN: grep -q 'runStep' adws/src/agent-sdk.ts -- expect match",
-						"RUN: grep -q 'onFail' adws/src/agent-sdk.ts -- expect match"
+						"RUN: grep -q 'issueNumber' adws/workflows/adw_document.ts -- expect match (parameter added)",
+						"RUN: grep -q 'createFinalStatusComment' adws/workflows/adw_document.ts -- expect match (properly initialized)",
+						"RUN: bun run adws/workflows/adw_document.ts --adw-id test123 2>&1 | grep -v 'ReferenceError' -- expect no ReferenceError"
 					],
-					"passes": true
+					"passes": false
 				},
 				{
 					"id": "PRD-001-002",
-					"category": "Refactor - Step Runner",
-					"description": "Migrate adw_plan_build_review.ts to use the new runStep() abstraction, reducing per-step boilerplate to a single function call",
+					"category": "Refactor - Error Handling",
+					"description": "Standardize catch blocks across all Tier-2 workflows (adw_test.ts, adw_review.ts, adw_document.ts, adw_patch.ts, adw_plan.ts) to use identical shape: writeWorkflowStatus() + commentStep(truncated error) + commentFinalStatus() + return false",
 					"steps_to_verify": [
-						"RUN: grep -c 'runStep' adws/workflows/adw_plan_build_review.ts -- expect >= 3",
-						"RUN: wc -l < adws/workflows/adw_plan_build_review.ts -- expect < 150"
+						"RUN: grep -A5 'catch (e)' adws/workflows/adw_test.ts adws/workflows/adw_review.ts adws/workflows/adw_document.ts adws/workflows/adw_patch.ts adws/workflows/adw_plan.ts -- expect identical structure"
 					],
-					"passes": true
+					"passes": false
 				},
 				{
 					"id": "PRD-001-003",
-					"category": "Refactor - Step Runner",
-					"description": "Migrate all remaining workflow files to use runStep(), eliminating duplicated failure-handling blocks across adw_plan_build.ts, adw_plan_build_test.ts, adw_plan_build_test_review.ts, adw_plan_build_document.ts, and adw_sdlc.ts",
+					"category": "Fix - Error Handling",
+					"description": "Add --issue CLI parameter to adw_document.ts so GitHub commenting infrastructure (createCommentStep, createFinalStatusComment) is not dead code. Accept issueNumber in runWorkflow() and wire it through.",
 					"steps_to_verify": [
-						"RUN: grep -rL 'runStep' adws/workflows/adw_plan_build*.ts adws/workflows/adw_sdlc.ts -- expect no output"
+						"RUN: grep -q '\"issue\"' adws/workflows/adw_document.ts -- expect match",
+						"RUN: grep 'runWorkflow' adws/workflows/adw_document.ts | grep -q 'issueNumber' -- expect match"
 					],
-					"passes": true
+					"passes": false
 				}
 			]
 		},
 		{
 			"phase": 2,
-			"name": "SDK Factory & quickPrompt Alignment",
+			"name": "CLI Interface Consistency",
 			"items": [
 				{
 					"id": "PRD-002-001",
-					"category": "Refactor - SDK Factory",
-					"description": "Create a createSDK() factory function in adws/src/agent-sdk.ts that accepts only model and cwd, encapsulating the repeated permissionMode, allowDangerouslySkipPermissions, and settingSources options",
+					"category": "Refactor - CLI",
+					"description": "Change adw_patch.ts to read issueNumber from --issue CLI arg instead of process.env.ADW_ISSUE_NUMBER (line 113), matching every other workflow's CLI parsing convention",
 					"steps_to_verify": [
-						"RUN: grep -q 'createSDK' adws/src/agent-sdk.ts -- expect match",
-						"RUN: grep -c 'permissionMode' adws/src/agent-sdk.ts -- expect 1"
+						"RUN: grep -q '\"issue\".*type.*string' adws/workflows/adw_patch.ts -- expect match",
+						"RUN: grep -c 'ADW_ISSUE_NUMBER' adws/workflows/adw_patch.ts -- expect 0"
 					],
-					"passes": true
-				},
-				{
-					"id": "PRD-002-002",
-					"category": "Refactor - SDK Factory",
-					"description": "Update all step functions (runPlanStep, runBuildStep, runReviewStep, etc.) to use createSDK() instead of inline SDK instantiation",
-					"steps_to_verify": [
-						"RUN: grep -c 'createSDK' adws/src/agent-sdk.ts -- expect >= 10",
-						"RUN: grep -c 'new ClaudeSDK' adws/src/agent-sdk.ts -- expect 0"
-					],
-					"passes": true
-				},
-				{
-					"id": "PRD-002-003",
-					"category": "Refactor - quickPrompt",
-					"description": "Align quickPrompt() to return QueryResult instead of string | null, matching the convention of all other step functions",
-					"steps_to_verify": [
-						"RUN: grep -A2 'quickPrompt' adws/src/agent-sdk.ts | grep -q 'QueryResult' -- expect match"
-					],
-					"passes": true
+					"passes": false
 				}
 			]
 		},
 		{
 			"phase": 3,
-			"name": "ADW Record & State Consolidation",
+			"name": "Inline Duplication Elimination",
 			"items": [
 				{
 					"id": "PRD-003-001",
-					"category": "Refactor - State",
-					"description": "Consolidate ADWState (used in adw_plan.ts, adw_test.ts) and standardizeGetAdw() (used in most others) into a single ADW record pattern with a clear interface",
+					"category": "Refactor - DRY",
+					"description": "Replace the hand-rolled patch plan path extraction regex in adw_review.ts (lines 231-241) with a call to extractPlanPath() from utils.ts, which already handles the same absolute/relative/adwId-fallback logic",
 					"steps_to_verify": [
-						"RUN: grep -rn 'standardizeGetAdw\\|ADWState' adws/src/ -- expect single unified pattern"
+						"RUN: grep -q 'extractPlanPath' adws/workflows/adw_review.ts -- expect match",
+						"RUN: grep -c 'absMatch.*\\.md' adws/workflows/adw_review.ts -- expect 0 (inline regex removed)"
 					],
-					"passes": true
+					"passes": false
 				},
 				{
 					"id": "PRD-003-002",
-					"category": "Refactor - State",
-					"description": "Rename or replace standardizeGetAdw() to accurately reflect its behavior (reads env vars, does not fetch from a database)",
+					"category": "Refactor - DRY",
+					"description": "Remove the dynamic re-import of exec inside adw_patch.ts runWorkflow() body (line 249: const { exec } = await import('../src/utils')) — exec is already available or should be statically imported at the top of the file",
 					"steps_to_verify": [
-						"RUN: grep -c 'standardizeGetAdw' adws/src/utils.ts adws/workflows/*.ts -- expect 0"
+						"RUN: grep -c 'await import.*utils' adws/workflows/adw_patch.ts -- expect 0",
+						"RUN: head -50 adws/workflows/adw_patch.ts | grep -q 'exec' -- expect match (static import)"
 					],
-					"passes": true
+					"passes": false
 				}
 			]
 		},
 		{
 			"phase": 4,
-			"name": "Usage Tracking & Comment Standardization",
+			"name": "Step Function Deduplication",
 			"items": [
 				{
 					"id": "PRD-004-001",
-					"category": "Refactor - Usage",
-					"description": "Consolidate allStepUsages[] and stepStatuses[] into a single array with { step, ok, usage } shape (the adw_sdlc.ts pattern) across all workflows",
+					"category": "Refactor - DRY",
+					"description": "Replace the 9 structurally identical step functions (runPlanStep, runBuildStep, runReviewStep, runTestStep, runDocumentStep, runResearchCodebaseStep, runProduceReadmeStep, runUpdatePrimeStep, runPatchPlanStep) in agent-sdk.ts with a single generic runSkillStep(skill, args, opts) that builds the prompt string and delegates to createSDK() + consumeQuery(). Keep the existing function names as thin wrappers if needed for type safety.",
 					"steps_to_verify": [
-						"RUN: grep -rc 'stepStatuses' adws/workflows/ -- expect 0",
-						"RUN: grep -rc 'allStepUsages' adws/workflows/ -- expect >= 7"
-					],
-					"passes": true
-				},
-				{
-					"id": "PRD-004-002",
-					"category": "Refactor - Comments",
-					"description": "Standardize GitHub issue comment format across all workflows to use a single consistent template (e.g. 'Step 1/3 PLAN completed \u2705 (42s)')",
-					"steps_to_verify": [
-						"RUN: grep -rn 'commentStep' adws/workflows/ | grep -v 'createCommentStep' -- expect consistent format"
-					],
-					"passes": true
-				},
-				{
-					"id": "PRD-004-003",
-					"category": "Fix - Comments",
-					"description": "Add GitHub issue comment support to adw_plan_build_document.ts, which currently lacks it while all other multi-step workflows have it",
-					"steps_to_verify": [
-						"RUN: grep -q 'commentStep' adws/workflows/adw_plan_build_document.ts -- expect match",
-						"RUN: grep -q 'issueNumber' adws/workflows/adw_plan_build_document.ts -- expect match"
+						"RUN: grep -q 'runSkillStep' adws/src/agent-sdk.ts -- expect match",
+						"RUN: grep -c 'createSDK' adws/src/agent-sdk.ts -- expect <= 3 (factory + generic runner, not 9 copies)"
 					],
 					"passes": true
 				}
@@ -134,57 +99,42 @@
 		},
 		{
 			"phase": 5,
-			"name": "Plan Path Extraction Hardening",
+			"name": "Usage Tracking Consistency in Tier-2",
 			"items": [
 				{
 					"id": "PRD-005-001",
-					"category": "Fix - Data Flow",
-					"description": "Harden extractPlanPath() to avoid the mtime fallback in concurrent environments by requiring the plan step to return a deterministic path (e.g. specs/plan-{adwId}.md) rather than relying on directory scanning",
+					"category": "Fix - Data Consistency",
+					"description": "Fix adw_review.ts allStepUsages items to include the ok field ({step, ok, usage} instead of {step, usage}), removing the implicit ok:true mapping at finalization (line 331) that masks actual step failures",
 					"steps_to_verify": [
-						"RUN: grep -q 'adwId' adws/src/utils.ts | grep -q 'extractPlanPath' -- expect match"
+						"RUN: grep -A1 'allStepUsages.push' adws/workflows/adw_review.ts | grep -q 'ok:' -- expect match on every push"
 					],
-					"passes": true
+					"passes": false
 				}
 			]
 		},
 		{
 			"phase": 6,
-			"name": "Trigger System Configurability",
+			"name": "Template Documentation Gaps",
 			"items": [
 				{
 					"id": "PRD-006-001",
-					"category": "Feature - Triggers",
-					"description": "Make the cron trigger workflow-configurable instead of hardcoded to adw_plan_build, allowing issue labels or comment keywords to select which workflow to invoke",
-					"steps_to_verify": [
-						"RUN: grep -v 'adw_plan_build' adws/triggers/cron.ts | grep -q 'workflow' -- expect match"
-					],
-					"passes": true
-				}
-			]
-		},
-		{
-			"phase": 7,
-			"name": "create-adw & port-adw Alignment",
-			"items": [
-				{
-					"id": "PRD-007-001",
 					"category": "Update - Meta Commands",
-					"description": "Update /create-adw command template to use the new runStep() abstraction, createSDK() factory, and unified comment format so newly generated workflows follow the standardized patterns",
+					"description": "Update /create-adw and /port-adw templates to document the two-tier pattern explicitly: when to use runStep() (simple sequential) vs taggedLogger() + direct step calls (retry loops, parallelism, state management)",
 					"steps_to_verify": [
-						"RUN: grep -q 'runStep' .claude/commands/create-adw.md -- expect match",
-						"RUN: grep -q 'createSDK' .claude/commands/create-adw.md -- expect match"
+						"RUN: grep -q 'taggedLogger' .claude/commands/create-adw.md -- expect match",
+						"RUN: grep -qi 'retry\\|parallel' .claude/commands/create-adw.md -- expect match"
 					],
-					"passes": true
+					"passes": false
 				},
 				{
-					"id": "PRD-007-002",
+					"id": "PRD-006-002",
 					"category": "Update - Meta Commands",
-					"description": "Update /port-adw command template to reference the same standardized patterns as /create-adw",
+					"description": "Add guidance for quickPrompt() and ADWState persistence patterns to /create-adw and /port-adw templates, as these are used in 4+ workflows but absent from the templates",
 					"steps_to_verify": [
-						"RUN: grep -q 'runStep' .claude/commands/port-adw.md -- expect match",
-						"RUN: grep -q 'createSDK' .claude/commands/port-adw.md -- expect match"
+						"RUN: grep -q 'quickPrompt' .claude/commands/create-adw.md -- expect match",
+						"RUN: grep -q 'ADWState' .claude/commands/create-adw.md -- expect match"
 					],
-					"passes": true
+					"passes": false
 				}
 			]
 		}

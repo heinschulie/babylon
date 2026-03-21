@@ -172,6 +172,26 @@ export async function createSDK(opts: { model?: string; cwd?: string } = {}) {
 
 // ─── SDK query consumption ──────────────────────────────────────────────────
 
+/** Generic skill step runner — all specific run*Step() functions delegate here. */
+export async function runSkillStep(
+  prompt: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    logger?.info(`Running skill step: ${prompt.slice(0, 100)}`);
+
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(prompt);
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Skill step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
 /** Consume the async generator from sdk.query(), return the final result. */
 async function consumeQuery(
   query: AsyncGenerator<any, void>,
@@ -211,246 +231,90 @@ async function consumeQuery(
   };
 }
 
-/**
- * Run a plan step via the agent SDK.
- * Executes `/plan <adwId> <prompt>`.
- */
-export async function runPlanStep(
+/** Run a plan step — `/plan <adwId> <prompt>`. */
+export function runPlanStep(
   prompt: string,
   options: RunStepOptions & { adwId?: string } = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    logger?.info(`Running /plan step with model: ${options.model ?? "sonnet"}`);
-
-    const adwId = options.adwId ?? "unknown";
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/plan ${adwId} ${prompt}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Plan step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(`/plan ${options.adwId ?? "unknown"} ${prompt}`, options);
 }
 
-/**
- * Run a build step via the agent SDK.
- * Executes `/build <planPath>`.
- */
-export async function runBuildStep(
+/** Run a build step — `/build <planPath>`. */
+export function runBuildStep(
   planPath: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    logger?.info(`Running /build step with plan: ${planPath}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/build ${planPath}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Build step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(`/build ${planPath}`, options);
 }
 
-/**
- * Run a review step via the agent SDK.
- * Executes `/review <adwId> <specPath>`.
- */
-export async function runReviewStep(
+/** Run a review step — `/review <adwId> <specPath>`. */
+export function runReviewStep(
   adwId: string,
   specPath: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    logger?.info(`Running /review step with spec: ${specPath}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/review ${adwId} ${specPath}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Review step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(`/review ${adwId} ${specPath}`, options);
 }
 
-/**
- * Run a research-codebase step via the agent SDK.
- * Executes `/research-codebase <question>`.
- */
-export async function runResearchCodebaseStep(
+/** Run a research-codebase step — `/research-codebase <question>`. */
+export function runResearchCodebaseStep(
   question: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    logger?.info(`Running /research-codebase step with question: ${question.slice(0, 100)}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/research-codebase ${question}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Research-codebase step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(`/research-codebase ${question}`, options);
 }
 
-/**
- * Run a produce-readme step via the agent SDK.
- * Executes `/produce-readme <sourcePaths> <outputPath> [mode]`.
- *
- * @param sourcePaths - comma-separated list of source file paths
- * @param outputPath - destination README path
- * @param mode - optional: "consolidated" for a single unified README
- */
-export async function runProduceReadmeStep(
+/** Run a produce-readme step — `/produce-readme <sourcePaths> <outputPath> [mode]`. */
+export function runProduceReadmeStep(
   sourcePaths: string,
   outputPath: string,
   options: RunStepOptions & { mode?: string } = {}
 ): Promise<QueryResult> {
-  const { logger, mode } = options;
-
-  try {
-    const modeArg = mode ? ` ${mode}` : "";
-    logger?.info(`Running /produce-readme step: ${sourcePaths} → ${outputPath}${modeArg ? ` (${mode})` : ""}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/produce-readme ${sourcePaths} ${outputPath}${modeArg}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Produce-readme step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  const modeArg = options.mode ? ` ${options.mode}` : "";
+  return runSkillStep(`/produce-readme ${sourcePaths} ${outputPath}${modeArg}`, options);
 }
 
-/**
- * Run an update-prime step via the agent SDK.
- * Executes `/update_prime` to regenerate the prime command from current READMEs.
- */
-export async function runUpdatePrimeStep(
+/** Run an update-prime step — `/update_prime`. */
+export function runUpdatePrimeStep(
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    logger?.info(`Running /update_prime step`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/update_prime`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Update-prime step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(`/update_prime`, options);
 }
 
-/**
- * Run a document step via the agent SDK.
- * Executes `/document <adwId> [specPath] [screenshotsDir]`.
- */
-export async function runDocumentStep(
+/** Run a document step — `/document <adwId> [specPath] [screenshotsDir]`. */
+export function runDocumentStep(
   adwId: string,
   options: RunStepOptions & { specPath?: string; screenshotsDir?: string } = {}
 ): Promise<QueryResult> {
-  const { logger, specPath, screenshotsDir } = options;
-
-  try {
-    const args = [adwId];
-    if (specPath) args.push(specPath);
-    if (screenshotsDir) args.push(screenshotsDir);
-
-    logger?.info(`Running /document step for ADW: ${adwId}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/document ${args.join(" ")}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Document step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  const args = [adwId];
+  if (options.specPath) args.push(options.specPath);
+  if (options.screenshotsDir) args.push(options.screenshotsDir);
+  return runSkillStep(`/document ${args.join(" ")}`, options);
 }
 
-/**
- * Run a test step via the agent SDK.
- * Executes `/test` to run the project's validation test suite.
- */
-export async function runTestStep(
+/** Run a test step — `/test`. */
+export function runTestStep(
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    logger?.info(`Running /test step with model: ${options.model ?? "sonnet"}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/test`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Test step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(`/test`, options);
 }
 
-/**
- * Run a patch plan step via the agent SDK.
- * Executes `/patch <adwId> <changeRequest> [specPath] [agentName]`.
- *
- * Returns the path to the generated patch plan file in result.
- */
-export async function runPatchPlanStep(
+/** Run a patch plan step — `/patch <adwId> <changeRequest> [specPath] [agentName]`. */
+export function runPatchPlanStep(
   adwId: string,
   changeRequest: string,
   options: RunStepOptions & { specPath?: string; agentName?: string } = {}
 ): Promise<QueryResult> {
-  const { logger, specPath, agentName } = options;
-
-  try {
-    const args = [adwId, JSON.stringify(changeRequest)];
-    if (specPath) args.push(specPath);
-    if (agentName) args.push(agentName);
-
-    logger?.info(`Running /patch step for ADW: ${adwId}`);
-
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(`/patch ${args.join(" ")}`);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Patch plan step failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  const args = [adwId, JSON.stringify(changeRequest)];
+  if (options.specPath) args.push(options.specPath);
+  if (options.agentName) args.push(options.agentName);
+  return runSkillStep(`/patch ${args.join(" ")}`, options);
 }
 
-/**
- * Quick single-turn prompt for extracting info.
- */
-export async function quickPrompt(
+/** Quick single-turn prompt for extracting info. */
+export function quickPrompt(
   prompt: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
-
-  try {
-    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
-    const query = sdk.query(prompt);
-
-    return await consumeQuery(query, logger);
-  } catch (e) {
-    logger?.error(`Quick prompt failed: ${e}`);
-    return { success: false, error: String(e) };
-  }
+  return runSkillStep(prompt, options);
 }

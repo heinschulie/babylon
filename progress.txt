@@ -107,3 +107,12 @@
 - Updated model selection docs to reference `getAdwEnv().models`
 - Files changed: `.claude/commands/create-adw.md`, `.claude/commands/port-adw.md`
 - Tests: 79 pass
+
+## PRD-004-001 (v2): Replace 9 step functions with runSkillStep()
+- Created `runSkillStep(prompt, opts)` — generic runner: createSDK + consumeQuery + try/catch
+- All 9 step functions + quickPrompt now delegate to runSkillStep()
+- `createSDK` appears exactly 2× (factory def + runSkillStep call), down from 10×
+- Thin wrappers preserve existing call signatures — zero caller changes needed
+- File: 457 → 321 lines (30% reduction)
+- Files changed: `adws/src/agent-sdk.ts`
+- Tests: 128 pass
