@@ -7,3 +7,12 @@
 - Files changed: `adws/src/agent-sdk.ts`
 - Pre-existing typecheck/lint failures in @babylon/verifier (not from this change)
 - Tests: 128 pass
+
+## PRD-001-002: Migrate adw_plan_build_review.ts to runStep()
+- Replaced 3 inline step blocks with `runStep()` calls
+- Eliminated `stepStatuses` array — `allStepUsages` now tracks `{ step, ok, usage }`
+- Extracted `finalize()` helper for workflow-level status writing + final comment
+- Removed unused imports: `taggedLogger`, `fmtDuration`, `createStepBanner`, `type AdwRecord`
+- 259 → 123 lines (53% reduction)
+- Files changed: `adws/workflows/adw_plan_build_review.ts`
+- Tests: 128 pass

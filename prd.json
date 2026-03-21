@@ -25,7 +25,7 @@
 						"RUN: grep -c 'runStep' adws/workflows/adw_plan_build_review.ts -- expect >= 3",
 						"RUN: wc -l < adws/workflows/adw_plan_build_review.ts -- expect < 150"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-003",
