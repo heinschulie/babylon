@@ -192,7 +192,7 @@ async function generateFeedbackWithClaude(input: {
 	phraseAccuracy?: number;
 	errorTags?: string[];
 }> {
-	const apiKey = process.env.ANTHROPIC_API_KEY;
+	const apiKey = process.env.CONVEX_ANTHROPIC_API_KEY;
 	if (!apiKey) {
 		return { feedbackText: 'AI feedback is not configured yet.' };
 	}

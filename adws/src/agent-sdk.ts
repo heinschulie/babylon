@@ -1,0 +1,475 @@
+/**
+ * Agent SDK wrapper for plan-build workflow.
+ *
+ * Uses @anthropic-ai/claude-agent-sdk for streaming agent execution.
+ */
+
+import type { Logger } from "./logger";
+
+
+export interface StepUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
+  total_cost_usd: number;
+  duration_ms: number;
+  num_turns: number;
+}
+
+export interface QueryResult {
+  success: boolean;
+  error?: string;
+  session_id?: string;
+  result?: string;
+  usage?: StepUsage;
+}
+
+interface RunStepOptions {
+  model?: string;
+  cwd?: string;
+  logger?: Logger;
+}
+
+/** Summarize a BetaMessage content array into a compact log line. */
+function summarizeContent(content: any[]): string {
+  if (!Array.isArray(content)) return String(content).slice(0, 200);
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block.type === "text") {
+      parts.push(block.text.slice(0, 150));
+    } else if (block.type === "tool_use") {
+      const input = JSON.stringify(block.input ?? {}).slice(0, 100);
+      parts.push(`[tool:${block.name}] ${input}`);
+    } else if (block.type === "tool_result") {
+      parts.push(`[tool_result:${block.tool_use_id?.slice(-8) ?? "?"}]`);
+    } else if (block.type === "thinking") {
+      parts.push(`[thinking ${(block.thinking ?? "").length}ch]`);
+    }
+  }
+  return parts.join(" | ").slice(0, 300);
+}
+
+/** Extract usage data from a result message. */
+function extractUsage(result: any): StepUsage | undefined {
+  if (!result) return undefined;
+
+  const usage = result.usage;
+  return {
+    input_tokens: usage?.input_tokens ?? 0,
+    output_tokens: usage?.output_tokens ?? 0,
+    cache_read_tokens: usage?.cache_read_input_tokens ?? 0,
+    cache_creation_tokens: usage?.cache_creation_input_tokens ?? 0,
+    total_cost_usd: result.total_cost_usd ?? 0,
+    duration_ms: result.duration_ms ?? 0,
+    num_turns: result.num_turns ?? 0,
+  };
+}
+
+/** Format usage data as a compact log line. */
+export function formatUsage(usage: StepUsage): string {
+  const tokens = usage.input_tokens + usage.output_tokens;
+  const cost = usage.total_cost_usd.toFixed(4);
+  const dur = (usage.duration_ms / 1000).toFixed(1);
+  return `tokens=${tokens} (in=${usage.input_tokens} out=${usage.output_tokens} cache_read=${usage.cache_read_tokens} cache_create=${usage.cache_creation_tokens}) cost=$${cost} duration=${dur}s turns=${usage.num_turns}`;
+}
+
+/** Sum multiple StepUsage objects into an aggregate. */
+export function sumUsage(usages: StepUsage[]): StepUsage {
+  return usages.reduce(
+    (acc, u) => ({
+      input_tokens: acc.input_tokens + u.input_tokens,
+      output_tokens: acc.output_tokens + u.output_tokens,
+      cache_read_tokens: acc.cache_read_tokens + u.cache_read_tokens,
+      cache_creation_tokens: acc.cache_creation_tokens + u.cache_creation_tokens,
+      total_cost_usd: acc.total_cost_usd + u.total_cost_usd,
+      duration_ms: acc.duration_ms + u.duration_ms,
+      num_turns: acc.num_turns + u.num_turns,
+    }),
+    { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, total_cost_usd: 0, duration_ms: 0, num_turns: 0 },
+  );
+}
+
+/** Consume the async generator from sdk.query(), return the final result. */
+async function consumeQuery(
+  query: AsyncGenerator<any, void>,
+  logger?: Logger
+): Promise<QueryResult> {
+  let finalResult: any = null;
+
+  for await (const message of query) {
+    switch (message.type) {
+      case "result":
+        finalResult = message;
+        logger?.info(`[result] subtype=${message.subtype} result=${(message.result ?? "").slice(0, 500)}`);
+        break;
+      case "assistant":
+        logger?.info(`[assistant] ${summarizeContent(message.message?.content ?? [])}`);
+        break;
+      default:
+        logger?.debug(`[sdk] type=${message.type} subtype=${message.subtype ?? ""}`);
+        break;
+    }
+  }
+
+  if (!finalResult) {
+    return { success: false };
+  }
+
+  const usage = extractUsage(finalResult);
+  if (usage) {
+    logger?.info(`[usage] ${formatUsage(usage)}`);
+  }
+
+  return {
+    success: finalResult.subtype === "success",
+    session_id: finalResult.session_id,
+    result: finalResult.result,
+    usage,
+  };
+}
+
+/**
+ * Run a plan step via the agent SDK.
+ * Executes `/plan <adwId> <prompt>`.
+ */
+export async function runPlanStep(
+  prompt: string,
+  options: RunStepOptions & { adwId?: string } = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    logger?.info(`Running /plan step with model: ${options.model ?? "opus"}`);
+
+    const adwId = options.adwId ?? "unknown";
+    const query = sdk.query({
+      prompt: `/plan ${adwId} ${prompt}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Plan step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a build step via the agent SDK.
+ * Executes `/build <planPath>`.
+ */
+export async function runBuildStep(
+  planPath: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    logger?.info(`Running /build step with plan: ${planPath}`);
+
+    const query = sdk.query({
+      prompt: `/build ${planPath}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Build step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a review step via the agent SDK.
+ * Executes `/review <adwId> <specPath>`.
+ */
+export async function runReviewStep(
+  adwId: string,
+  specPath: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    logger?.info(`Running /review step with spec: ${specPath}`);
+
+    const query = sdk.query({
+      prompt: `/review ${adwId} ${specPath}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Review step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a research-codebase step via the agent SDK.
+ * Executes `/research-codebase <question>`.
+ */
+export async function runResearchCodebaseStep(
+  question: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    logger?.info(`Running /research-codebase step with question: ${question.slice(0, 100)}`);
+
+    const query = sdk.query({
+      prompt: `/research-codebase ${question}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Research-codebase step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a produce-readme step via the agent SDK.
+ * Executes `/produce-readme <sourcePaths> <outputPath> [mode]`.
+ *
+ * @param sourcePaths - comma-separated list of source file paths
+ * @param outputPath - destination README path
+ * @param mode - optional: "consolidated" for a single unified README
+ */
+export async function runProduceReadmeStep(
+  sourcePaths: string,
+  outputPath: string,
+  options: RunStepOptions & { mode?: string } = {}
+): Promise<QueryResult> {
+  const { logger, mode } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    const modeArg = mode ? ` ${mode}` : "";
+    logger?.info(`Running /produce-readme step: ${sourcePaths} → ${outputPath}${modeArg ? ` (${mode})` : ""}`);
+
+    const query = sdk.query({
+      prompt: `/produce-readme ${sourcePaths} ${outputPath}${modeArg}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Produce-readme step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run an update-prime step via the agent SDK.
+ * Executes `/update_prime` to regenerate the prime command from current READMEs.
+ */
+export async function runUpdatePrimeStep(
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    logger?.info(`Running /update_prime step`);
+
+    const query = sdk.query({
+      prompt: `/update_prime`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Update-prime step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a document step via the agent SDK.
+ * Executes `/document <adwId> [specPath] [screenshotsDir]`.
+ */
+export async function runDocumentStep(
+  adwId: string,
+  options: RunStepOptions & { specPath?: string; screenshotsDir?: string } = {}
+): Promise<QueryResult> {
+  const { logger, specPath, screenshotsDir } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    const args = [adwId];
+    if (specPath) args.push(specPath);
+    if (screenshotsDir) args.push(screenshotsDir);
+
+    logger?.info(`Running /document step for ADW: ${adwId}`);
+
+    const query = sdk.query({
+      prompt: `/document ${args.join(" ")}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Document step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a test step via the agent SDK.
+ * Executes `/test` to run the project's validation test suite.
+ */
+export async function runTestStep(
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    logger?.info(`Running /test step with model: ${options.model ?? "sonnet"}`);
+
+    const query = sdk.query({
+      prompt: `/test`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Test step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Run a patch plan step via the agent SDK.
+ * Executes `/patch <adwId> <changeRequest> [specPath] [agentName]`.
+ *
+ * Returns the path to the generated patch plan file in result.
+ */
+export async function runPatchPlanStep(
+  adwId: string,
+  changeRequest: string,
+  options: RunStepOptions & { specPath?: string; agentName?: string } = {}
+): Promise<QueryResult> {
+  const { logger, specPath, agentName } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    const args = [adwId, JSON.stringify(changeRequest)];
+    if (specPath) args.push(specPath);
+    if (agentName) args.push(agentName);
+
+    logger?.info(`Running /patch step for ADW: ${adwId}`);
+
+    const query = sdk.query({
+      prompt: `/patch ${args.join(" ")}`,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    return await consumeQuery(query, logger);
+  } catch (e) {
+    logger?.error(`Patch plan step failed: ${e}`);
+    return { success: false, error: String(e) };
+  }
+}
+
+/**
+ * Quick single-turn prompt for extracting info.
+ */
+export async function quickPrompt(
+  prompt: string,
+  options: RunStepOptions = {}
+): Promise<string | null> {
+  const { logger } = options;
+
+  try {
+    const sdk = await import("@anthropic-ai/claude-agent-sdk");
+
+    const query = sdk.query({
+      prompt,
+      options: {
+        model: options.model ?? "claude-sonnet-4-20250514",
+        cwd: options.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settingSources: ["user", "project", "local"],
+      },
+    });
+
+    const result = await consumeQuery(query, logger);
+    return result.result ?? null;
+  } catch (e) {
+    logger?.error(`Quick prompt failed: ${e}`);
+    return null;
+  }
+}
