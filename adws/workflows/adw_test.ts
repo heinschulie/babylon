@@ -31,7 +31,6 @@ import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
 import { makeAdwId, parseJson, exec, createStepBanner, createDefaultStepUsage, createCommentStep, createFinalStatusComment, getAdwEnv, fmtDuration } from "../src/utils";
 import { ADWState } from "../src/state";
 import {
-  makeIssueComment,
   getRepoUrl,
   extractRepoPath,
   fetchIssue,
@@ -42,7 +41,6 @@ import {
   finalizeGitOperations,
 } from "../src/git-ops";
 import {
-  formatIssueMessage,
   classifyIssue,
   ensureAdwId,
 } from "../src/workflow-ops";
@@ -156,7 +154,7 @@ async function runTestsWithResolution(
       tlog.error(`Test execution failed: ${testResult.error}`);
       tlog.finalize(false, testResult.usage);
 
-      await commentStep(formatIssueMessage(adwId, "test_runner", `Test execution error: ${testResult.error}`));
+      await commentStep(`TEST attempt ${attempt} failed ❌ — ${testResult.error}`);
       break;
     }
     tlog.finalize(true, testResult.usage);
@@ -222,11 +220,7 @@ After fixing, briefly explain what you changed.`;
 
     logger.info(`Resolved ${resolvedCount}/${failed} — re-running tests`);
 
-    await commentStep(formatIssueMessage(
-      adwId,
-      "ops",
-      `Resolved ${resolvedCount}/${failed} tests, re-running (attempt ${attempt + 1}/${MAX_TEST_RETRY_ATTEMPTS})`
-    ));
+    await commentStep(`Resolved ${resolvedCount}/${failed} tests, re-running (attempt ${attempt + 1}/${MAX_TEST_RETRY_ATTEMPTS})`);
   }
 
   return { results, passed, failed, lastResult };
@@ -286,7 +280,7 @@ async function runWorkflow(
     }
 
     // Notify issue
-    await commentStep(formatIssueMessage(adwId, "ops", "Starting test suite"));
+    await commentStep("Starting test suite");
 
     // Run tests with resolution
     logger.info(`\n${createStepBanner("UNIT TESTS")}`);
@@ -303,7 +297,7 @@ async function runWorkflow(
 
     // Post final test results to issue
     const comment = formatTestResultsComment(results, passed, failed);
-    await commentStep(formatIssueMessage(adwId, "test_runner", `Final test results:\n${comment}`));
+    await commentStep(`Final test results:\n${comment}`);
 
     logger.info(`Final test results: ${passed} passed, ${failed} failed`);
 

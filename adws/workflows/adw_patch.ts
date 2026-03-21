@@ -24,7 +24,6 @@ import {
 } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
 import {
-  makeIssueComment,
   findKeywordFromComment,
   getRepoUrl,
   extractRepoPath,
@@ -34,7 +33,6 @@ import {
   commitChanges,
   finalizeGitOperations,
 } from "../src/git-ops";
-import { formatIssueMessage } from "../src/workflow-ops";
 import { ADWState } from "../src/state";
 import {
   getAdwEnv,
@@ -78,14 +76,14 @@ async function getPatchContent(
       const keywordComment = findKeywordFromComment("adw_patch", issue);
       if (keywordComment) {
         logger.info(`Found 'adw_patch' in comment, using comment body`);
-        await commentStep(formatIssueMessage(adwId, AGENT_PATCH_PLANNER, `Creating patch plan from comment containing 'adw_patch'`));
+        await commentStep("Creating patch plan from comment containing 'adw_patch'");
         return keywordComment.body;
       }
 
       // Check issue body
       if (issue.body.includes("adw_patch")) {
         logger.info("Found 'adw_patch' in issue body, using issue title+body");
-        await commentStep(formatIssueMessage(adwId, AGENT_PATCH_PLANNER, "Creating patch plan from issue containing 'adw_patch'"));
+        await commentStep("Creating patch plan from issue containing 'adw_patch'");
         return `Issue #${issue.number}: ${issue.title}\n\n${issue.body}`;
       }
 
@@ -159,7 +157,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     if (!patchPlanResult.success) {
       planLog.error(`Failed: ${patchPlanResult.error}`);
       planLog.finalize(false, planUsage);
-      await commentStep(formatIssueMessage(adwId, AGENT_PATCH_PLANNER, `Failed to create patch plan`));
+      await commentStep(`Step 1/${TOTAL_STEPS} PATCH_PLAN failed ❌ (${fmtDuration(planUsage.duration_ms)})`);
       return false;
     }
     planLog.finalize(true, planUsage);
@@ -173,7 +171,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
       return false;
     }
 
-    await commentStep(formatIssueMessage(adwId, AGENT_PATCH_PLANNER, `Patch plan created: ${patchPlanPath}`));
+    await commentStep(`Step 1/${TOTAL_STEPS} PATCH_PLAN completed ✅ (${fmtDuration(planUsage.duration_ms)})`);
 
     // ═══════════════════════════════════════════════════════════════
     // Step 2: Implement Patch (Build)
@@ -200,14 +198,14 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     if (!buildResult.success) {
       buildLog.error(`Failed: ${buildResult.error}`);
       buildLog.finalize(false, buildUsage);
-      await commentStep(formatIssueMessage(adwId, AGENT_PATCH_IMPLEMENTOR, `Error implementing patch`));
+      await commentStep(`Step 2/${TOTAL_STEPS} PATCH_BUILD failed ❌ (${fmtDuration(buildUsage.duration_ms)})`);
       return false;
     }
     buildLog.finalize(true, buildUsage);
     completedSteps++;
     logger.info(`${STEP_PATCH_BUILD} step completed (${completedSteps}/${TOTAL_STEPS})`);
 
-    await commentStep(formatIssueMessage(adwId, AGENT_PATCH_IMPLEMENTOR, "Patch implemented"));
+    await commentStep(`Step 2/${TOTAL_STEPS} PATCH_BUILD completed ✅ (${fmtDuration(buildUsage.duration_ms)})`);
 
     // ═══════════════════════════════════════════════════════════════
     // Step 3: Commit
@@ -224,7 +222,7 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     if (!commitOk) {
       commitLog.error(`Failed to commit: ${commitErr}`);
       commitLog.finalize(false);
-      await commentStep(formatIssueMessage(adwId, AGENT_PATCH_IMPLEMENTOR, `Error committing patch: ${commitErr}`));
+      await commentStep(`Step 3/${TOTAL_STEPS} COMMIT failed ❌`);
       return false;
     }
     commitLog.info(`Committed: ${commitMsg.split("\n")[0]}`);

@@ -11,7 +11,6 @@ import { executeTemplate } from "./agent";
 import {
   getRepoUrl,
   extractRepoPath,
-  ADW_BOT_IDENTIFIER,
 } from "./github";
 import { ADWState } from "./state";
 import { exec, getProjectRoot, makeAdwId, parseJson } from "./utils";
@@ -42,18 +41,6 @@ export const AVAILABLE_ADW_WORKFLOWS = [
   "adw_sdlc_iso",
 ];
 
-/** Format a message for issue comments with ADW tracking. */
-export function formatIssueMessage(
-  adwId: string,
-  agentName: string,
-  message: string,
-  sessionId?: string
-): string {
-  if (sessionId) {
-    return `${ADW_BOT_IDENTIFIER} ${adwId}_${agentName}_${sessionId}: ${message}`;
-  }
-  return `${ADW_BOT_IDENTIFIER} ${adwId}_${agentName}: ${message}`;
-}
 
 /** Extract ADW workflow, ID, and model_set from text via regex. */
 export function extractAdwInfo(

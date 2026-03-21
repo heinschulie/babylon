@@ -118,7 +118,7 @@
 					"steps_to_verify": [
 						"RUN: grep -rn 'commentStep' adws/workflows/ | grep -v 'createCommentStep' -- expect consistent format"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-003",
@@ -128,7 +128,7 @@
 						"RUN: grep -q 'commentStep' adws/workflows/adw_plan_build_document.ts -- expect match",
 						"RUN: grep -q 'issueNumber' adws/workflows/adw_plan_build_document.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

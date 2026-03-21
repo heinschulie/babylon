@@ -12,15 +12,12 @@
  */
 
 import { parseArgs } from "util";
-import { runBuildStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
-import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
+import { runBuildStep, runStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
+import { createLogger, writeWorkflowStatus } from "../src/logger";
 import {
-  createStepBanner,
-  createDefaultStepUsage,
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
-  fmtDuration,
 } from "../src/utils";
 
 const STEP_BUILD = "build";
@@ -35,7 +32,6 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
 
   const { prompt: planPath, workingDir, models } = getAdwEnv();
 
-  // Create comment functions
   const commentStep = createCommentStep(issueNumber);
   const commentFinalStatus = createFinalStatusComment(issueNumber);
 
@@ -51,50 +47,15 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
   const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
 
   try {
-    // Step 1: Build
-    logger.info(`\n${createStepBanner(STEP_BUILD, 1, TOTAL_STEPS)}`);
-
-    const buildLog = taggedLogger(logger, STEP_BUILD, { logDir: logger.logDir, step: STEP_BUILD });
-    const buildResult = await runBuildStep(planPath, {
-      model: models.default,
-      cwd: workingDir,
-      logger: buildLog,
-    });
-
-    if (buildResult.usage) {
-      buildLog.info(`Usage: ${formatUsage(buildResult.usage)}`);
-    }
-
-    const usage = buildResult.usage ?? createDefaultStepUsage();
-
-    if (!buildResult.success) {
-      buildLog.error(`Failed: ${buildResult.error}`);
-      buildLog.finalize(false, buildResult.usage);
-      allStepUsages.push({ step: STEP_BUILD, ok: false, usage });
-
-      await commentStep(`Step 1/${TOTAL_STEPS} BUILD failed ❌ (${fmtDuration(usage.duration_ms)})`);
-      const totals = allStepUsages.length > 0 ? sumUsage(allStepUsages.map((s) => s.usage)) : createDefaultStepUsage();
-
-      writeWorkflowStatus(logger.logDir, {
-        workflow: "build",
-        adwId,
-        ok: false,
-        startTime,
-        totals,
-      });
-
-      await commentFinalStatus({ workflow: "build", adwId, ok: false, startTime, steps: allStepUsages, totals });
-      return false;
-    }
-    buildLog.finalize(true, buildResult.usage);
-    allStepUsages.push({ step: STEP_BUILD, ok: true, usage });
-
-    await commentStep(`Step 1/${TOTAL_STEPS} BUILD completed ✅ (${fmtDuration(usage.duration_ms)})`);
+    const { ok } = await runStep(
+      { stepName: STEP_BUILD, stepNumber: 1, totalSteps: TOTAL_STEPS, logger, commentStep, allStepUsages },
+      (stepLogger) => runBuildStep(planPath, { model: models.default, cwd: workingDir, logger: stepLogger }),
+    );
 
     const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
 
     logger.info(`\n${"═".repeat(60)}`);
-    logger.info(`  WORKFLOW COMPLETE — ${Math.round((Date.now() - startTime) / 1000)}s`);
+    logger.info(`  WORKFLOW ${ok ? "COMPLETE" : "FAILED"} — ${Math.round((Date.now() - startTime) / 1000)}s`);
     logger.info(`  Plan file: ${planPath}`);
     logger.info(`\n  USAGE PER STEP:`);
     for (const { step, usage } of allStepUsages) {
@@ -106,18 +67,18 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
     writeWorkflowStatus(logger.logDir, {
       workflow: "build",
       adwId,
-      ok: true,
+      ok,
       startTime,
       totals: totalUsage,
     });
 
-    await commentFinalStatus({ workflow: "build", adwId, ok: true, startTime, steps: allStepUsages, totals: totalUsage });
+    await commentFinalStatus({ workflow: "build", adwId, ok, startTime, steps: allStepUsages, totals: totalUsage });
 
-    return true;
+    return ok;
   } catch (e) {
     logger.error(`Workflow exception: ${e}`);
 
-    const totals = allStepUsages.length > 0 ? sumUsage(allStepUsages.map((s) => s.usage)) : createDefaultStepUsage();
+    const totals = allStepUsages.length > 0 ? sumUsage(allStepUsages.map((s) => s.usage)) : { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, total_cost_usd: 0, duration_ms: 0, num_turns: 0 };
 
     writeWorkflowStatus(logger.logDir, {
       workflow: "build",

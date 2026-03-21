@@ -68,3 +68,15 @@
 - Verification: `stepStatuses` count = 0 across all workflows, `allStepUsages` total = 94
 - Files changed: `adws/workflows/adw_build.ts`, `adws/workflows/adw_test.ts`, `adws/workflows/adw_research-codebase_produce-readme_update-prime.ts`
 - Tests: 128 pass (verifier failures pre-existing)
+
+## PRD-004-002 + PRD-004-003: Standardize comment format, confirm document workflow support
+- Replaced `formatIssueMessage()` with direct messages in adw_plan.ts, adw_test.ts, adw_patch.ts
+- `formatIssueMessage()` added redundant `adwId_agentName:` prefix — `makeIssueComment()` already adds `[ADW-AGENTS]`
+- All orchestration workflows now use consistent `Step N/M NAME completed/failed ✅/❌ (duration)` format
+- Migrated adw_build.ts to use `runStep()` — eliminated ~80 lines of manual boilerplate
+- Removed `formatIssueMessage()` from workflow-ops.ts (dead code)
+- Removed unused `makeIssueComment` imports from adw_plan.ts, adw_test.ts, adw_patch.ts
+- Removed unused `ADW_BOT_IDENTIFIER` import from workflow-ops.ts
+- PRD-004-003 already passed (comment support added to adw_plan_build_document.ts in PRD-001-003)
+- Files changed: `adws/workflows/adw_plan.ts`, `adws/workflows/adw_test.ts`, `adws/workflows/adw_patch.ts`, `adws/workflows/adw_build.ts`, `adws/src/workflow-ops.ts`
+- Tests: 68 pass
