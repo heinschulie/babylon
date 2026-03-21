@@ -441,17 +441,16 @@ export async function runPatchPlanStep(
 export async function quickPrompt(
   prompt: string,
   options: RunStepOptions = {}
-): Promise<string | null> {
+): Promise<QueryResult> {
   const { logger } = options;
 
   try {
     const sdk = await createSDK({ model: options.model, cwd: options.cwd });
     const query = sdk.query(prompt);
 
-    const result = await consumeQuery(query, logger);
-    return result.result ?? null;
+    return await consumeQuery(query, logger);
   } catch (e) {
     logger?.error(`Quick prompt failed: ${e}`);
-    return null;
+    return { success: false, error: String(e) };
   }
 }

@@ -13,14 +13,22 @@
  */
 
 import { parseArgs } from "util";
-import { existsSync, readdirSync, statSync } from "fs";
-import { join } from "path";
+import { existsSync } from "fs";
 import { runPlanStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
 import { fetchIssue, makeIssueComment, getRepoUrl, extractRepoPath } from "../src/github";
 import { createBranch, commitChanges, finalizeGitOperations } from "../src/git-ops";
 import { ADWState } from "../src/state";
 import { ensureAdwId, formatIssueMessage } from "../src/workflow-ops";
+import {
+  createStepBanner,
+  extractPlanPath,
+  createDefaultStepUsage,
+  getWorkflowModels,
+  createCommentStep,
+  createFinalStatusComment,
+  fmtDuration,
+} from "../src/utils";
 
 const STEP_CLASSIFY = "classify";
 const STEP_BRANCH = "branch";
@@ -37,9 +45,12 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
   logger.info(`Starting ADW Plan Workflow — ADW ID: ${adwId}, Issue: #${issueNumber}`);
 
   // Per-phase model selection
-  const classifyModel = process.env.ADW_RESEARCH_MODEL ?? "claude-haiku-4-5-20251001";
-  const planModel = process.env.ADW_MODEL ?? "claude-sonnet-4-20250514";
+  const models = getWorkflowModels();
   const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
+
+  // Create comment functions
+  const commentStep = createCommentStep(issueNumber);
+  const commentFinalStatus = createFinalStatusComment(issueNumber);
 
   // Ensure ADW state
   const resolvedAdwId = await ensureAdwId(issueNumber, adwId, logger);
@@ -69,17 +80,14 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
   }
 
   logger.info(`Issue: ${issue.title}`);
-  await makeIssueComment(
-    issueNumber,
-    formatIssueMessage(resolvedAdwId, "ops", "Starting planning phase")
-  ).catch(() => {});
+  await commentStep(formatIssueMessage(resolvedAdwId, "ops", "Starting planning phase"));
 
   let completedSteps = 0;
-  const allStepUsages: { step: string; usage: StepUsage }[] = [];
+  const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
 
   try {
     // Step 1: Classify issue
-    logger.info(`\n${"═".repeat(60)}\n  STEP 1/${TOTAL_STEPS}: ${STEP_CLASSIFY.toUpperCase()}\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(STEP_CLASSIFY, 1, TOTAL_STEPS)}`);
     const classifyLog = taggedLogger(logger, STEP_CLASSIFY, { logDir: logger.logDir, step: STEP_CLASSIFY });
 
     const minimalIssue = JSON.stringify({
@@ -90,23 +98,20 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
 
     const classifyResult = await quickPrompt(
       `/classify_issue ${minimalIssue}`,
-      { model: classifyModel, cwd: workingDir, logger: classifyLog }
+      { model: models.research, cwd: workingDir, logger: classifyLog }
     );
 
-    if (!classifyResult) {
-      classifyLog.error("Failed to classify issue");
+    if (!classifyResult.success || !classifyResult.result) {
+      classifyLog.error(`Failed to classify issue: ${classifyResult.error ?? "no result"}`);
       classifyLog.finalize(false);
       return false;
     }
 
-    const commandMatch = classifyResult.match(/\/chore|\/bug|\/feature|\/patch|0/);
+    const commandMatch = classifyResult.result.match(/\/chore|\/bug|\/feature|\/patch|0/);
     if (!commandMatch || commandMatch[0] === "0") {
-      classifyLog.error(`Invalid classification: ${classifyResult}`);
+      classifyLog.error(`Invalid classification: ${classifyResult.result}`);
       classifyLog.finalize(false);
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(resolvedAdwId, "ops", `Error classifying issue: ${classifyResult}`)
-      ).catch(() => {});
+      await commentStep(formatIssueMessage(resolvedAdwId, "ops", `Error classifying issue: ${classifyResult.result}`));
       return false;
     }
 
@@ -117,41 +122,35 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
     classifyLog.finalize(true);
     completedSteps++;
 
-    await makeIssueComment(
-      issueNumber,
-      formatIssueMessage(resolvedAdwId, "ops", `Issue classified as: ${issueCommand}`)
-    ).catch(() => {});
+    await commentStep(formatIssueMessage(resolvedAdwId, "ops", `Issue classified as: ${issueCommand}`));
 
     // Step 2: Generate branch name + create branch
-    logger.info(`\n${"═".repeat(60)}\n  STEP 2/${TOTAL_STEPS}: ${STEP_BRANCH.toUpperCase()}\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(STEP_BRANCH, 2, TOTAL_STEPS)}`);
     const branchLog = taggedLogger(logger, STEP_BRANCH, { logDir: logger.logDir, step: STEP_BRANCH });
 
     const issueType = issueCommand.replace("/", "");
     const branchPrompt = `Generate a git branch name for this issue. The format must be: hein/${issueType}/issue-${issue.number}-{short-description}. Use lowercase, hyphens only, max 5 words in description. Respond with ONLY the branch name, nothing else.\n\nIssue: ${issue.title}`;
 
     const branchResult = await quickPrompt(branchPrompt, {
-      model: classifyModel,
+      model: models.research,
       cwd: workingDir,
       logger: branchLog,
     });
 
-    if (!branchResult) {
-      branchLog.error("Failed to generate branch name");
+    if (!branchResult.success || !branchResult.result) {
+      branchLog.error(`Failed to generate branch name: ${branchResult.error ?? "no result"}`);
       branchLog.finalize(false);
       return false;
     }
 
-    const branchName = branchResult.trim().replace(/[`"']/g, "");
+    const branchName = branchResult.result.trim().replace(/[`"']/g, "");
     branchLog.info(`Generated branch name: ${branchName}`);
 
     const [branchSuccess, branchError] = await createBranch(branchName, workingDir);
     if (!branchSuccess) {
       branchLog.error(`Failed to create branch: ${branchError}`);
       branchLog.finalize(false);
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(resolvedAdwId, "ops", `Error creating branch: ${branchError}`)
-      ).catch(() => {});
+      await commentStep(formatIssueMessage(resolvedAdwId, "ops", `Error creating branch: ${branchError}`));
       return false;
     }
 
@@ -161,87 +160,40 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
     branchLog.finalize(true);
     completedSteps++;
 
-    await makeIssueComment(
-      issueNumber,
-      formatIssueMessage(resolvedAdwId, "ops", `Working on branch: ${branchName}`)
-    ).catch(() => {});
+    await commentStep(formatIssueMessage(resolvedAdwId, "ops", `Working on branch: ${branchName}`));
 
     // Step 3: Build implementation plan
-    logger.info(`\n${"═".repeat(60)}\n  STEP 3/${TOTAL_STEPS}: ${STEP_PLAN.toUpperCase()}\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(STEP_PLAN, 3, TOTAL_STEPS)}`);
     const planLog = taggedLogger(logger, STEP_PLAN, { logDir: logger.logDir, step: STEP_PLAN });
 
-    await makeIssueComment(
-      issueNumber,
-      formatIssueMessage(resolvedAdwId, AGENT_PLANNER, "Building implementation plan")
-    ).catch(() => {});
+    await commentStep(formatIssueMessage(resolvedAdwId, AGENT_PLANNER, "Building implementation plan"));
 
     const planPrompt = `Issue #${issue.number}: ${issue.title}\n\n${issue.body ?? ""}`;
     const planResult = await runPlanStep(planPrompt, {
-      model: planModel,
+      model: models.default,
       cwd: workingDir,
       logger: planLog,
       adwId: resolvedAdwId,
     });
 
-    if (planResult.usage) {
-      allStepUsages.push({ step: STEP_PLAN, usage: planResult.usage });
-      planLog.info(`Usage: ${formatUsage(planResult.usage)}`);
-    }
+    const planUsage = planResult.usage ?? createDefaultStepUsage();
+    const planOk = planResult.success;
+    allStepUsages.push({ step: STEP_PLAN, ok: planOk, usage: planUsage });
+    planLog.info(`Usage: ${formatUsage(planUsage)}`);
 
     if (!planResult.success) {
       planLog.error(`Failed: ${planResult.error ?? planResult.result ?? "unknown"}`);
-      planLog.finalize(false, planResult.usage);
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(resolvedAdwId, AGENT_PLANNER, `Error building plan: ${planResult.error ?? "unknown"}`)
-      ).catch(() => {});
+      planLog.finalize(false, planUsage);
+      await commentStep(formatIssueMessage(resolvedAdwId, AGENT_PLANNER, `Error building plan: ${planResult.error ?? "unknown"}`));
       return false;
     }
-    planLog.finalize(true, planResult.usage);
+    planLog.finalize(true, planUsage);
     completedSteps++;
 
     // Extract plan file path
-    let planPath: string | null = null;
-    if (planResult.result) {
-      const resultText = planResult.result.trim();
-      const absMatch = resultText.match(/\/[^\s`"']+\.md/);
-      if (absMatch) {
-        planPath = absMatch[0];
-        logger.info(`Extracted plan path from result: ${planPath}`);
-      } else {
-        const relMatch = resultText.match(/(?:specs\/[^\s`"']+\.md)/);
-        if (relMatch) {
-          planPath = join(workingDir, relMatch[0]);
-          logger.info(`Extracted relative plan path: ${planPath}`);
-        }
-      }
-    }
-
-    // Fallback: look in specs/
-    if (!planPath) {
-      logger.warn("Attempting fallback plan path detection...");
-      const specsDir = join(workingDir, "specs");
-      try {
-        const mdFiles = readdirSync(specsDir)
-          .filter((f) => f.endsWith(".md"))
-          .map((f) => ({
-            name: f,
-            path: join(specsDir, f),
-            mtime: statSync(join(specsDir, f)).mtimeMs,
-          }))
-          .sort((a, b) => b.mtime - a.mtime);
-
-        const adwMatch = mdFiles.find((f) => f.name.includes(resolvedAdwId));
-        if (adwMatch) {
-          planPath = adwMatch.path;
-          logger.info(`Found plan file by ADW ID: ${planPath}`);
-        } else if (mdFiles.length > 0) {
-          planPath = mdFiles[0].path;
-          logger.info(`Found most recent plan file: ${planPath}`);
-        }
-      } catch {
-        // specs dir may not exist
-      }
+    const planPath = extractPlanPath(planResult.result ?? "", workingDir, resolvedAdwId);
+    if (planPath) {
+      logger.info(`Found plan file: ${planPath}`);
     }
 
     if (!planPath || !existsSync(planPath)) {
@@ -253,13 +205,10 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
     await state.save("adw_plan");
     logger.info(`Plan file created: ${planPath}`);
 
-    await makeIssueComment(
-      issueNumber,
-      formatIssueMessage(resolvedAdwId, AGENT_PLANNER, "Implementation plan created")
-    ).catch(() => {});
+    await commentStep(formatIssueMessage(resolvedAdwId, AGENT_PLANNER, "Implementation plan created"));
 
     // Step 4: Commit plan
-    logger.info(`\n${"═".repeat(60)}\n  STEP 4/${TOTAL_STEPS}: ${STEP_COMMIT.toUpperCase()}\n${"═".repeat(60)}`);
+    logger.info(`\n${createStepBanner(STEP_COMMIT, 4, TOTAL_STEPS)}`);
     const commitLog = taggedLogger(logger, STEP_COMMIT, { logDir: logger.logDir, step: STEP_COMMIT });
 
     const commitMsg = `${issueType}(plan): add implementation plan for #${issue.number}\n\nADW: ${resolvedAdwId}`;
@@ -275,10 +224,7 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
     commitLog.finalize(true);
     completedSteps++;
 
-    await makeIssueComment(
-      issueNumber,
-      formatIssueMessage(resolvedAdwId, AGENT_PLANNER, "Plan committed")
-    ).catch(() => {});
+    await commentStep(formatIssueMessage(resolvedAdwId, AGENT_PLANNER, "Plan committed"));
 
     // Finalize git operations (push + PR)
     logger.info("Finalizing git operations...");
@@ -290,10 +236,10 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
     // Summary
     const totalUsage = allStepUsages.length > 0
       ? sumUsage(allStepUsages.map((s) => s.usage))
-      : { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, total_cost_usd: 0, duration_ms: 0, num_turns: 0 };
+      : createDefaultStepUsage();
 
     logger.info(`\n${"═".repeat(60)}`);
-    logger.info(`  WORKFLOW COMPLETE — ${Math.round((Date.now() - startTime) / 1000)}s`);
+    logger.info(`  WORKFLOW COMPLETE — ${fmtDuration(Date.now() - startTime)}`);
     logger.info(`  Issue: #${issueNumber} — ${issue.title}`);
     logger.info(`  Branch: ${branchName}`);
     logger.info(`  Plan: ${planPath}`);
@@ -312,10 +258,15 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
       totals: totalUsage,
     });
 
-    await makeIssueComment(
-      issueNumber,
-      formatIssueMessage(resolvedAdwId, "ops", "Planning phase completed")
-    ).catch(() => {});
+    // Post final status comment
+    await commentFinalStatus({
+      workflow: "plan",
+      adwId: resolvedAdwId,
+      ok: true,
+      startTime,
+      steps: allStepUsages,
+      totals: totalUsage,
+    });
 
     return true;
   } catch (e) {
@@ -323,13 +274,23 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
 
     const totalUsage = allStepUsages.length > 0
       ? sumUsage(allStepUsages.map((s) => s.usage))
-      : { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, total_cost_usd: 0, duration_ms: 0, num_turns: 0 };
+      : createDefaultStepUsage();
 
     writeWorkflowStatus(logger.logDir, {
       workflow: "plan",
       adwId: resolvedAdwId,
       ok: false,
       startTime,
+      totals: totalUsage,
+    });
+
+    // Post failure status comment
+    await commentFinalStatus({
+      workflow: "plan",
+      adwId: resolvedAdwId,
+      ok: false,
+      startTime,
+      steps: allStepUsages,
       totals: totalUsage,
     });
 

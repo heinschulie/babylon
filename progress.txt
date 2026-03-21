@@ -37,3 +37,11 @@
 - Extracted `DEFAULT_MODEL` constant for reuse
 - Files changed: `adws/src/agent-sdk.ts`
 - Tests: 68 pass
+
+## PRD-002-003: Align quickPrompt() to return QueryResult
+- Changed `quickPrompt()` return type from `string | null` to `QueryResult`
+- Error case now returns `{ success: false, error }` instead of `null`
+- Updated 3 callers: adw_plan.ts (classify + branch), adw_test.ts (resolve)
+- Callers now use `.success` / `.result` / `.error` instead of null checks
+- Files changed: `adws/src/agent-sdk.ts`, `adws/workflows/adw_plan.ts`, `adws/workflows/adw_test.ts`
+- Tests: 128 pass

@@ -69,7 +69,7 @@
 					"steps_to_verify": [
 						"RUN: grep -A2 'quickPrompt' adws/src/agent-sdk.ts | grep -q 'QueryResult' -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

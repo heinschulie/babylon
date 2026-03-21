@@ -28,7 +28,7 @@ import {
   type QueryResult,
 } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
-import { makeAdwId, parseJson, exec } from "../src/utils";
+import { makeAdwId, parseJson, exec, createStepBanner, createDefaultStepUsage, createCommentStep, createFinalStatusComment, getWorkflowModels, fmtDuration } from "../src/utils";
 import { ADWState } from "../src/state";
 import {
   makeIssueComment,
@@ -61,16 +61,6 @@ interface TestResult {
   error?: string;
 }
 
-/** Stub: fetch ADW record from env / CLI. */
-async function getAdw(adwId: string): Promise<Record<string, unknown> | null> {
-  const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
-  const model = process.env.ADW_MODEL ?? "claude-sonnet-4-20250514";
-
-  return {
-    adw_id: adwId,
-    input_data: { working_dir: workingDir, model },
-  };
-}
 
 /** Parse test result JSON from agent output. */
 function parseTestResults(output: string): {
@@ -123,10 +113,11 @@ function formatTestResultsComment(
 async function runTestsWithResolution(
   adwId: string,
   workingDir: string,
-  model: string,
+  models: { research: string; default: string; review: string },
   issueNumber: string | undefined,
   logger: ReturnType<typeof createLogger>,
-  allStepUsages: { step: string; usage: StepUsage }[]
+  allStepUsages: { step: string; usage: StepUsage }[],
+  commentStep: (msg: string) => Promise<void>
 ): Promise<{
   results: TestResult[];
   passed: number;
@@ -139,9 +130,7 @@ async function runTestsWithResolution(
   let lastResult: QueryResult | null = null;
 
   for (let attempt = 1; attempt <= MAX_TEST_RETRY_ATTEMPTS; attempt++) {
-    logger.info(
-      `\n${"═".repeat(60)}\n  TEST RUN ATTEMPT ${attempt}/${MAX_TEST_RETRY_ATTEMPTS}\n${"═".repeat(60)}`
-    );
+    logger.info(`\n${createStepBanner(`TEST RUN ATTEMPT ${attempt}/${MAX_TEST_RETRY_ATTEMPTS}`)}`);
 
     // Run /test step
     const stepName = `${STEP_TEST}_attempt_${attempt}`;
@@ -151,7 +140,7 @@ async function runTestsWithResolution(
     });
 
     const testResult = await runTestStep({
-      model,
+      model: models.default,
       cwd: workingDir,
       logger: tlog,
     });
@@ -167,12 +156,7 @@ async function runTestsWithResolution(
       tlog.error(`Test execution failed: ${testResult.error}`);
       tlog.finalize(false, testResult.usage);
 
-      if (issueNumber) {
-        await makeIssueComment(
-          issueNumber,
-          formatIssueMessage(adwId, "test_runner", `Test execution error: ${testResult.error}`)
-        ).catch(() => {});
-      }
+      await commentStep(formatIssueMessage(adwId, "test_runner", `Test execution error: ${testResult.error}`));
       break;
     }
     tlog.finalize(true, testResult.usage);
@@ -220,12 +204,12 @@ Please investigate the test failure and fix the underlying code issue. Do NOT mo
 After fixing, briefly explain what you changed.`;
 
       const resolveResult = await quickPrompt(resolvePrompt, {
-        model,
+        model: models.default,
         cwd: workingDir,
         logger: rlog,
       });
 
-      const ok = resolveResult !== null;
+      const ok = resolveResult.success;
       if (ok) resolvedCount++;
       rlog.info(ok ? `Resolved: ${test.test_name}` : `Failed to resolve: ${test.test_name}`);
       rlog.finalize(ok);
@@ -238,16 +222,11 @@ After fixing, briefly explain what you changed.`;
 
     logger.info(`Resolved ${resolvedCount}/${failed} — re-running tests`);
 
-    if (issueNumber) {
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(
-          adwId,
-          "ops",
-          `Resolved ${resolvedCount}/${failed} tests, re-running (attempt ${attempt + 1}/${MAX_TEST_RETRY_ATTEMPTS})`
-        )
-      ).catch(() => {});
-    }
+    await commentStep(formatIssueMessage(
+      adwId,
+      "ops",
+      `Resolved ${resolvedCount}/${failed} tests, re-running (attempt ${attempt + 1}/${MAX_TEST_RETRY_ATTEMPTS})`
+    ));
   }
 
   return { results, passed, failed, lastResult };
@@ -261,6 +240,7 @@ async function runWorkflow(
   const startTime = Date.now();
   const logger = createLogger(adwId, WORKFLOW_NAME);
   const allStepUsages: { step: string; usage: StepUsage }[] = [];
+  const stepStatuses: { step: string; ok: boolean; usage: StepUsage }[] = [];
   let ok = false;
 
   logger.info(`Starting ADW Test Workflow — ADW ID: ${adwId}`);
@@ -269,18 +249,15 @@ async function runWorkflow(
 
   try {
     // Fetch ADW config
-    const adw = await getAdw(adwId);
-    if (!adw) {
-      logger.error(`ADW not found: ${adwId}`);
-      return false;
-    }
+    const models = getWorkflowModels();
+    const workingDir = process.env.ADW_WORKING_DIR ?? process.cwd();
 
-    const inputData = adw.input_data as Record<string, string>;
-    const workingDir = inputData.working_dir;
-    const model = inputData.model;
+    // Create comment functions
+    const commentStep = createCommentStep(issueNumber);
+    const commentFinalStatus = createFinalStatusComment(issueNumber);
 
     logger.info(`Working Dir: ${workingDir}`);
-    logger.info(`Model: ${model}`);
+    logger.info(`Model: ${models.default}`);
 
     // Ensure state exists
     let state = ADWState.load(adwId, logger);
@@ -312,35 +289,24 @@ async function runWorkflow(
     }
 
     // Notify issue
-    if (issueNumber) {
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(adwId, "ops", "Starting test suite")
-      ).catch(() => {});
-    }
+    await commentStep(formatIssueMessage(adwId, "ops", "Starting test suite"));
 
     // Run tests with resolution
-    logger.info(
-      `\n${"═".repeat(60)}\n  STEP: UNIT TESTS\n${"═".repeat(60)}`
-    );
+    logger.info(`\n${createStepBanner("UNIT TESTS")}`);
 
-    const { results, passed, failed } = await runTestsWithResolution(
+    const { results, passed, failed, lastResult } = await runTestsWithResolution(
       adwId,
       workingDir,
-      model,
+      models,
       issueNumber,
       logger,
-      allStepUsages
+      allStepUsages,
+      commentStep
     );
 
     // Post final test results to issue
-    if (issueNumber) {
-      const comment = formatTestResultsComment(results, passed, failed);
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(adwId, "test_runner", `Final test results:\n${comment}`)
-      ).catch(() => {});
-    }
+    const comment = formatTestResultsComment(results, passed, failed);
+    await commentStep(formatIssueMessage(adwId, "test_runner", `Final test results:\n${comment}`));
 
     logger.info(`Final test results: ${passed} passed, ${failed} failed`);
 
@@ -354,9 +320,7 @@ async function runWorkflow(
     }
 
     // Commit results
-    logger.info(
-      `\n${"═".repeat(60)}\n  STEP: COMMIT & PUSH\n${"═".repeat(60)}`
-    );
+    logger.info(`\n${createStepBanner("COMMIT & PUSH")}`);
 
     const commitLog = taggedLogger(logger, STEP_COMMIT, {
       logDir: logger.logDir,
@@ -383,14 +347,16 @@ async function runWorkflow(
     state.toStdout();
 
     ok = failed === 0;
+    const testUsage = lastResult?.usage ?? createDefaultStepUsage();
+    stepStatuses.push({ step: STEP_TEST, ok, usage: testUsage });
 
     // Final summary
     const totalUsage = allStepUsages.length > 0
       ? sumUsage(allStepUsages.map((s) => s.usage))
-      : { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, total_cost_usd: 0, duration_ms: 0, num_turns: 0 };
+      : createDefaultStepUsage();
 
     logger.info(`\n${"═".repeat(60)}`);
-    logger.info(`  WORKFLOW ${ok ? "COMPLETE" : "FAILED"} — ${Math.round((Date.now() - startTime) / 1000)}s`);
+    logger.info(`  WORKFLOW ${ok ? "COMPLETE" : "FAILED"} — ${fmtDuration(Date.now() - startTime)}`);
     logger.info(`  Tests: ${passed} passed, ${failed} failed`);
     logger.info(`\n  USAGE PER STEP:`);
     for (const { step, usage } of allStepUsages) {
@@ -408,15 +374,7 @@ async function runWorkflow(
     });
 
     // Post final status to issue
-    if (issueNumber) {
-      const statusMsg = ok
-        ? `All ${passed} tests passed successfully!`
-        : `Test suite completed with ${failed} failures`;
-      await makeIssueComment(
-        issueNumber,
-        formatIssueMessage(adwId, "ops", statusMsg)
-      ).catch(() => {});
-    }
+    await commentFinalStatus({ workflow: WORKFLOW_NAME, adwId, ok, startTime, steps: stepStatuses, totals: totalUsage });
 
     return ok;
   } catch (e) {
