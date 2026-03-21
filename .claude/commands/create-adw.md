@@ -23,27 +23,25 @@ SHARED_SRC: adws/src
 - The `PROMPT` variable, if it is provided, will give further instructions about how the adw should behave.
 - The workflow file name is prefixed with `adw_` and derived from the command names joined by underscores, preserving hyphens within command names (e.g. `/research-codebase,/produce-readme` → `adw_research-codebase_produce-readme.ts`). Only use underscores as the separator BETWEEN commands, never replace hyphens within a command name.
 - Use Bun APIs (`Bun.spawn`, `Bun.write`, `import.meta.main`) — no Node-only patterns
-- CRITICAL SDK gotchas (these are the most common mistakes):
-  - `sdk.query()` returns an `AsyncGenerator<SDKMessage, void>`, NOT a Promise. You MUST iterate with `for await...of` to drive execution. Simply `await`-ing it resolves instantly without running the agent.
-  - The options object uses `permissionMode: "bypassPermissions"` + `allowDangerouslySkipPermissions: true` — NOT `bypassPermissions: true`
-  - You MUST set `settingSources: ["user", "project", "local"]` or the SDK runs in isolation mode and cannot discover `.claude/commands/` skills or load CLAUDE.md
-  - The tool list option is `tools`, NOT `allowedTools`. Omitting it uses the default Claude Code preset which is usually correct.
-  - The result message has `type: "result"`, `subtype: "success"` or `"error"`, and a `result` string field
-  - Assistant messages have `message.content` as an array of content blocks (text, tool_use, thinking), not a string
+- **Use `createSDK()` and `runStep()` — NEVER instantiate the SDK directly or write per-step boilerplate:**
+  - `createSDK({ model?, cwd? })` encapsulates all SDK options (permissionMode, settingSources, etc.) — returns `{ query }`. All SDK config lives in one place.
+  - `runStep(opts)` encapsulates per-step boilerplate: banner, tagged logger, usage tracking, finalize, comment posting, and status updates. Each step is a single `runStep()` call.
+  - `runStep()` returns `RunStepResult` with `{ ok, result, usage }`. Use `onFail: "halt"` (default) for critical steps, `onFail: "continue"` for non-fatal steps like test/document.
+- **Use `getAdwEnv()` for workflow config** — returns `{ prompt, workingDir, models }` from env vars. Replaces manual env reads.
 - Reuse existing shared modules from `SHARED_SRC` — read them before writing new utilities:
-  - `agent-sdk.ts` — `consumeQuery()`, `runPlanStep()`, `runBuildStep()`, `runReviewStep()`, `quickPrompt()`, `formatUsage()`, `sumUsage()`, `StepUsage`, `QueryResult`
+  - `agent-sdk.ts` — `createSDK()`, `runStep()`, `RunStepOpts`, `RunStepResult`, `runPlanStep()`, `runBuildStep()`, `runReviewStep()`, `runTestStep()`, `runDocumentStep()`, `quickPrompt()`, `formatUsage()`, `sumUsage()`, `StepUsage`, `QueryResult`
+  - `utils.ts` — `getAdwEnv()`, `ADWEnv`, `makeAdwId()`, `extractPlanPath()`, `createCommentStep()`, `createFinalStatusComment()`, `fmtDuration()`, `parseJson()`, `checkEnvVars()`, `exec()`, `getProjectRoot()`
   - `logger.ts` — `createLogger(adwId, triggerType)` dual console+file logger (returns logger with `.logDir`), `taggedLogger(parent, tag, { logDir, step })` per-agent colored logger with file isolation, `TaggedLogger` interface with `.finalize(ok)` for status tracking
-  - `utils.ts` — `makeAdwId()`, `parseJson()`, `checkEnvVars()`, `exec()`, `getProjectRoot()`
   - `git-ops.ts`, `worktree-ops.ts`, `github.ts` — git/GitHub helpers
 - For logging assistant messages, use `summarizeContent()` from `agent-sdk.ts` to extract readable text from content block arrays
 - Use `parseArgs` from `"util"` for CLI arg parsing (Bun-compatible, no deps)
+- `--issue` is a standard parseArgs option for all workflows (optional, type: `"string"`). GitHub issues are the primary entry point for most ADW work, but some workflows (e.g. cron-triggered maintenance) run without an issue. The issue number is used for posting progress comments — all GitHub commenting is gated on `--issue` being provided.
 - Env vars for config: `ADW_PROMPT`, `ADW_WORKING_DIR`, `ADW_MODEL`, `ADW_REVIEW_MODEL`
-- **Per-phase model selection:** When a workflow has steps with different cost/capability needs, use separate env vars per phase with sane defaults:
-  - Research/lightweight steps: `ADW_RESEARCH_MODEL` (default: `claude-haiku-4-5-20251001`)
-  - Plan/build/generation steps: `ADW_MODEL` (default: `claude-sonnet-4-20250514`)
-  - Review/verification steps: `ADW_REVIEW_MODEL` (default: `claude-sonnet-4-20250514`)
+- **Per-phase model selection:** When a workflow has steps with different cost/capability needs, use `getAdwEnv().models` which provides:
+  - `models.research` — `ADW_RESEARCH_MODEL` (default: `claude-haiku-4-5-20251001`)
+  - `models.default` — `ADW_MODEL` (default: `claude-sonnet-4-20250514`)
+  - `models.review` — `ADW_REVIEW_MODEL` (default: `claude-sonnet-4-20250514`)
   - Use the cheapest model that can handle each phase — haiku for research/read-heavy, sonnet for generation, opus only when explicitly requested via env var
-  - See `adw_research-codebase_produce-readme_update-prime.ts` for the pattern: declare per-phase model vars near the top of `runWorkflow()`, read from env with fallback defaults
 - Log files go to `agents/{adw-id}/{trigger_type}/execution.log` via `createLogger`
 - **Per-agent logging is MANDATORY.** Every step that runs an agent must:
   - Create a `taggedLogger(logger, tag, { logDir: logger.logDir, step: "step-name" })` — this gives the agent a colored console prefix AND writes to its own file at `agents/{adw-id}/{trigger_type}/{step}/{tag}.log`
@@ -53,16 +51,17 @@ SHARED_SRC: adws/src
   - See `adw_research-codebase_produce-readme_update-prime.ts` for parallel usage and `adw_plan_build.ts` for sequential usage
 - Keep the workflow file focused — delegate SDK interaction to `agent-sdk.ts`, add new step functions there if needed
 - Use visually distinct step banners: `"═".repeat(60)` surrounding the step name
+- **GitHub issue progress comments (when `--issue` is provided).** Use `createCommentStep(issueNumber)` and `createFinalStatusComment(issueNumber)` from `utils.ts` — these return functions that handle posting and no-op gracefully when no issue number is provided. `runStep()` handles per-step comments automatically when given a `commentStep` function.
 - **Usage tracking is MANDATORY for all workflows.** Every workflow must:
   - Import `formatUsage`, `sumUsage`, and `StepUsage` from `agent-sdk.ts`
   - Import `writeWorkflowStatus` from `logger.ts`
-  - Declare `const allStepUsages: { step: string; usage: StepUsage }[] = []` before the try block
-  - After each step, check `result.usage` and push to `allStepUsages` + log with `formatUsage()`
+  - Declare `const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = []` before the try block
+  - `runStep()` returns usage in `RunStepResult` — push each result to `allStepUsages`
   - In the final summary, log per-step usage and a `TOTAL:` line using `sumUsage()`
-  - At the end of the workflow (after the summary log), call `writeWorkflowStatus(logger.logDir, { workflow, adwId, ok, startTime, totals })` — this writes a top-level `status.json` that aggregates all step statuses with usage stats
-  - See `adw_plan_build.ts` or `adw_research-codebase_produce-readme_update-prime.ts` for the exact pattern
+  - At the end of the workflow, call `writeWorkflowStatus(logger.logDir, { workflow, adwId, ok, startTime, totals })` and `commentFinalStatus()`
+  - See `adw_plan_build.ts` or `adw_plan_build_review.ts` for the exact pattern
 - Data passing between steps:
-  - `/plan` produces a plan file path — extract it from the result text or fall back to scanning `specs/`
+  - `/plan` produces a plan file path — extract with `extractPlanPath(result, workingDir, adwId)`
   - `/build` consumes a plan file path
   - `/review` consumes the original prompt and plan file path
   - `/test` runs after build with no special input
@@ -80,9 +79,9 @@ SHARED_SRC: adws/src
 6. If new step functions are needed, add them to `SHARED_SRC/agent-sdk.ts` following the existing pattern: create query with `/skill` prompt, consume with `consumeQuery()`, return `QueryResult`
 7. Write the workflow file to `TARGET_DIR/adw_{command_names_joined}.ts` with:
    - JSDoc header with usage example
-   - `parseArgs` entrypoint with `--adw-id` flag
-   - `getAdw()` stub reading from env vars
-   - `runWorkflow()` function with step banners, logger, and sequential step execution
+   - `parseArgs` entrypoint with `--adw-id` and `--issue` flags
+   - `getAdwEnv()` for config (prompt, workingDir, models)
+   - `runWorkflow()` function using `runStep()` for each step
    - Data passing between steps (plan path extraction, prompt forwarding, etc.)
    - Duration tracking and final summary log
 8. Run `bun run TARGET_DIR/adw_{new_file}.ts --adw-id test-create` with `ADW_PROMPT="test" ADW_WORKING_DIR=$(pwd)` to verify it parses and starts correctly

@@ -174,7 +174,7 @@
 						"RUN: grep -q 'runStep' .claude/commands/create-adw.md -- expect match",
 						"RUN: grep -q 'createSDK' .claude/commands/create-adw.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-002",
@@ -184,7 +184,7 @@
 						"RUN: grep -q 'runStep' .claude/commands/port-adw.md -- expect match",
 						"RUN: grep -q 'createSDK' .claude/commands/port-adw.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		}

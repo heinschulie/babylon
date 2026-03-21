@@ -98,3 +98,12 @@
 - Refactored: `shouldProcessIssue` → `evaluateIssue` returns `TriggerInfo | null`
 - Files changed: `adws/triggers/cron.ts`
 - Tests: 79 pass
+
+## PRD-007-001 + PRD-007-002: Update /create-adw and /port-adw templates
+- Replaced outdated SDK patterns with `createSDK()` and `runStep()` references
+- Replaced `standardizeGetAdw()`/`AdwRecord` with `getAdwEnv()`/`ADWEnv`
+- Updated shared module listings to match current exports
+- Replaced manual comment/usage boilerplate with `createCommentStep()`, `createFinalStatusComment()`, `runStep()` patterns
+- Updated model selection docs to reference `getAdwEnv().models`
+- Files changed: `.claude/commands/create-adw.md`, `.claude/commands/port-adw.md`
+- Tests: 79 pass
