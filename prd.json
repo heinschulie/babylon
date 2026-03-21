@@ -50,7 +50,7 @@
 						"RUN: grep -q 'createSDK' adws/src/agent-sdk.ts -- expect match",
 						"RUN: grep -c 'permissionMode' adws/src/agent-sdk.ts -- expect 1"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-002",
@@ -60,7 +60,7 @@
 						"RUN: grep -c 'createSDK' adws/src/agent-sdk.ts -- expect >= 10",
 						"RUN: grep -c 'new ClaudeSDK' adws/src/agent-sdk.ts -- expect 0"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-002-003",

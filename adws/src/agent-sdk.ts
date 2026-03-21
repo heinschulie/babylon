@@ -148,6 +148,28 @@ export async function runStep(
   return { ok: true, usage, result: result.result };
 }
 
+// ─── SDK factory ────────────────────────────────────────────────────────────
+
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+
+/** Create a configured SDK query function with standard permissions. */
+export async function createSDK(opts: { model?: string; cwd?: string } = {}) {
+  const sdk = await import("@anthropic-ai/claude-agent-sdk");
+  return {
+    query: (prompt: string) =>
+      sdk.query({
+        prompt,
+        options: {
+          model: opts.model ?? DEFAULT_MODEL,
+          cwd: opts.cwd,
+          permissionMode: "bypassPermissions" as const,
+          allowDangerouslySkipPermissions: true,
+          settingSources: ["user", "project", "local"] as ("user" | "project" | "local")[],
+        },
+      }),
+  };
+}
+
 // ─── SDK query consumption ──────────────────────────────────────────────────
 
 /** Consume the async generator from sdk.query(), return the final result. */
@@ -200,21 +222,11 @@ export async function runPlanStep(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
-    logger?.info(`Running /plan step with model: ${options.model ?? "opus"}`);
+    logger?.info(`Running /plan step with model: ${options.model ?? "sonnet"}`);
 
     const adwId = options.adwId ?? "unknown";
-    const query = sdk.query({
-      prompt: `/plan ${adwId} ${prompt}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/plan ${adwId} ${prompt}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -234,20 +246,10 @@ export async function runBuildStep(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     logger?.info(`Running /build step with plan: ${planPath}`);
 
-    const query = sdk.query({
-      prompt: `/build ${planPath}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/build ${planPath}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -268,20 +270,10 @@ export async function runReviewStep(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     logger?.info(`Running /review step with spec: ${specPath}`);
 
-    const query = sdk.query({
-      prompt: `/review ${adwId} ${specPath}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/review ${adwId} ${specPath}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -301,20 +293,10 @@ export async function runResearchCodebaseStep(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     logger?.info(`Running /research-codebase step with question: ${question.slice(0, 100)}`);
 
-    const query = sdk.query({
-      prompt: `/research-codebase ${question}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/research-codebase ${question}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -339,21 +321,11 @@ export async function runProduceReadmeStep(
   const { logger, mode } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     const modeArg = mode ? ` ${mode}` : "";
     logger?.info(`Running /produce-readme step: ${sourcePaths} → ${outputPath}${modeArg ? ` (${mode})` : ""}`);
 
-    const query = sdk.query({
-      prompt: `/produce-readme ${sourcePaths} ${outputPath}${modeArg}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/produce-readme ${sourcePaths} ${outputPath}${modeArg}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -372,20 +344,10 @@ export async function runUpdatePrimeStep(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     logger?.info(`Running /update_prime step`);
 
-    const query = sdk.query({
-      prompt: `/update_prime`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/update_prime`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -405,24 +367,14 @@ export async function runDocumentStep(
   const { logger, specPath, screenshotsDir } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     const args = [adwId];
     if (specPath) args.push(specPath);
     if (screenshotsDir) args.push(screenshotsDir);
 
     logger?.info(`Running /document step for ADW: ${adwId}`);
 
-    const query = sdk.query({
-      prompt: `/document ${args.join(" ")}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/document ${args.join(" ")}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -441,20 +393,10 @@ export async function runTestStep(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     logger?.info(`Running /test step with model: ${options.model ?? "sonnet"}`);
 
-    const query = sdk.query({
-      prompt: `/test`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/test`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -477,24 +419,14 @@ export async function runPatchPlanStep(
   const { logger, specPath, agentName } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
     const args = [adwId, JSON.stringify(changeRequest)];
     if (specPath) args.push(specPath);
     if (agentName) args.push(agentName);
 
     logger?.info(`Running /patch step for ADW: ${adwId}`);
 
-    const query = sdk.query({
-      prompt: `/patch ${args.join(" ")}`,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(`/patch ${args.join(" ")}`);
 
     return await consumeQuery(query, logger);
   } catch (e) {
@@ -513,18 +445,8 @@ export async function quickPrompt(
   const { logger } = options;
 
   try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-
-    const query = sdk.query({
-      prompt,
-      options: {
-        model: options.model ?? "claude-sonnet-4-20250514",
-        cwd: options.cwd,
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        settingSources: ["user", "project", "local"],
-      },
-    });
+    const sdk = await createSDK({ model: options.model, cwd: options.cwd });
+    const query = sdk.query(prompt);
 
     const result = await consumeQuery(query, logger);
     return result.result ?? null;

@@ -27,3 +27,13 @@
 - 1370 → 624 total lines across 5 files (54% reduction)
 - Removed unused imports: `taggedLogger`, `fmtDuration`, `createStepBanner`, `type AdwRecord`, `readdirSync`, `statSync`, `join`
 - Tests: 68 pass (web only — verifier failures pre-existing)
+
+## PRD-002-001 + PRD-002-002: createSDK() factory & migration
+- Created `createSDK({ model?, cwd? })` factory in `adws/src/agent-sdk.ts`
+- Encapsulates `permissionMode`, `allowDangerouslySkipPermissions`, `settingSources`, default model
+- Returns `{ query: (prompt) => AsyncGenerator }` — single call replaces import + inline options
+- Migrated all 10 step functions + `quickPrompt` to use `createSDK()`
+- `permissionMode` now appears exactly once in file; SDK import also once (inside factory)
+- Extracted `DEFAULT_MODEL` constant for reuse
+- Files changed: `adws/src/agent-sdk.ts`
+- Tests: 68 pass
