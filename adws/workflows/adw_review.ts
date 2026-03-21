@@ -228,17 +228,9 @@ async function runWorkflow(
         plannerLog.finalize(true, patchResult.usage);
 
         // Extract patch plan path from result
-        let patchPlanPath: string | null = null;
-        if (patchResult.result) {
-          const text = patchResult.result.trim();
-          const absMatch = text.match(/\/[^\s`"']+\.md/);
-          if (absMatch) {
-            patchPlanPath = absMatch[0];
-          } else {
-            const relMatch = text.match(/(?:specs\/[^\s`"']+\.md)/);
-            if (relMatch) patchPlanPath = join(workingDir, relMatch[0]);
-          }
-        }
+        const patchPlanPath = patchResult.result
+          ? extractPlanPath(patchResult.result, workingDir, adwId)
+          : null;
 
         if (!patchPlanPath) {
           logger.error(`Could not extract patch plan path for issue #${issue.review_issue_number}`);

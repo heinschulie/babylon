@@ -141,3 +141,15 @@
 - Updated usage doc comment
 - Files changed: `adws/workflows/adw_patch.ts`
 - Tests: 128 pass (verifier failures pre-existing)
+
+## PRD-003-001: Replace inline regex with extractPlanPath() in adw_review.ts
+- Replaced 11-line hand-rolled regex block (lines 230-241) with single `extractPlanPath()` call
+- `extractPlanPath()` already handles abs/rel/adwId-fallback + existsSync checks — inline version lacked existence checks
+- `readdirSync`/`statSync`/`join` imports retained (still used by `findSpecFile()`)
+- Files changed: `adws/workflows/adw_review.ts`
+- Tests: pass (verifier failures pre-existing)
+
+## PRD-005-001 + PRD-006-001: Already passing
+- PRD-005-001: `ok` field already present in all 3 `allStepUsages.push()` calls — likely fixed during PRD-001-002 catch block standardization
+- PRD-006-001: `taggedLogger` and retry/parallel docs already present in create-adw.md — likely added during PRD-007-001
+- Marked both as passing after verification

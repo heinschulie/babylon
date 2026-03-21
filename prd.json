@@ -1,5 +1,5 @@
 {
-	"project": "ADW Workflow Standardization — Quality Remediation",
+	"project": "ADW Workflow Standardization \u2014 Quality Remediation",
 	"version": "2.0.0",
 	"created": "2026-03-21",
 	"phases": [
@@ -10,7 +10,7 @@
 				{
 					"id": "PRD-001-001",
 					"category": "Bug - Error Handling",
-					"description": "Fix adw_document.ts catch block: commentFinalStatus is referenced (line 249) but never declared — runWorkflow() takes no issueNumber and never calls createFinalStatusComment(). This is a latent ReferenceError crash on any exception.",
+					"description": "Fix adw_document.ts catch block: commentFinalStatus is referenced (line 249) but never declared \u2014 runWorkflow() takes no issueNumber and never calls createFinalStatusComment(). This is a latent ReferenceError crash on any exception.",
 					"steps_to_verify": [
 						"RUN: grep -q 'issueNumber' adws/workflows/adw_document.ts -- expect match (parameter added)",
 						"RUN: grep -q 'createFinalStatusComment' adws/workflows/adw_document.ts -- expect match (properly initialized)",
@@ -67,12 +67,12 @@
 						"RUN: grep -q 'extractPlanPath' adws/workflows/adw_review.ts -- expect match",
 						"RUN: grep -c 'absMatch.*\\.md' adws/workflows/adw_review.ts -- expect 0 (inline regex removed)"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-002",
 					"category": "Refactor - DRY",
-					"description": "Remove the dynamic re-import of exec inside adw_patch.ts runWorkflow() body (line 249: const { exec } = await import('../src/utils')) — exec is already available or should be statically imported at the top of the file",
+					"description": "Remove the dynamic re-import of exec inside adw_patch.ts runWorkflow() body (line 249: const { exec } = await import('../src/utils')) \u2014 exec is already available or should be statically imported at the top of the file",
 					"steps_to_verify": [
 						"RUN: grep -c 'await import.*utils' adws/workflows/adw_patch.ts -- expect 0",
 						"RUN: head -50 adws/workflows/adw_patch.ts | grep -q 'exec' -- expect match (static import)"
@@ -108,7 +108,7 @@
 					"steps_to_verify": [
 						"RUN: grep -A1 'allStepUsages.push' adws/workflows/adw_review.ts | grep -q 'ok:' -- expect match on every push"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
@@ -124,7 +124,7 @@
 						"RUN: grep -q 'taggedLogger' .claude/commands/create-adw.md -- expect match",
 						"RUN: grep -qi 'retry\\|parallel' .claude/commands/create-adw.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-002",
