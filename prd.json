@@ -114,7 +114,7 @@
 				{
 					"id": "PRD-004-002",
 					"category": "Refactor - Comments",
-					"description": "Standardize GitHub issue comment format across all workflows to use a single consistent template (e.g. 'Step 1/3 PLAN completed ✅ (42s)')",
+					"description": "Standardize GitHub issue comment format across all workflows to use a single consistent template (e.g. 'Step 1/3 PLAN completed \u2705 (42s)')",
 					"steps_to_verify": [
 						"RUN: grep -rn 'commentStep' adws/workflows/ | grep -v 'createCommentStep' -- expect consistent format"
 					],
@@ -143,7 +143,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'adwId' adws/src/utils.ts | grep -q 'extractPlanPath' -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

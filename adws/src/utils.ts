@@ -292,7 +292,7 @@ export function createStepBanner(stepName: string, stepNumber?: number, totalSte
 
 /**
  * Extract plan file path from step result text.
- * Returns absolute path if found, otherwise null.
+ * Falls back to deterministic adwId-based lookup — never uses mtime.
  */
 export function extractPlanPath(resultText: string, workingDir: string, adwId: string): string | null {
   if (!resultText) return null;
@@ -301,34 +301,24 @@ export function extractPlanPath(resultText: string, workingDir: string, adwId: s
 
   // Try absolute path first
   const absMatch = text.match(/\/[^\s`"']+\.md/);
-  if (absMatch) {
+  if (absMatch && existsSync(absMatch[0])) {
     return absMatch[0];
   }
 
   // Try relative path
   const relMatch = text.match(/(?:specs\/[^\s`"']+\.md)/);
   if (relMatch) {
-    return join(workingDir, relMatch[0]);
+    const resolved = join(workingDir, relMatch[0]);
+    if (existsSync(resolved)) return resolved;
   }
 
-  // Fallback: look for plan file matching adw_id in specs/
+  // Deterministic fallback: find plan-{adwId}*.md in specs/
   const specsDir = join(workingDir, "specs");
   try {
-    const mdFiles = readdirSync(specsDir)
-      .filter((f) => f.endsWith(".md"))
-      .map((f) => ({
-        name: f,
-        path: join(specsDir, f),
-        mtime: statSync(join(specsDir, f)).mtimeMs,
-      }))
-      .sort((a, b) => b.mtime - a.mtime);
-
-    const adwMatch = mdFiles.find((f) => f.name.includes(adwId));
-    if (adwMatch) {
-      return adwMatch.path;
-    } else if (mdFiles.length > 0) {
-      return mdFiles[0].path;
-    }
+    const match = readdirSync(specsDir).find(
+      (f) => f.endsWith(".md") && f.includes(adwId)
+    );
+    if (match) return join(specsDir, match);
   } catch {
     // specs dir may not exist
   }

@@ -80,3 +80,11 @@
 - PRD-004-003 already passed (comment support added to adw_plan_build_document.ts in PRD-001-003)
 - Files changed: `adws/workflows/adw_plan.ts`, `adws/workflows/adw_test.ts`, `adws/workflows/adw_patch.ts`, `adws/workflows/adw_build.ts`, `adws/src/workflow-ops.ts`
 - Tests: 68 pass
+
+## PRD-005-001: Harden extractPlanPath()
+- Removed mtime fallback that returned newest file regardless of adwId — concurrency hazard
+- Added existsSync() checks on regex-matched paths before returning
+- Deterministic fallback: only matches files containing adwId in specs/
+- No more statSync/sort — simpler, faster, concurrent-safe
+- Files changed: `adws/src/utils.ts`
+- Tests: 79 pass
