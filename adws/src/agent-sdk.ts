@@ -5,7 +5,8 @@
  */
 
 import type { Logger } from "./logger";
-
+import { taggedLogger, type TaggedLogger } from "./logger";
+import { createStepBanner, createDefaultStepUsage, fmtDuration } from "./utils";
 
 export interface StepUsage {
   input_tokens: number;
@@ -89,6 +90,65 @@ export function sumUsage(usages: StepUsage[]): StepUsage {
     { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, total_cost_usd: 0, duration_ms: 0, num_turns: 0 },
   );
 }
+
+// ─── runStep abstraction ────────────────────────────────────────────────────
+
+/** Options for the runStep() workflow step runner. */
+export interface RunStepOpts {
+  stepName: string;
+  stepNumber: number;
+  totalSteps: number;
+  logger: Logger & { logDir: string };
+  commentStep: (msg: string) => Promise<void>;
+  allStepUsages: { step: string; ok: boolean; usage: StepUsage }[];
+  /** What to do on failure: "halt" adds "Workflow halted." to comment, "continue" adds "(continuing)". Default: "halt". */
+  onFail?: "halt" | "continue";
+}
+
+/** Result returned by runStep(). */
+export interface RunStepResult {
+  ok: boolean;
+  usage: StepUsage;
+  result?: string;
+  error?: string;
+}
+
+/**
+ * Run a single workflow step with standardized boilerplate:
+ * banner logging, tagged logger, usage tracking, finalize, and comment posting.
+ *
+ * The executor receives a TaggedLogger and should return a QueryResult.
+ */
+export async function runStep(
+  opts: RunStepOpts,
+  executor: (stepLogger: TaggedLogger) => Promise<QueryResult>,
+): Promise<RunStepResult> {
+  const { stepName, stepNumber, totalSteps, logger, commentStep, allStepUsages, onFail = "halt" } = opts;
+
+  logger.info(`\n${createStepBanner(stepName, stepNumber, totalSteps)}`);
+  const stepLog = taggedLogger(logger, stepName, { logDir: logger.logDir, step: stepName });
+
+  const result = await executor(stepLog);
+  const usage = result.usage ?? createDefaultStepUsage();
+  allStepUsages.push({ step: stepName, ok: result.success, usage });
+  stepLog.info(`Usage: ${formatUsage(usage)}`);
+
+  if (!result.success) {
+    stepLog.error(`Failed: ${result.error}`);
+    stepLog.finalize(false, usage);
+    const suffix = onFail === "halt" ? "\nWorkflow halted." : " (continuing)";
+    await commentStep(`Step ${stepNumber}/${totalSteps} ${stepName.toUpperCase()} failed ❌ (${fmtDuration(usage.duration_ms)})${suffix}`);
+    return { ok: false, usage, result: result.result, error: result.error };
+  }
+
+  stepLog.finalize(true, usage);
+  await commentStep(`Step ${stepNumber}/${totalSteps} ${stepName.toUpperCase()} completed ✅ (${fmtDuration(usage.duration_ms)})`);
+  logger.info(`${stepName} step completed (${stepNumber}/${totalSteps})`);
+
+  return { ok: true, usage, result: result.result };
+}
+
+// ─── SDK query consumption ──────────────────────────────────────────────────
 
 /** Consume the async generator from sdk.query(), return the final result. */
 async function consumeQuery(
