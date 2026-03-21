@@ -116,7 +116,7 @@ async function runTestsWithResolution(
   models: { research: string; default: string; review: string },
   issueNumber: string | undefined,
   logger: ReturnType<typeof createLogger>,
-  allStepUsages: { step: string; usage: StepUsage }[],
+  allStepUsages: { step: string; ok: boolean; usage: StepUsage }[],
   commentStep: (msg: string) => Promise<void>
 ): Promise<{
   results: TestResult[];
@@ -148,7 +148,7 @@ async function runTestsWithResolution(
     lastResult = testResult;
 
     if (testResult.usage) {
-      allStepUsages.push({ step: stepName, usage: testResult.usage });
+      allStepUsages.push({ step: stepName, ok: testResult.success, usage: testResult.usage });
       tlog.info(`Usage: ${formatUsage(testResult.usage)}`);
     }
 
@@ -239,8 +239,7 @@ async function runWorkflow(
 ): Promise<boolean> {
   const startTime = Date.now();
   const logger = createLogger(adwId, WORKFLOW_NAME);
-  const allStepUsages: { step: string; usage: StepUsage }[] = [];
-  const stepStatuses: { step: string; ok: boolean; usage: StepUsage }[] = [];
+  const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
   let ok = false;
 
   logger.info(`Starting ADW Test Workflow — ADW ID: ${adwId}`);
@@ -345,8 +344,6 @@ async function runWorkflow(
     state.toStdout();
 
     ok = failed === 0;
-    const testUsage = lastResult?.usage ?? createDefaultStepUsage();
-    stepStatuses.push({ step: STEP_TEST, ok, usage: testUsage });
 
     // Final summary
     const totalUsage = allStepUsages.length > 0
@@ -372,7 +369,7 @@ async function runWorkflow(
     });
 
     // Post final status to issue
-    await commentFinalStatus({ workflow: WORKFLOW_NAME, adwId, ok, startTime, steps: stepStatuses, totals: totalUsage });
+    await commentFinalStatus({ workflow: WORKFLOW_NAME, adwId, ok, startTime, steps: allStepUsages, totals: totalUsage });
 
     return ok;
   } catch (e) {

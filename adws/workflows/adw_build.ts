@@ -48,8 +48,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
   logger.info(`Working Dir: ${workingDir}`);
   logger.info(`Model: ${models.default}`);
 
-  const allStepUsages: { step: string; usage: StepUsage }[] = [];
-  const stepStatuses: { step: string; ok: boolean; usage: StepUsage }[] = [];
+  const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
 
   try {
     // Step 1: Build
@@ -63,15 +62,15 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
     });
 
     if (buildResult.usage) {
-      allStepUsages.push({ step: STEP_BUILD, usage: buildResult.usage });
       buildLog.info(`Usage: ${formatUsage(buildResult.usage)}`);
     }
+
+    const usage = buildResult.usage ?? createDefaultStepUsage();
 
     if (!buildResult.success) {
       buildLog.error(`Failed: ${buildResult.error}`);
       buildLog.finalize(false, buildResult.usage);
-      const usage = buildResult.usage ?? createDefaultStepUsage();
-      stepStatuses.push({ step: STEP_BUILD, ok: false, usage });
+      allStepUsages.push({ step: STEP_BUILD, ok: false, usage });
 
       await commentStep(`Step 1/${TOTAL_STEPS} BUILD failed ❌ (${fmtDuration(usage.duration_ms)})`);
       const totals = allStepUsages.length > 0 ? sumUsage(allStepUsages.map((s) => s.usage)) : createDefaultStepUsage();
@@ -84,12 +83,11 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
         totals,
       });
 
-      await commentFinalStatus({ workflow: "build", adwId, ok: false, startTime, steps: stepStatuses, totals });
+      await commentFinalStatus({ workflow: "build", adwId, ok: false, startTime, steps: allStepUsages, totals });
       return false;
     }
     buildLog.finalize(true, buildResult.usage);
-    const usage = buildResult.usage ?? createDefaultStepUsage();
-    stepStatuses.push({ step: STEP_BUILD, ok: true, usage });
+    allStepUsages.push({ step: STEP_BUILD, ok: true, usage });
 
     await commentStep(`Step 1/${TOTAL_STEPS} BUILD completed ✅ (${fmtDuration(usage.duration_ms)})`);
 
@@ -113,7 +111,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
       totals: totalUsage,
     });
 
-    await commentFinalStatus({ workflow: "build", adwId, ok: true, startTime, steps: stepStatuses, totals: totalUsage });
+    await commentFinalStatus({ workflow: "build", adwId, ok: true, startTime, steps: allStepUsages, totals: totalUsage });
 
     return true;
   } catch (e) {
@@ -130,7 +128,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
     });
 
     await commentStep(`Workflow exception ❌: ${String(e).slice(0, 200)}`);
-    await commentFinalStatus({ workflow: "build", adwId, ok: false, startTime, steps: stepStatuses, totals });
+    await commentFinalStatus({ workflow: "build", adwId, ok: false, startTime, steps: allStepUsages, totals });
 
     return false;
   }

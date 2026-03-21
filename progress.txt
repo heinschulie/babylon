@@ -58,3 +58,13 @@
 - Removed dead `working_dir` null checks (getAdwEnv always returns a string via `process.cwd()` fallback)
 - Files changed: `adws/src/utils.ts`, all 13 `adws/workflows/*.ts`
 - Tests: 128 pass
+
+## PRD-004-001: Consolidate allStepUsages[] and stepStatuses[]
+- Eliminated `stepStatuses` from 3 remaining files: adw_build.ts, adw_test.ts, adw_research-codebase_produce-readme_update-prime.ts
+- Unified on `allStepUsages: { step, ok, usage }[]` — single array tracks step name, success, and usage
+- adw_build.ts: merged dual arrays, pass `allStepUsages` to `commentFinalStatus()`
+- adw_test.ts: added `ok` field to push in `runTestsWithResolution`, removed standalone `stepStatuses`
+- adw_research-codebase_produce-readme_update-prime.ts: added `ok` to push calls, removed derived `stepStatuses` maps
+- Verification: `stepStatuses` count = 0 across all workflows, `allStepUsages` total = 94
+- Files changed: `adws/workflows/adw_build.ts`, `adws/workflows/adw_test.ts`, `adws/workflows/adw_research-codebase_produce-readme_update-prime.ts`
+- Tests: 128 pass (verifier failures pre-existing)

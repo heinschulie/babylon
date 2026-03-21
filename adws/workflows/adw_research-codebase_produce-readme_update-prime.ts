@@ -91,7 +91,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
   logger.info(`Models — research: ${models.research}, readme: ${models.default}, prime: ${models.default}`);
 
   // Collect usage from every step for the final summary
-  const allStepUsages: { step: string; usage: StepUsage }[] = [];
+  const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
 
   try {
     // =========================================================================
@@ -113,7 +113,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
       });
 
       if (researchResult.usage) {
-        allStepUsages.push({ step: `research:${topic}`, usage: researchResult.usage });
+        allStepUsages.push({ step: `research:${topic}`, ok: researchResult.success, usage: researchResult.usage });
         tlog.info(`Usage: ${formatUsage(researchResult.usage)}`);
       }
 
@@ -247,7 +247,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
       });
 
       if (result.usage) {
-        allStepUsages.push({ step: `readme:${target.name}`, usage: result.usage });
+        allStepUsages.push({ step: `readme:${target.name}`, ok: result.success, usage: result.usage });
         tlog.info(`Usage: ${formatUsage(result.usage)}`);
       }
 
@@ -278,7 +278,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
     });
 
     if (primeResult.usage) {
-      allStepUsages.push({ step: "update-prime", usage: primeResult.usage });
+      allStepUsages.push({ step: "update-prime", ok: primeResult.success, usage: primeResult.usage });
       primeLog.info(`Usage: ${formatUsage(primeResult.usage)}`);
     }
 
@@ -315,19 +315,12 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
       totals: totalUsage,
     });
 
-    // Create step statuses for final comment
-    const stepStatuses = allStepUsages.map((s) => ({
-      step: s.step,
-      ok: true, // All completed steps are considered successful if we reach here
-      usage: s.usage,
-    }));
-
     await commentFinalStatus({
       workflow: "research-codebase_produce-readme_update-prime",
       adwId,
       ok,
       startTime,
-      steps: stepStatuses,
+      steps: allStepUsages,
       totals: totalUsage
     });
 
@@ -337,14 +330,8 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
     const totals = allStepUsages.length > 0 ? sumUsage(allStepUsages.map((s) => s.usage)) : createDefaultStepUsage();
     writeWorkflowStatus(logger.logDir, { workflow: "research-codebase_produce-readme_update-prime", adwId, ok: false, startTime, totals });
 
-    const stepStatuses = allStepUsages.map((s) => ({
-      step: s.step,
-      ok: false,
-      usage: s.usage,
-    }));
-
     await commentStep(`Workflow exception ❌: ${String(e).slice(0, 200)}`);
-    await commentFinalStatus({ workflow: "research-codebase_produce-readme_update-prime", adwId, ok: false, startTime, steps: stepStatuses, totals });
+    await commentFinalStatus({ workflow: "research-codebase_produce-readme_update-prime", adwId, ok: false, startTime, steps: allStepUsages, totals });
     return false;
   }
 }

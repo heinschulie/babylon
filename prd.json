@@ -109,7 +109,7 @@
 						"RUN: grep -rc 'stepStatuses' adws/workflows/ -- expect 0",
 						"RUN: grep -rc 'allStepUsages' adws/workflows/ -- expect >= 7"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-002",
