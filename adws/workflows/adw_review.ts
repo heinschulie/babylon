@@ -100,7 +100,7 @@ async function runWorkflow(
   logger.info(`Review Model: ${models.review}`);
   logger.info(`Patch Model: ${models.default}`);
 
-  const allStepUsages: { step: string; usage: StepUsage }[] = [];
+  const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
   const maxAttempts = skipResolution ? 1 : MAX_REVIEW_RETRY_ATTEMPTS;
 
   let reviewResult: ReviewResult = { success: false, review_issues: [] };
@@ -126,7 +126,7 @@ async function runWorkflow(
       });
 
       if (reviewQueryResult.usage) {
-        allStepUsages.push({ step: reviewStepName, usage: reviewQueryResult.usage });
+        allStepUsages.push({ step: reviewStepName, ok: reviewQueryResult.success, usage: reviewQueryResult.usage });
         reviewLog.info(`Usage: ${formatUsage(reviewQueryResult.usage)}`);
       }
 
@@ -216,7 +216,7 @@ async function runWorkflow(
         });
 
         if (patchResult.usage) {
-          allStepUsages.push({ step: patchPlanStepName, usage: patchResult.usage });
+          allStepUsages.push({ step: patchPlanStepName, ok: patchResult.success, usage: patchResult.usage });
           plannerLog.info(`Usage: ${formatUsage(patchResult.usage)}`);
         }
 
@@ -262,7 +262,7 @@ async function runWorkflow(
         });
 
         if (buildResult.usage) {
-          allStepUsages.push({ step: patchBuildStepName, usage: buildResult.usage });
+          allStepUsages.push({ step: patchBuildStepName, ok: buildResult.success, usage: buildResult.usage });
           builderLog.info(`Usage: ${formatUsage(buildResult.usage)}`);
         }
 
@@ -328,7 +328,7 @@ async function runWorkflow(
       adwId,
       ok,
       startTime,
-      steps: allStepUsages.map(s => ({ step: s.step, ok: true, usage: s.usage })),
+      steps: allStepUsages,
       totals: totalUsage,
     });
 
@@ -336,12 +336,24 @@ async function runWorkflow(
   } catch (e) {
     logger.error(`Workflow exception: ${e}`);
 
-    const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
+    const totalUsage =
+      allStepUsages.length > 0
+        ? sumUsage(allStepUsages.map((s) => s.usage))
+        : createDefaultStepUsage();
     writeWorkflowStatus(logger.logDir, {
       workflow: "review",
       adwId,
       ok: false,
       startTime,
+      totals: totalUsage,
+    });
+    await commentStep(`Workflow exception: ${String(e).slice(0, 200)}`);
+    await commentFinalStatus({
+      workflow: "review",
+      adwId,
+      ok: false,
+      startTime,
+      steps: allStepUsages,
       totals: totalUsage,
     });
 

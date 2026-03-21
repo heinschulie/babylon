@@ -25,7 +25,7 @@
 					"steps_to_verify": [
 						"RUN: grep -A5 'catch (e)' adws/workflows/adw_test.ts adws/workflows/adw_review.ts adws/workflows/adw_document.ts adws/workflows/adw_patch.ts adws/workflows/adw_plan.ts -- expect identical structure"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-003",

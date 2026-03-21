@@ -383,6 +383,7 @@ async function runWorkflow(adwId: string, issueNumber?: string, skipE2e = false)
 			startTime,
 			totals: totalUsage
 		});
+		await commentStep(`Workflow exception: ${String(e).slice(0, 200)}`);
 		await commentFinalStatus({
 			workflow: WORKFLOW_NAME,
 			adwId,

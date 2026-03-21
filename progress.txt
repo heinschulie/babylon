@@ -125,3 +125,10 @@
 - Also fixed adw_test.ts: `commentStep`/`commentFinalStatus` were scoped inside try, unreachable from catch — hoisted above try
 - Files changed: `adws/workflows/adw_document.ts`, `adws/workflows/adw_test.ts`
 - Tests: 68 pass (verifier failures pre-existing)
+
+## PRD-001-002: Standardize catch blocks across Tier-2 workflows
+- All 5 Tier-2 workflows now use identical catch shape: writeWorkflowStatus + commentStep(truncated) + commentFinalStatus + return false
+- Added `commentStep()` to test, patch, plan catch blocks (were missing error comment to GitHub)
+- Added `createDefaultStepUsage()` fallback to review, patch, document (were unsafe on empty allStepUsages)
+- Files changed: `adws/workflows/adw_test.ts`, `adws/workflows/adw_review.ts`, `adws/workflows/adw_document.ts`, `adws/workflows/adw_patch.ts`, `adws/workflows/adw_plan.ts`
+- Tests: 128 pass (verifier failures pre-existing)

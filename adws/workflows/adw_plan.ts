@@ -269,10 +269,10 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
   } catch (e) {
     logger.error(`Workflow exception: ${e}`);
 
-    const totalUsage = allStepUsages.length > 0
-      ? sumUsage(allStepUsages.map((s) => s.usage))
-      : createDefaultStepUsage();
-
+    const totalUsage =
+      allStepUsages.length > 0
+        ? sumUsage(allStepUsages.map((s) => s.usage))
+        : createDefaultStepUsage();
     writeWorkflowStatus(logger.logDir, {
       workflow: "plan",
       adwId: resolvedAdwId,
@@ -280,8 +280,7 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
       startTime,
       totals: totalUsage,
     });
-
-    // Post failure status comment
+    await commentStep(`Workflow exception: ${String(e).slice(0, 200)}`);
     await commentFinalStatus({
       workflow: "plan",
       adwId: resolvedAdwId,

@@ -242,7 +242,10 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
 	} catch (e) {
 		logger.error(`Workflow exception: ${e}`);
 
-		const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
+		const totalUsage =
+			allStepUsages.length > 0
+				? sumUsage(allStepUsages.map((s) => s.usage))
+				: createDefaultStepUsage();
 		writeWorkflowStatus(logger.logDir, {
 			workflow: WORKFLOW_NAME,
 			adwId,
