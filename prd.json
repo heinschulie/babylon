@@ -134,7 +134,7 @@
 						"RUN: grep -q 'quickPrompt' .claude/commands/create-adw.md -- expect match",
 						"RUN: grep -q 'ADWState' .claude/commands/create-adw.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		}

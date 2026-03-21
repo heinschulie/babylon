@@ -56,6 +56,13 @@ TARGET_DIR: adws/workflows
   - In the final summary, log per-step usage and a `TOTAL:` line using `sumUsage()`
   - At the end of the workflow, call `writeWorkflowStatus(logger.logDir, { workflow, adwId, ok, startTime, totals })` and `commentFinalStatus()`
   - See `adw_plan_build.ts` or `adw_plan_build_review.ts` for the exact pattern
+- **`ADWState` for cross-step persistence.** When a workflow needs to carry structured data between steps or across retries, use `ADWState` from `state.ts`:
+  - `new ADWState(adwId)` or `ADWState.load(adwId, logger)` to create/restore
+  - `state.update({ plan_file, branch_name, worktree_path, ... })` to persist fields
+  - `state.get("plan_file")` for typed reads; `state.save()` writes to `agents/{adwId}/adw_state.json`
+  - Use ADWState when: multiple steps share mutable context (plan paths, branch names, ports), or workflow supports resume/retry
+  - Don't use ADWState for: simple linear pipelines where return values flow step-to-step — use `runStep()` result passing instead
+  - See `adw_plan.ts` and `adw_patch.ts` for real usage
 
 ## Workflow
 

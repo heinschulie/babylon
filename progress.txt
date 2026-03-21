@@ -153,3 +153,10 @@
 - PRD-005-001: `ok` field already present in all 3 `allStepUsages.push()` calls — likely fixed during PRD-001-002 catch block standardization
 - PRD-006-001: `taggedLogger` and retry/parallel docs already present in create-adw.md — likely added during PRD-007-001
 - Marked both as passing after verification
+
+## PRD-006-002: Add ADWState guidance to /create-adw and /port-adw templates
+- Added `ADWState` persistence pattern docs to both templates
+- Covers: create/load, update, get, save, when-to-use vs when-not-to
+- `quickPrompt()` was already documented (line 32 in create-adw.md)
+- Files changed: `.claude/commands/create-adw.md`, `.claude/commands/port-adw.md`
+- Tests: pass
