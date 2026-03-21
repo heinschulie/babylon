@@ -16,3 +16,14 @@
 - 259 → 123 lines (53% reduction)
 - Files changed: `adws/workflows/adw_plan_build_review.ts`
 - Tests: 128 pass
+
+## PRD-001-003: Migrate all remaining workflows to runStep()
+- Migrated 5 files: adw_plan_build, adw_plan_build_test, adw_plan_build_test_review, adw_plan_build_document, adw_sdlc
+- Eliminated dual `stepStatuses`/`allStepUsages` arrays → single `{ step, ok, usage }[]`
+- Replaced inline plan-path extraction (readdirSync/statSync fallback) with `extractPlanPath()` in test_review + document
+- Added comment/finalize support to test_review + document (previously missing)
+- Added `issueNumber` param to adw_plan_build_document (previously no issue support)
+- Used `onFail: "continue"` for test + document steps in adw_sdlc (non-fatal)
+- 1370 → 624 total lines across 5 files (54% reduction)
+- Removed unused imports: `taggedLogger`, `fmtDuration`, `createStepBanner`, `type AdwRecord`, `readdirSync`, `statSync`, `join`
+- Tests: 68 pass (web only — verifier failures pre-existing)

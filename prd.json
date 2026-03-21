@@ -34,7 +34,7 @@
 					"steps_to_verify": [
 						"RUN: grep -rL 'runStep' adws/workflows/adw_plan_build*.ts adws/workflows/adw_sdlc.ts -- expect no output"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
