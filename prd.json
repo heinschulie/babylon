@@ -51,7 +51,7 @@
 						"RUN: grep -q '\"issue\".*type.*string' adws/workflows/adw_patch.ts -- expect match",
 						"RUN: grep -c 'ADW_ISSUE_NUMBER' adws/workflows/adw_patch.ts -- expect 0"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
@@ -77,7 +77,7 @@
 						"RUN: grep -c 'await import.*utils' adws/workflows/adw_patch.ts -- expect 0",
 						"RUN: head -50 adws/workflows/adw_patch.ts | grep -q 'exec' -- expect match (static import)"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

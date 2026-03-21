@@ -132,3 +132,12 @@
 - Added `createDefaultStepUsage()` fallback to review, patch, document (were unsafe on empty allStepUsages)
 - Files changed: `adws/workflows/adw_test.ts`, `adws/workflows/adw_review.ts`, `adws/workflows/adw_document.ts`, `adws/workflows/adw_patch.ts`, `adws/workflows/adw_plan.ts`
 - Tests: 128 pass (verifier failures pre-existing)
+
+## PRD-002-001 + PRD-003-002: CLI consistency + static import in adw_patch.ts
+- Replaced `process.env.ADW_ISSUE_NUMBER` with `--issue` CLI arg, matching all other workflows
+- Added `issueNumber` param to `runWorkflow()`, wired from CLI `values["issue"]`
+- Replaced dynamic `await import("../src/utils")` with static `exec` import at top of file
+- Removed unused imports: `join` (path), `readdirSync`/`statSync` (fs)
+- Updated usage doc comment
+- Files changed: `adws/workflows/adw_patch.ts`
+- Tests: 128 pass (verifier failures pre-existing)

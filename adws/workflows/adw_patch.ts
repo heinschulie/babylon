@@ -3,18 +3,15 @@
  *
  * Uses @anthropic-ai/claude-agent-sdk for streaming agent execution.
  *
- * Usage: bun run adws/workflows/adw_patch.ts --adw-id <id>
+ * Usage: bun run adws/workflows/adw_patch.ts --adw-id <id> [--issue <number>]
  *
  * Env vars:
  *   ADW_PROMPT        — patch change request (required unless issue body has 'adw_patch')
  *   ADW_WORKING_DIR   — working directory (default: cwd)
  *   ADW_MODEL         — model for plan+build steps (default: claude-sonnet-4-20250514)
- *   ADW_ISSUE_NUMBER  — GitHub issue number to patch against (optional)
  */
 
 import { parseArgs } from "util";
-import { join } from "path";
-import { readdirSync, statSync } from "fs";
 import {
   runPatchPlanStep,
   runBuildStep,
@@ -35,6 +32,7 @@ import {
 } from "../src/git-ops";
 import { ADWState } from "../src/state";
 import {
+  exec,
   getAdwEnv,
   createStepBanner,
   createCommentStep,
@@ -103,14 +101,13 @@ async function getPatchContent(
   return null;
 }
 
-async function runWorkflow(adwId: string): Promise<boolean> {
+async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean> {
   const startTime = Date.now();
   const logger = createLogger(adwId, "patch");
 
   logger.info(`Starting ADW Patch Workflow — ADW ID: ${adwId}`);
 
   const { prompt, workingDir, models } = getAdwEnv();
-  const issueNumber = process.env.ADW_ISSUE_NUMBER;
 
   // Create comment functions
   const commentStep = createCommentStep(issueNumber);
@@ -246,7 +243,6 @@ async function runWorkflow(adwId: string): Promise<boolean> {
     if (issueNumber) state.update({ issue_number: issueNumber });
 
     // Try to detect current branch
-    const { exec } = await import("../src/utils");
     const { stdout: branchName } = await exec(
       ["git", "rev-parse", "--abbrev-ref", "HEAD"],
       { cwd: workingDir }
@@ -326,16 +322,17 @@ if (import.meta.main) {
     args: Bun.argv.slice(2),
     options: {
       "adw-id": { type: "string" },
+      "issue": { type: "string" },
     },
     strict: true,
   });
 
   const adwId = values["adw-id"];
   if (!adwId) {
-    console.error("Usage: bun run adw_patch.ts --adw-id <id>");
+    console.error("Usage: bun run adw_patch.ts --adw-id <id> [--issue <number>]");
     process.exit(1);
   }
 
-  const success = await runWorkflow(adwId);
+  const success = await runWorkflow(adwId, values["issue"]);
   process.exit(success ? 0 : 1);
 }
