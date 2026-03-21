@@ -88,3 +88,13 @@
 - No more statSync/sort — simpler, faster, concurrent-safe
 - Files changed: `adws/src/utils.ts`
 - Tests: 79 pass
+
+## PRD-006-001: Workflow-configurable cron trigger
+- Cron trigger no longer hardcoded to adw_plan_build
+- Workflow selection priority: comment keyword > issue label > default
+- Comment `adw sdlc` → runs `adw_sdlc.ts`; label `workflow:adw_sdlc` → same
+- Plain `adw` comment still defaults to adw_plan_build (backwards compatible)
+- Validates workflow file exists before triggering, logs unknown workflows
+- Refactored: `shouldProcessIssue` → `evaluateIssue` returns `TriggerInfo | null`
+- Files changed: `adws/triggers/cron.ts`
+- Tests: 79 pass

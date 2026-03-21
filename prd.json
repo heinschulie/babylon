@@ -158,7 +158,7 @@
 					"steps_to_verify": [
 						"RUN: grep -v 'adw_plan_build' adws/triggers/cron.ts | grep -q 'workflow' -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
