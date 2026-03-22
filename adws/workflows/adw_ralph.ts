@@ -30,6 +30,7 @@ import { ADWState } from "../src/state";
 import {
   fetchSubIssues,
   closeSubIssue,
+  filterUnblockedIssues,
 } from "../src/github";
 import { createBranch, pushBranch, getCurrentBranch } from "../src/git-ops";
 
@@ -110,27 +111,57 @@ async function runWorkflow(
 
       logger.info(`Open sub-issues: ${openIssues.map(i => `#${i.number}`).join(", ")}`);
 
-      // Select highest-priority unblocked issue
-      const issueListSummary = openIssues.map(i =>
-        `#${i.number}: ${i.title} [labels: ${i.labels.join(", ")}]`
-      ).join("\n");
+      // ─── Deterministic dependency filtering ─────────────────────────
+      const closedIssues = await fetchSubIssues(parentIssueNumber, "closed");
+      const closedNumbers = new Set([
+        ...closedIssues.map(i => i.number),
+        ...completedIssues,
+      ]);
+      const { unblocked, blocked } = filterUnblockedIssues(openIssues, closedNumbers);
 
-      const selectResult = await quickPrompt(
-        `Given these open sub-issues for a parent issue, select the one that should be worked on next. Consider dependency readiness (issues that block others should be done first) and priority. Output ONLY the issue number (digits only).\n\n${issueListSummary}`,
-        { model: models.default, cwd: workingDir, logger }
-      );
-      if (selectResult.usage) {
-        allStepUsages.push({ step: `select-${iteration}`, ok: selectResult.success, usage: selectResult.usage });
+      if (blocked.size > 0) {
+        const details = [...blocked.entries()]
+          .map(([num, blockers]) => `#${num} ← [${blockers.map(b => `#${b}`).join(", ")}]`)
+          .join("; ");
+        logger.info(`Blocked issues: ${details}`);
       }
 
-      if (!selectResult.success || !selectResult.result) {
-        logger.error(`Failed to select issue: ${selectResult.error}`);
-        await commentStep(`Iteration ${iteration}: Failed to select next issue ❌`);
-        continue;
+      if (unblocked.length === 0) {
+        const details = [...blocked.entries()]
+          .map(([num, blockers]) => `#${num} blocked by ${blockers.map(b => `#${b}`).join(", ")}`)
+          .join("; ");
+        logger.error(`All ${openIssues.length} open issues are blocked: ${details}`);
+        await commentStep(`Iteration ${iteration}: All issues blocked — halting. ${details}`);
+        break;
       }
 
-      const selectedNumber = parseInt(selectResult.result.trim().replace(/\D/g, ""), 10);
-      const selectedIssue = openIssues.find(i => i.number === selectedNumber) ?? openIssues[0];
+      // ─── Select from unblocked candidates ───────────────────────────
+      let selectedIssue;
+      if (unblocked.length === 1) {
+        selectedIssue = unblocked[0];
+        logger.info(`Single unblocked issue — selecting #${selectedIssue.number} directly`);
+      } else {
+        const issueListSummary = unblocked.map(i =>
+          `#${i.number}: ${i.title} [labels: ${i.labels.join(", ")}]`
+        ).join("\n");
+
+        const selectResult = await quickPrompt(
+          `Given these unblocked sub-issues, select the highest priority to work on next. Output ONLY the issue number (digits only).\n\n${issueListSummary}`,
+          { model: models.default, cwd: workingDir, logger }
+        );
+        if (selectResult.usage) {
+          allStepUsages.push({ step: `select-${iteration}`, ok: selectResult.success, usage: selectResult.usage });
+        }
+
+        if (!selectResult.success || !selectResult.result) {
+          logger.error(`Failed to select issue: ${selectResult.error}`);
+          await commentStep(`Iteration ${iteration}: Failed to select next issue ❌`);
+          continue;
+        }
+
+        const selectedNumber = parseInt(selectResult.result.trim().replace(/\D/g, ""), 10);
+        selectedIssue = unblocked.find(i => i.number === selectedNumber) ?? unblocked[0];
+      }
 
       logger.info(`Selected issue #${selectedIssue.number}: ${selectedIssue.title}`);
       await commentStep(`Iteration ${iteration}: Working on #${selectedIssue.number} — ${selectedIssue.title}`);

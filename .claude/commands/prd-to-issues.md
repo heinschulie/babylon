@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(gh *), Read, Grep, Glob, Agent
+allowed-tools: Bash(gh *), Bash(bun *), Read, Grep, Glob, Agent
 description: Break a PRD into independently-grabbable GitHub issues using tracer-bullet vertical slices
 argument-hint: [PRD issue number or URL]
 model: opus
@@ -39,13 +39,17 @@ PRD_REF: $ARGUMENTS
    - Should any slices be merged or split further?
    - Are the correct slices marked as HITL and AFK?
 5. Iterate until the user approves the breakdown
-6. For each approved slice, create a GitHub sub-issue linked to the parent PRD issue:
+6. For each approved slice, create a GitHub sub-issue linked to the parent PRD issue using the `createSubIssue()` function from `adws/src/github.ts`. This function handles both issue creation AND sub-issue linking (GraphQL `addSubIssue` mutation) in a single call. Add labels: `sub-issue` plus a type label (`bug`, `enhancement`, or `chore`) per issue.
 
-   a. Create the issue with `gh issue create` using the template below. Add labels: `sub-issue` plus a type label (`bug`, `enhancement`, or `chore`) per issue.
-   b. Link it as a sub-issue to the parent via GraphQL:
-      - Fetch the parent's node ID: `gh api graphql -f query='query { repository(owner: "OWNER", name: "REPO") { issue(number: PARENT_NUM) { id } } }'`
-      - Fetch the child's node ID: same query with the child issue number
-      - Link: `gh api graphql -f query='mutation { addSubIssue(input: { issueId: "PARENT_ID", subIssueId: "CHILD_ID" }) { issue { id } subIssue { id } } }'`
+   ```bash
+   bun -e "
+   import { createSubIssue } from './adws/src/github.ts';
+   const result = await createSubIssue(PARENT_NUMBER, 'Issue title', \`FULL_BODY\`, ['sub-issue', 'enhancement']);
+   console.log(JSON.stringify(result));
+   "
+   ```
+
+   Do NOT use inline GraphQL commands — `createSubIssue()` handles node ID resolution and the `addSubIssue` mutation internally.
 
 ### Issue Template
 

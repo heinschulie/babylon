@@ -371,6 +371,65 @@ export async function closeSubIssue(
   }
 }
 
+/**
+ * Parse "Blocked by" issue numbers from a sub-issue body.
+ * Deterministic regex extraction — no LLM involvement.
+ *
+ * Handles:
+ *   - "Blocked by: #42"
+ *   - "Blocked by: #12, #34"
+ *   - "Blocked by: #12 and #34"
+ *   - "Blocked by: None — can start immediately"
+ *   - Missing Dependencies section entirely
+ */
+export function parseBlockers(body: string): number[] {
+  const match = body.match(/^\s*-\s*\*\*Blocked by\*\*:\s*(.+)$/im);
+  if (!match) return [];
+
+  const value = match[1].trim();
+  if (/^none/i.test(value)) return [];
+
+  const numbers: number[] = [];
+  for (const m of value.matchAll(/#(\d+)/g)) {
+    numbers.push(parseInt(m[1], 10));
+  }
+  return [...new Set(numbers)];
+}
+
+/**
+ * Filter sub-issues to only those whose blockers are all resolved.
+ *
+ * A blocker is considered resolved if:
+ *   - It appears in `closedNumbers` (explicitly closed), OR
+ *   - It does NOT appear in any open issue's number (external ref — assume resolved)
+ *
+ * @returns unblocked issues ready to work + blocked map (issue# → open blocker#s)
+ */
+export function filterUnblockedIssues(
+  issues: SubIssue[],
+  closedNumbers: Set<number>
+): { unblocked: SubIssue[]; blocked: Map<number, number[]> } {
+  const openNumbers = new Set(issues.map(i => i.number));
+
+  const unblocked: SubIssue[] = [];
+  const blocked = new Map<number, number[]>();
+
+  for (const issue of issues) {
+    const blockers = parseBlockers(issue.body);
+    const unresolvedBlockers = blockers.filter(
+      b => openNumbers.has(b) && !closedNumbers.has(b)
+    );
+
+    if (unresolvedBlockers.length === 0) {
+      unblocked.push(issue);
+    } else {
+      blocked.set(issue.number, unresolvedBlockers);
+    }
+  }
+
+  return { unblocked, blocked };
+}
+
 /** Review issue shape from /review command output. */
 interface ReviewIssueForPost {
   review_issue_number: number;
