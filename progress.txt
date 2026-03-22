@@ -186,3 +186,12 @@
 - Both follow existing thin-wrapper pattern delegating to `runSkillStep()`
 - Files changed: `.claude/commands/refactor.md`, `adws/src/agent-sdk.ts`
 - Tests: 68 pass
+
+## PRD-004-001 + PRD-004-002: Review command issue support
+- Updated `.claude/commands/review.md`: $2 now accepts numeric issue number or file path
+- When numeric, agent fetches issue via `gh issue view <number> --json body,title`
+- Existing spec_file behavior unchanged
+- Updated `runReviewStep()` in agent-sdk.ts: optional `issueNumber` in options
+- When issueNumber provided and no specPath, passes issue number as the spec arg
+- Files changed: `.claude/commands/review.md`, `adws/src/agent-sdk.ts`
+- Tests: 68 pass

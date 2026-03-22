@@ -1,25 +1,25 @@
 # Review
 
-Follow the `Instructions` below to **review work done against a specification file** (temp/specs/*.md) to ensure implemented features match requirements. Use the spec file to understand the requirements and then use the git diff if available to understand the changes made. Capture screenshots of critical functionality paths as documented in the `Instructions` section. If there are issues, report them if not then report success.
+Follow the `Instructions` below to **review work done against a specification** to ensure implemented features match requirements. The spec can be a file path (temp/specs/*.md) or a GitHub issue number. Use the spec to understand the requirements and then use the git diff if available to understand the changes made. Capture screenshots of critical functionality paths as documented in the `Instructions` section. If there are issues, report them if not then report success.
 
 ## Variables
 
 adw_id: $1
-spec_file: $2
+spec_or_issue: $2 — either a file path to a spec file (temp/specs/*.md) OR a GitHub issue number (numeric). When numeric, fetch the issue via `gh issue view <number> --json body,title` and use the issue title + body as the review spec.
 agent_name: $3 if provided, otherwise use 'review_agent'
 review_image_dir: `<absolute path to codebase>/agents/<adw_id>/<agent_name>/review_img/`
 
 ## Instructions
 
+- **Resolve the spec**: If `$2` is numeric, fetch the issue via `gh issue view $2 --json body,title` and use the title + body as your review spec. If `$2` is a file path, read the spec file as before.
 - **Tooling gate**: Before doing any UI validation, check whether Playwright MCP tools (e.g. `browser_navigate`, `browser_screenshot`) are available. If they are NOT available:
   - Skip all UI validation, screenshot capture, and the `Setup` section entirely.
   - Perform a **code-only review**: read the spec, read the diff, and evaluate whether the implementation matches the spec based on the code alone.
   - In the report, set `screenshots` to an empty array and note in `review_summary` that UI validation was skipped due to missing Playwright tooling.
   - Do NOT retry or loop attempting to access browser tools — gracefully proceed with code review only.
 - Check current git branch using `git branch` to understand context
-- Run `git diff origin/main` to see all changes made in current branch. Continue even if there are no changes related to the spec file.
-- Find the spec file by looking for temp/specs/*.md files in the diff that match the current branch name
-- Read the identified spec file to understand requirements
+- Run `git diff origin/main` to see all changes made in current branch. Continue even if there are no changes related to the spec.
+- Read the spec (file or fetched issue body) to understand requirements
 - IMPORTANT: If the work can be validated by UI validation then (if not skip the section):
   - Use the playwright mcp server commands to validate the work.
   - Look for corresponding e2e test files in ./claude/commands/e2e/test_*.md that mirror the feature name
@@ -71,7 +71,7 @@ IMPORTANT: Read and **Execute** `.claude/commands/prepare_app.md` now to prepare
 ```json
 {
     success: "boolean - true if there are NO BLOCKING issues (can have skippable/tech_debt issues), false if there are BLOCKING issues",
-    review_summary: "string - 2-4 sentences describing what was built and whether it matches the spec. Written as if reporting during a standup meeting. Example: 'The natural language query feature has been implemented with drag-and-drop file upload and interactive table display. The implementation matches the spec requirements for SQL injection protection and supports both CSV and JSON formats. Minor UI improvements could be made but all core functionality is working as specified.'",
+    review_summary: "string - 2-4 sentences describing what was built and whether it matches the spec. Written as if reporting during a standup meeting.",
     review_issues: [
         {
             "review_issue_number": "number - the issue number based on the index of this issue",
@@ -84,7 +84,6 @@ IMPORTANT: Read and **Execute** `.claude/commands/prepare_app.md` now to prepare
     ],
     screenshots: [
         "string - /absolute/path/to/screenshot_showcasing_functionality.png",
-        "string - /absolute/path/to/screenshot_showcasing_functionality.png",
-        "...",
+        ...
     ]
 }

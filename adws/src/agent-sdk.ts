@@ -247,13 +247,14 @@ export function runBuildStep(
   return runSkillStep(`/build ${planPath}`, options);
 }
 
-/** Run a review step — `/review <adwId> <specPath>`. */
+/** Run a review step — `/review <adwId> <specPathOrIssueNumber>`. */
 export function runReviewStep(
   adwId: string,
   specPath: string,
-  options: RunStepOptions = {}
+  options: RunStepOptions & { issueNumber?: number } = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/review ${adwId} ${specPath}`, options);
+  const specArg = options.issueNumber && !specPath ? String(options.issueNumber) : specPath;
+  return runSkillStep(`/review ${adwId} ${specArg}`, options);
 }
 
 /** Run a research-codebase step — `/research-codebase <question>`. */

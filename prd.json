@@ -109,7 +109,7 @@
 						"RUN: grep -qi 'issue' .claude/commands/review.md -- expect match (documents issue number support)",
 						"RUN: grep -q 'gh issue view' .claude/commands/review.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-004-002",
@@ -119,7 +119,7 @@
 						"RUN: grep -q 'issueNumber' adws/src/agent-sdk.ts -- expect match in runReviewStep",
 						"RUN: bun run adws/src/agent-sdk.ts 2>&1 -- expect no TypeScript errors"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
