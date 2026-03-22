@@ -319,6 +319,22 @@ export function runClassifyStep(
   return runSkillStep(`/classify_issue ${issueJson}`, options);
 }
 
+/** Run a TDD step — `/tdd` with issue body as context. */
+export function runTddStep(
+  issueBody: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  return runSkillStep(`/tdd\n\n${issueBody}`, options);
+}
+
+/** Run a refactor step — `/refactor <adwId>`. */
+export function runRefactorStep(
+  adwId: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  return runSkillStep(`/refactor ${adwId}`, options);
+}
+
 /** Quick single-turn prompt for extracting info. */
 export function quickPrompt(
   prompt: string,

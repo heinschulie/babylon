@@ -82,7 +82,7 @@
 						"RUN: grep -q 'deep-modules' .claude/commands/refactor.md -- expect match (references TDD docs)",
 						"RUN: grep -qi 'no new behavior' .claude/commands/refactor.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-003-002",
@@ -93,7 +93,7 @@
 						"RUN: grep -q 'runRefactorStep' adws/src/agent-sdk.ts -- expect match",
 						"RUN: bun run adws/src/agent-sdk.ts 2>&1 -- expect no TypeScript errors"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},

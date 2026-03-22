@@ -177,3 +177,12 @@
 - Kept all reference docs (deep-modules.md, mocking.md, tests.md, interface-design.md, refactoring.md)
 - Skill now runs to completion without prompting for user input
 - Files changed: `.claude/skills/tdd/SKILL.md`
+
+## PRD-003-001 + PRD-003-002: Refactor command + step functions
+- Created `.claude/commands/refactor.md`: reads changed files cold, loads TDD reference docs, refactors with test verification after each change
+- Key constraint: no new behavior, no new tests, only structural improvements
+- Added `runTddStep(issueBody, options)` to agent-sdk.ts — invokes /tdd with issue body as context
+- Added `runRefactorStep(adwId, options)` to agent-sdk.ts — invokes /refactor with adwId
+- Both follow existing thin-wrapper pattern delegating to `runSkillStep()`
+- Files changed: `.claude/commands/refactor.md`, `adws/src/agent-sdk.ts`
+- Tests: 68 pass
