@@ -3813,3 +3813,50 @@ HOOK OUTPUT (JSON returned via stdout to Claude Code):
 }
 
 === SessionStart Hook Completed: 2026-03-22T13:33:14.245Z ===
+
+============================================================
+=== SessionStart Hook: 2026-03-22T13:45:53.759Z ===
+============================================================
+
+HOOK INPUT (JSON received via stdin from Claude Code):
+------------------------------------------------------------
+{
+  "session_id": "102000ae-1ed7-4022-95fe-ef2d5b8dc0e8",
+  "transcript_path": "/Users/heinschulie/.claude/projects/-Users-heinschulie-Documents-code-babylon/102000ae-1ed7-4022-95fe-ef2d5b8dc0e8.jsonl",
+  "cwd": "/Users/heinschulie/Documents/code/babylon",
+  "hook_event_name": "SessionStart",
+  "source": "clear"
+}
+
+Claude Code SessionStart Hook: Loading Environment
+------------------------------------------------------------
+Source: clear
+Session ID: 102000ae-1ed7-4022-95fe-ef2d5b8dc0e8
+Project directory: /Users/heinschulie/Documents/code/babylon
+CLAUDE_ENV_FILE: /Users/heinschulie/.claude/session-env/102000ae-1ed7-4022-95fe-ef2d5b8dc0e8/sessionstart-hook-0.sh
+Log file: /Users/heinschulie/Documents/code/babylon/.claude/hooks/session_start.log
+
+>>> Loading variables from /Users/heinschulie/Documents/code/babylon/.env...
+  Loaded: PUBLIC_CONVEX_URL
+  Loaded: PUBLIC_CONVEX_SITE_URL
+  Loaded: SITE_URL
+  Loaded: VITE_VAPID_PUBLIC_KEY
+  Loaded: VAPID_PRIVATE_KEY
+
+>>> Adding mock session variable...
+  Added: MOCK_SESSION_VAR='hello_from_session_start'
+
+------------------------------------------------------------
+SessionStart Complete!
+------------------------------------------------------------
+
+HOOK OUTPUT (JSON returned via stdout to Claude Code):
+------------------------------------------------------------
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "SessionStart hook ran (source: clear). Loaded environment variables: PUBLIC_CONVEX_URL, PUBLIC_CONVEX_SITE_URL, SITE_URL, VITE_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, MOCK_SESSION_VAR"
+  }
+}
+
+=== SessionStart Hook Completed: 2026-03-22T13:45:53.763Z ===
