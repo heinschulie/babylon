@@ -1,5 +1,5 @@
 {
-	"project": "Unified SDLC Pipeline — Ralph Loop Integration",
+	"project": "Unified SDLC Pipeline \u2014 Ralph Loop Integration",
 	"version": "1.0.0",
 	"created": "2026-03-22",
 	"phases": [
@@ -16,7 +16,7 @@
 						"RUN: grep -q 'addSubIssue' adws/src/github.ts -- expect match (GraphQL mutation)",
 						"RUN: bun run adws/src/github.ts 2>&1 -- expect no TypeScript errors"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-002",
@@ -27,7 +27,7 @@
 						"RUN: grep -q 'subIssues' adws/src/github.ts -- expect match (GraphQL query field)",
 						"RUN: bun run adws/src/github.ts 2>&1 -- expect no TypeScript errors"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-001-003",
@@ -37,7 +37,7 @@
 						"RUN: grep -q 'closeSubIssue' adws/src/github.ts -- expect match",
 						"RUN: bun run adws/src/github.ts 2>&1 -- expect no TypeScript errors"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
@@ -48,7 +48,7 @@
 				{
 					"id": "PRD-002-001",
 					"category": "Refactor - Skill",
-					"description": "Modify .claude/skills/tdd/SKILL.md: remove the HITL planning phase (section 1 with 'Confirm with user' checkboxes and 'Ask:' prompts). Replace with instructions to read the issue body as the specification — it contains interface specs, behaviors to test, and mocking boundaries. The skill must run to completion without prompting for any user input.",
+					"description": "Modify .claude/skills/tdd/SKILL.md: remove the HITL planning phase (section 1 with 'Confirm with user' checkboxes and 'Ask:' prompts). Replace with instructions to read the issue body as the specification \u2014 it contains interface specs, behaviors to test, and mocking boundaries. The skill must run to completion without prompting for any user input.",
 					"steps_to_verify": [
 						"RUN: grep -ci 'confirm with user' .claude/skills/tdd/SKILL.md -- expect 0",
 						"RUN: grep -ci 'ask:' .claude/skills/tdd/SKILL.md -- expect 0",
@@ -59,7 +59,7 @@
 				{
 					"id": "PRD-002-002",
 					"category": "Refactor - Skill",
-					"description": "Modify .claude/skills/tdd/SKILL.md: remove the refactor step (section 4 'Refactor') entirely. The skill should end after all RED→GREEN cycles complete. Refactoring is now handled by a separate /refactor command with a fresh agent context. Keep all reference docs (deep-modules.md, mocking.md, tests.md, interface-design.md) — they still inform good test writing.",
+					"description": "Modify .claude/skills/tdd/SKILL.md: remove the refactor step (section 4 'Refactor') entirely. The skill should end after all RED\u2192GREEN cycles complete. Refactoring is now handled by a separate /refactor command with a fresh agent context. Keep all reference docs (deep-modules.md, mocking.md, tests.md, interface-design.md) \u2014 they still inform good test writing.",
 					"steps_to_verify": [
 						"RUN: grep -ci 'refactor' .claude/skills/tdd/SKILL.md -- expect <= 2 (only in anti-pattern explanation, not as a workflow step)",
 						"RUN: test -f .claude/skills/tdd/deep-modules.md -- expect exists",
@@ -130,7 +130,7 @@
 				{
 					"id": "PRD-005-001",
 					"category": "Enhancement - Command",
-					"description": "Modify .claude/commands/prd-to-issues.md: update the issue template so each sub-issue body includes 5 required sections: (1) Interface Specification — public API, function signatures, types; (2) Behaviors to Test (prioritized) — numbered list; (3) Mocking Boundaries — what's real vs stubbed; (4) Acceptance Criteria — checkboxes; (5) Dependencies — blocked by / blocks references. These sections front-load all decisions that /tdd would otherwise need a human to answer.",
+					"description": "Modify .claude/commands/prd-to-issues.md: update the issue template so each sub-issue body includes 5 required sections: (1) Interface Specification \u2014 public API, function signatures, types; (2) Behaviors to Test (prioritized) \u2014 numbered list; (3) Mocking Boundaries \u2014 what's real vs stubbed; (4) Acceptance Criteria \u2014 checkboxes; (5) Dependencies \u2014 blocked by / blocks references. These sections front-load all decisions that /tdd would otherwise need a human to answer.",
 					"steps_to_verify": [
 						"RUN: grep -q 'Interface Specification' .claude/commands/prd-to-issues.md -- expect match",
 						"RUN: grep -q 'Behaviors to Test' .claude/commands/prd-to-issues.md -- expect match",
@@ -152,12 +152,12 @@
 		},
 		{
 			"phase": 6,
-			"name": "Ralph Workflow — Scaffold & Issue Selection",
+			"name": "Ralph Workflow \u2014 Scaffold & Issue Selection",
 			"items": [
 				{
 					"id": "PRD-006-001",
 					"category": "Feature - Workflow",
-					"description": "Create adws/workflows/adw_ralph.ts with the standard Tier 2 scaffold: parseArgs (--adw-id required, --issue required for parent PRD issue, --max-iterations optional default 20), if(import.meta.main) entry point, runWorkflow() function, getAdwEnv(), createLogger(), ADWState load/create, createCommentStep(), createFinalStatusComment(), allStepUsages array, startTime tracking. No loop logic yet — just the scaffold that initializes and finalizes correctly.",
+					"description": "Create adws/workflows/adw_ralph.ts with the standard Tier 2 scaffold: parseArgs (--adw-id required, --issue required for parent PRD issue, --max-iterations optional default 20), if(import.meta.main) entry point, runWorkflow() function, getAdwEnv(), createLogger(), ADWState load/create, createCommentStep(), createFinalStatusComment(), allStepUsages array, startTime tracking. No loop logic yet \u2014 just the scaffold that initializes and finalizes correctly.",
 					"steps_to_verify": [
 						"RUN: test -f adws/workflows/adw_ralph.ts -- expect exists",
 						"RUN: grep -q 'parseArgs' adws/workflows/adw_ralph.ts -- expect match",
@@ -181,7 +181,7 @@
 				{
 					"id": "PRD-006-003",
 					"category": "Feature - Workflow",
-					"description": "Add the main iteration loop to adw_ralph.ts. For each iteration: (a) call fetchSubIssues() to get open sub-issues for the parent, (b) if none remain, log COMPLETE and break, (c) use quickPrompt() to select the highest-priority unblocked issue (pass the list of open issues and let the agent pick based on dependency readiness and priority), (d) log the selected issue. No step execution yet — just selection and termination logic.",
+					"description": "Add the main iteration loop to adw_ralph.ts. For each iteration: (a) call fetchSubIssues() to get open sub-issues for the parent, (b) if none remain, log COMPLETE and break, (c) use quickPrompt() to select the highest-priority unblocked issue (pass the list of open issues and let the agent pick based on dependency readiness and priority), (d) log the selected issue. No step execution yet \u2014 just selection and termination logic.",
 					"steps_to_verify": [
 						"RUN: grep -q 'fetchSubIssues' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: grep -q 'quickPrompt' adws/workflows/adw_ralph.ts -- expect match",
@@ -193,7 +193,7 @@
 		},
 		{
 			"phase": 7,
-			"name": "Ralph Workflow — Per-Issue Step Execution",
+			"name": "Ralph Workflow \u2014 Per-Issue Step Execution",
 			"items": [
 				{
 					"id": "PRD-007-001",
@@ -208,7 +208,7 @@
 				{
 					"id": "PRD-007-002",
 					"category": "Feature - Workflow",
-					"description": "Add refactor step to the adw_ralph.ts iteration loop. After TDD succeeds, invoke runRefactorStep() with fresh context. Track usage in allStepUsages. On failure, log warning but continue (refactor failure is non-fatal — the code works, it's just not refactored).",
+					"description": "Add refactor step to the adw_ralph.ts iteration loop. After TDD succeeds, invoke runRefactorStep() with fresh context. Track usage in allStepUsages. On failure, log warning but continue (refactor failure is non-fatal \u2014 the code works, it's just not refactored).",
 					"steps_to_verify": [
 						"RUN: grep -q 'runRefactorStep' adws/workflows/adw_ralph.ts -- expect match"
 					],
@@ -229,7 +229,7 @@
 		},
 		{
 			"phase": 8,
-			"name": "Ralph Workflow — Finalization & Reporting",
+			"name": "Ralph Workflow \u2014 Finalization & Reporting",
 			"items": [
 				{
 					"id": "PRD-008-001",
@@ -247,7 +247,7 @@
 		},
 		{
 			"phase": 9,
-			"name": "Document Trigger — GitHub Actions Webhook",
+			"name": "Document Trigger \u2014 GitHub Actions Webhook",
 			"items": [
 				{
 					"id": "PRD-009-001",

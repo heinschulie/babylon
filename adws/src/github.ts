@@ -198,6 +198,166 @@ export function findKeywordFromComment(
   return null;
 }
 
+/** Sub-issue shape returned by fetchSubIssues(). */
+export interface SubIssue {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  labels: string[];
+}
+
+/**
+ * Create a GitHub issue and link it as a sub-issue to a parent.
+ * Uses gh CLI to create, then GraphQL addSubIssue mutation to link.
+ */
+export async function createSubIssue(
+  parentIssueNumber: number,
+  title: string,
+  body: string,
+  labels?: string[]
+): Promise<{ number: number; url: string }> {
+  const repoUrl = await getRepoUrl();
+  const repoPath = extractRepoPath(repoUrl);
+  const env = getGitHubEnv();
+
+  // Create the issue
+  const createArgs = [
+    "gh", "issue", "create",
+    "-R", repoPath,
+    "--title", title,
+    "--body", body,
+  ];
+  if (labels && labels.length > 0) {
+    createArgs.push("--label", labels.join(","));
+  }
+
+  const create = await exec(createArgs, { env });
+  if (create.exitCode !== 0) {
+    throw new Error(`Failed to create sub-issue: ${create.stderr}`);
+  }
+
+  // gh issue create outputs the URL — extract issue number from it
+  const url = create.stdout.trim();
+  const issueNumMatch = url.match(/\/issues\/(\d+)$/);
+  if (!issueNumMatch) {
+    throw new Error(`Could not parse issue number from: ${url}`);
+  }
+  const childNumber = parseInt(issueNumMatch[1], 10);
+
+  // Get parent node ID via GraphQL
+  const parentNodeQuery = await exec(
+    [
+      "gh", "api", "graphql",
+      "-f", `query=query { repository(owner: "${repoPath.split("/")[0]}", name: "${repoPath.split("/")[1]}") { issue(number: ${parentIssueNumber}) { id } } }`,
+    ],
+    { env }
+  );
+  if (parentNodeQuery.exitCode !== 0) {
+    throw new Error(`Failed to fetch parent node ID: ${parentNodeQuery.stderr}`);
+  }
+  const parentId = JSON.parse(parentNodeQuery.stdout).data.repository.issue.id;
+
+  // Get child node ID
+  const childNodeQuery = await exec(
+    [
+      "gh", "api", "graphql",
+      "-f", `query=query { repository(owner: "${repoPath.split("/")[0]}", name: "${repoPath.split("/")[1]}") { issue(number: ${childNumber}) { id } } }`,
+    ],
+    { env }
+  );
+  if (childNodeQuery.exitCode !== 0) {
+    throw new Error(`Failed to fetch child node ID: ${childNodeQuery.stderr}`);
+  }
+  const childId = JSON.parse(childNodeQuery.stdout).data.repository.issue.id;
+
+  // Link as sub-issue via addSubIssue mutation
+  const linkResult = await exec(
+    [
+      "gh", "api", "graphql",
+      "-f", `query=mutation { addSubIssue(input: { issueId: "${parentId}", subIssueId: "${childId}" }) { issue { id } subIssue { id } } }`,
+    ],
+    { env }
+  );
+  if (linkResult.exitCode !== 0) {
+    throw new Error(`Failed to link sub-issue: ${linkResult.stderr}`);
+  }
+
+  return { number: childNumber, url };
+}
+
+/**
+ * Fetch sub-issues of a parent issue via GraphQL.
+ * Supports filtering by state: "open" | "closed" | "all" (default "open").
+ */
+export async function fetchSubIssues(
+  parentIssueNumber: number,
+  state: "open" | "closed" | "all" = "open"
+): Promise<SubIssue[]> {
+  const repoUrl = await getRepoUrl();
+  const repoPath = extractRepoPath(repoUrl);
+  const env = getGitHubEnv();
+  const [owner, name] = repoPath.split("/");
+
+  const result = await exec(
+    [
+      "gh", "api", "graphql",
+      "-f", `query=query { repository(owner: "${owner}", name: "${name}") { issue(number: ${parentIssueNumber}) { subIssues(first: 100) { nodes { number title body state labels(first: 20) { nodes { name } } } } } } }`,
+    ],
+    { env }
+  );
+
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to fetch sub-issues: ${result.stderr}`);
+  }
+
+  const data = JSON.parse(result.stdout);
+  const nodes = data.data.repository.issue.subIssues.nodes as Array<{
+    number: number;
+    title: string;
+    body: string;
+    state: string;
+    labels: { nodes: Array<{ name: string }> };
+  }>;
+
+  const issues: SubIssue[] = nodes.map((n) => ({
+    number: n.number,
+    title: n.title,
+    body: n.body,
+    state: n.state.toLowerCase(),
+    labels: n.labels.nodes.map((l) => l.name),
+  }));
+
+  if (state === "all") return issues;
+  return issues.filter((i) => i.state === state);
+}
+
+/**
+ * Close a sub-issue with a comment (e.g. referencing the resolving commit).
+ */
+export async function closeSubIssue(
+  issueNumber: number,
+  comment: string
+): Promise<void> {
+  const repoUrl = await getRepoUrl();
+  const repoPath = extractRepoPath(repoUrl);
+  const env = getGitHubEnv();
+
+  const { exitCode, stderr } = await exec(
+    [
+      "gh", "issue", "close",
+      String(issueNumber),
+      "-R", repoPath,
+      "--comment", comment,
+    ],
+    { env }
+  );
+
+  if (exitCode !== 0) {
+    throw new Error(`Failed to close issue #${issueNumber}: ${stderr}`);
+  }
+}
+
 /** Review issue shape from /review command output. */
 interface ReviewIssueForPost {
   review_issue_number: number;

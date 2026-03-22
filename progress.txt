@@ -160,3 +160,12 @@
 - `quickPrompt()` was already documented (line 32 in create-adw.md)
 - Files changed: `.claude/commands/create-adw.md`, `.claude/commands/port-adw.md`
 - Tests: pass
+
+## PRD-001-001 + PRD-001-002 + PRD-001-003: GitHub sub-issue utilities
+- Added `createSubIssue()`: creates issue via gh CLI, links to parent via GraphQL addSubIssue mutation
+- Added `fetchSubIssues()`: queries parent's subIssues via GraphQL, returns {number, title, body, state, labels}, filters by state (open/closed/all)
+- Added `closeSubIssue()`: thin wrapper around `gh issue close --comment`
+- Added `SubIssue` interface export
+- Follows existing patterns: getRepoUrl(), getGitHubEnv(), exec(), error handling
+- Files changed: `adws/src/github.ts`
+- Tests: 68 pass (verifier failures pre-existing)
