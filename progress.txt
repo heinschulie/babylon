@@ -169,3 +169,11 @@
 - Follows existing patterns: getRepoUrl(), getGitHubEnv(), exec(), error handling
 - Files changed: `adws/src/github.ts`
 - Tests: 68 pass (verifier failures pre-existing)
+
+## PRD-002-001 + PRD-002-002: TDD Skill AFK Mode
+- Removed HITL planning phase (section 1): no more "Confirm with user" checkboxes or "Ask:" prompts
+- Replaced with "Read the Specification" — reads issue body for interface spec, behaviors, mocking boundaries
+- Removed refactor step (section 4) entirely — refactoring now handled by separate /refactor command
+- Kept all reference docs (deep-modules.md, mocking.md, tests.md, interface-design.md, refactoring.md)
+- Skill now runs to completion without prompting for user input
+- Files changed: `.claude/skills/tdd/SKILL.md`

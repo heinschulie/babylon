@@ -42,20 +42,21 @@ RIGHT (vertical):
 
 ## Workflow
 
-### 1. Planning
+### 1. Read the Specification
 
-Before writing any code:
+The issue body is your specification. It contains:
 
-- [ ] Confirm with user what interface changes are needed
-- [ ] Confirm with user which behaviors to test (prioritize)
-- [ ] Identify opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
-- [ ] Design interfaces for [testability](interface-design.md)
-- [ ] List the behaviors to test (not implementation steps)
-- [ ] Get user approval on the plan
+- **Interface Specification** — public API, function signatures, types
+- **Behaviors to Test** — prioritized list of behaviors to verify
+- **Mocking Boundaries** — what's real vs stubbed
 
-Ask: "What should the public interface look like? Which behaviors are most important to test?"
+Read the issue body carefully. Extract the interface spec, behaviors to test, and mocking boundaries. These replace any planning conversation — everything you need is in the issue.
 
-**You can't test everything.** Confirm with the user exactly which behaviors matter most. Focus testing effort on critical paths and complex logic, not every possible edge case.
+Also consider:
+- Opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
+- [Interface design](interface-design.md) for testability
+
+**You can't test everything.** Focus testing effort on the behaviors listed in the issue body, prioritized as given.
 
 ### 2. Tracer Bullet
 
@@ -83,18 +84,6 @@ Rules:
 - Only enough code to pass current test
 - Don't anticipate future tests
 - Keep tests focused on observable behavior
-
-### 4. Refactor
-
-After all tests pass, look for [refactor candidates](refactoring.md):
-
-- [ ] Extract duplication
-- [ ] Deepen modules (move complexity behind simple interfaces)
-- [ ] Apply SOLID principles where natural
-- [ ] Consider what new code reveals about existing code
-- [ ] Run tests after each refactor step
-
-**Never refactor while RED.** Get to GREEN first.
 
 ## Checklist Per Cycle
 
