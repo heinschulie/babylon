@@ -166,7 +166,7 @@
 						"RUN: grep -q 'createFinalStatusComment' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: bun run adws/workflows/adw_ralph.ts --help 2>&1 -- expect no crash"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-002",
@@ -176,7 +176,7 @@
 						"RUN: grep -q 'createBranch' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: grep -q 'hein/feature' adws/workflows/adw_ralph.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-006-003",
@@ -187,7 +187,7 @@
 						"RUN: grep -q 'quickPrompt' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: grep -qi 'COMPLETE\\|complete' adws/workflows/adw_ralph.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
@@ -203,7 +203,7 @@
 						"RUN: grep -q 'runTddStep' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: grep -q 'allStepUsages' adws/workflows/adw_ralph.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-002",
@@ -212,7 +212,7 @@
 					"steps_to_verify": [
 						"RUN: grep -q 'runRefactorStep' adws/workflows/adw_ralph.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-007-003",
@@ -223,7 +223,7 @@
 						"RUN: grep -q 'runPatchPlanStep' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: grep -q 'closeSubIssue' adws/workflows/adw_ralph.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
@@ -241,7 +241,7 @@
 						"RUN: grep -q 'commentFinalStatus' adws/workflows/adw_ralph.ts -- expect match",
 						"RUN: grep -q 'pushBranch' adws/workflows/adw_ralph.ts -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
