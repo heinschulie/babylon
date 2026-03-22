@@ -220,3 +220,9 @@
 - Created `.github/workflows/document-trigger.yml`: triggered on issue_comment(created), filters for "document" keyword, checks out feature branch, runs document trigger workflow
 - Files changed: `adws/workflows/adw_document_trigger.ts`, `.github/workflows/document-trigger.yml`
 - Tests: 68 pass
+
+## PRD-010-001: Deprecate shell-based Ralph
+- Archived ralph.sh, ralph-gh.sh, prompt-gh.md to temp/archive/ralph-legacy/
+- Copied prd.json to archive as well (kept original for tracking)
+- No references to legacy files found in CLAUDE.md or AGENTS.md
+- adw_ralph.ts is now the canonical Ralph loop

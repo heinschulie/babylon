@@ -292,7 +292,7 @@
 						"RUN: test -d temp/archive/ralph-legacy -- expect exists",
 						"RUN: grep -rq 'ralph.sh' CLAUDE.md AGENTS.md 2>/dev/null; echo $? -- expect 1 (no references)"
 					],
-					"passes": true
+					"passes": false
 				}
 			]
 		}
