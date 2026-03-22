@@ -195,3 +195,10 @@
 - When issueNumber provided and no specPath, passes issue number as the spec arg
 - Files changed: `.claude/commands/review.md`, `adws/src/agent-sdk.ts`
 - Tests: 68 pass
+
+## PRD-005-001 + PRD-005-002: PRD-to-Issues TDD front-loading
+- Updated issue template with 5 required sections: Interface Specification, Behaviors to Test, Mocking Boundaries, Acceptance Criteria, Dependencies
+- These front-load all decisions /tdd needs to run autonomously
+- Replaced `gh issue create` with sub-issue workflow: create issue + link via GraphQL addSubIssue mutation
+- Added labels: `sub-issue` + type label per issue
+- Files changed: `.claude/commands/prd-to-issues.md`

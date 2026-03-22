@@ -136,7 +136,7 @@
 						"RUN: grep -q 'Behaviors to Test' .claude/commands/prd-to-issues.md -- expect match",
 						"RUN: grep -q 'Mocking Boundaries' .claude/commands/prd-to-issues.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				},
 				{
 					"id": "PRD-005-002",
@@ -146,7 +146,7 @@
 						"RUN: grep -qi 'sub.issue' .claude/commands/prd-to-issues.md -- expect match",
 						"RUN: grep -qi 'addSubIssue\\|createSubIssue\\|graphql' .claude/commands/prd-to-issues.md -- expect match"
 					],
-					"passes": false
+					"passes": true
 				}
 			]
 		},
