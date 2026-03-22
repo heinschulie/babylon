@@ -15,7 +15,6 @@ import {
   runPatchPlanStep,
   runBuildStep,
   quickPrompt,
-  formatUsage,
   sumUsage,
   type StepUsage,
 } from "../src/agent-sdk";
@@ -31,7 +30,6 @@ import { ADWState } from "../src/state";
 import {
   fetchSubIssues,
   closeSubIssue,
-  type SubIssue,
 } from "../src/github";
 import { createBranch, pushBranch, getCurrentBranch } from "../src/git-ops";
 
@@ -273,7 +271,7 @@ async function runWorkflow(
     logger.info(`  RALPH COMPLETE — ${duration}`);
     logger.info(`  Issues completed: ${completedIssues.length} (${completedIssues.map(n => `#${n}`).join(", ") || "none"})`);
     logger.info(`  Issues skipped: ${skippedIssues.length} (${skippedIssues.map(n => `#${n}`).join(", ") || "none"})`);
-    logger.info(`  Total iterations: ${allStepUsages.length}`);
+    logger.info(`  Total steps: ${allStepUsages.length}`);
     logger.info(`  Total cost: $${totalUsage.total_cost_usd.toFixed(4)}`);
     logger.info(`${"═".repeat(60)}`);
 

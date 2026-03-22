@@ -31,7 +31,7 @@
 		"test:run": "turbo run test:run",
 		"adw:webhook": "bun run adws/triggers/webhook.ts",
 		"adw:cron": "bun run adws/triggers/cron.ts",
-		"adw:plan-build": "bun run adws/workflows/adw_plan_build.ts",
+		"adw:plan-build": "bun run adws/workflows/classic/adw_plan_build.ts",
 		"adw:test": "vitest run adws/tests/"
 	},
 	"devDependencies": {

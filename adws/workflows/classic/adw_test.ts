@@ -26,8 +26,8 @@ import {
 	sumUsage,
 	type StepUsage,
 	type QueryResult
-} from '../src/agent-sdk';
-import { createLogger, taggedLogger, writeWorkflowStatus } from '../src/logger';
+} from '../../src/agent-sdk';
+import { createLogger, taggedLogger, writeWorkflowStatus } from '../../src/logger';
 import {
 	makeAdwId,
 	parseJson,
@@ -38,11 +38,11 @@ import {
 	createFinalStatusComment,
 	getAdwEnv,
 	fmtDuration
-} from '../src/utils';
-import { ADWState } from '../src/state';
-import { getRepoUrl, extractRepoPath, fetchIssue } from '../src/github';
-import { createBranch, commitChanges, finalizeGitOperations } from '../src/git-ops';
-import { ensureAdwId } from '../src/workflow-ops';
+} from '../../src/utils';
+import { ADWState } from '../../src/state';
+import { getRepoUrl, extractRepoPath, fetchIssue } from '../../src/github';
+import { createBranch, commitChanges, finalizeGitOperations } from '../../src/git-ops';
+import { ensureAdwId } from '../../src/workflow-ops';
 
 // Constants
 const WORKFLOW_NAME = 'test';

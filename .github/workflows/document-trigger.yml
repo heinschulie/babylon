@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   document:
-    if: contains(github.event.comment.body, 'document')
+    if: contains(github.event.comment.body, '--document')
     runs-on: ubuntu-latest
     steps:
       - name: Extract issue number
@@ -45,4 +45,4 @@ jobs:
       - name: Run document trigger workflow
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun run adws/workflows/adw_document_trigger.ts --adw-id "${{ steps.adw.outputs.id }}" --issue "${{ steps.issue.outputs.number }}"
+        run: bun run adws/workflows/adw_document_ralph.ts --adw-id "${{ steps.adw.outputs.id }}" --issue "${{ steps.issue.outputs.number }}"

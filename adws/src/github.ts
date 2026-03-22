@@ -245,11 +245,16 @@ export async function createSubIssue(
   }
   const childNumber = parseInt(issueNumMatch[1], 10);
 
-  // Get parent node ID via GraphQL
+  const [owner, repo] = repoPath.split("/");
+
+  // Get parent node ID via GraphQL (using proper variable binding)
   const parentNodeQuery = await exec(
     [
       "gh", "api", "graphql",
-      "-f", `query=query { repository(owner: "${repoPath.split("/")[0]}", name: "${repoPath.split("/")[1]}") { issue(number: ${parentIssueNumber}) { id } } }`,
+      "-f", "query=query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){id}}}",
+      "-F", `owner=${owner}`,
+      "-F", `name=${repo}`,
+      "-F", `num=${parentIssueNumber}`,
     ],
     { env }
   );
@@ -262,7 +267,10 @@ export async function createSubIssue(
   const childNodeQuery = await exec(
     [
       "gh", "api", "graphql",
-      "-f", `query=query { repository(owner: "${repoPath.split("/")[0]}", name: "${repoPath.split("/")[1]}") { issue(number: ${childNumber}) { id } } }`,
+      "-f", "query=query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){id}}}",
+      "-F", `owner=${owner}`,
+      "-F", `name=${repo}`,
+      "-F", `num=${childNumber}`,
     ],
     { env }
   );
@@ -275,7 +283,9 @@ export async function createSubIssue(
   const linkResult = await exec(
     [
       "gh", "api", "graphql",
-      "-f", `query=mutation { addSubIssue(input: { issueId: "${parentId}", subIssueId: "${childId}" }) { issue { id } subIssue { id } } }`,
+      "-f", "query=mutation($parentId:ID!,$childId:ID!){addSubIssue(input:{issueId:$parentId,subIssueId:$childId}){issue{id}subIssue{id}}}",
+      "-F", `parentId=${parentId}`,
+      "-F", `childId=${childId}`,
     ],
     { env }
   );
@@ -299,10 +309,16 @@ export async function fetchSubIssues(
   const env = getGitHubEnv();
   const [owner, name] = repoPath.split("/");
 
+  // Map state param to GitHub SubIssueOrder filter values
+  const stateFilter = state === "all" ? "" : `,states:[${state === "open" ? "OPEN" : "CLOSED"}]`;
+
   const result = await exec(
     [
       "gh", "api", "graphql",
-      "-f", `query=query { repository(owner: "${owner}", name: "${name}") { issue(number: ${parentIssueNumber}) { subIssues(first: 100) { nodes { number title body state labels(first: 20) { nodes { name } } } } } } }`,
+      "-f", `query=query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){subIssues(first:100${stateFilter}){nodes{number title body state labels(first:20){nodes{name}}}}}}}`,
+      "-F", `owner=${owner}`,
+      "-F", `name=${name}`,
+      "-F", `num=${parentIssueNumber}`,
     ],
     { env }
   );
@@ -320,16 +336,13 @@ export async function fetchSubIssues(
     labels: { nodes: Array<{ name: string }> };
   }>;
 
-  const issues: SubIssue[] = nodes.map((n) => ({
+  return nodes.map((n) => ({
     number: n.number,
     title: n.title,
     body: n.body,
     state: n.state.toLowerCase(),
     labels: n.labels.nodes.map((l) => l.name),
   }));
-
-  if (state === "all") return issues;
-  return issues.filter((i) => i.state === state);
 }
 
 /**

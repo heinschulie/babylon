@@ -74,7 +74,7 @@ SHARED_SRC: adws/src
   - `/test` runs after build with no special input
   - For custom commands, assume they take the original prompt unless the command name suggests otherwise
 - Verify every `/command` in `COMMANDS` exists in `.claude/commands/` before wiring it up
-- Follow the pattern established in `adws/workflows/adw_plan_build.ts` and `adws/workflows/adw_plan_build_review.ts`
+- Follow the pattern established in `adws/workflows/classic/adw_plan_build.ts` and `adws/workflows/classic/adw_plan_build_review.ts`
 
 ## Workflow
 

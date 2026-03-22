@@ -122,10 +122,21 @@ export function parseJsonlOutput(
 ): [Record<string, unknown>[], Record<string, unknown> | null] {
   try {
     const content = readFileSync(outputFile, "utf-8");
-    const messages = content
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => JSON.parse(line));
+    const messages: Record<string, unknown>[] = [];
+
+    // Parse each line individually to avoid partial JSON failures
+    for (const line of content.split("\n")) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+
+      try {
+        const parsed = JSON.parse(trimmedLine);
+        messages.push(parsed);
+      } catch (parseError) {
+        // Log individual line parsing errors but continue processing
+        console.warn(`Failed to parse JSONL line: ${trimmedLine.slice(0, 100)}...`, parseError);
+      }
+    }
 
     let resultMessage: Record<string, unknown> | null = null;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -136,7 +147,8 @@ export function parseJsonlOutput(
     }
 
     return [messages, resultMessage];
-  } catch {
+  } catch (fileError) {
+    console.warn(`Failed to read JSONL file ${outputFile}:`, fileError);
     return [[], null];
   }
 }
@@ -239,6 +251,9 @@ export async function promptClaudeCode(
     const stderrText = await new Response(proc.stderr).text();
     const exitCode = await proc.exited;
 
+    // Small delay to ensure file is fully written before reading
+    await Bun.sleep(100);
+
     if (exitCode === 0) {
       const [messages, resultMessage] = parseJsonlOutput(request.output_file);
       convertJsonlToJson(request.output_file);
@@ -270,27 +285,44 @@ export async function promptClaudeCode(
           retry_code: "none",
         };
       } else {
-        // No result message found
-        let errorMsg = "No result message found in Claude Code output";
+        // No result message found, try to extract from parsed messages first
+        let outputText = "No result message found in Claude Code output";
+        let sessionId: string | null = null;
 
-        // Try to extract from last messages
-        try {
-          const lines = stdoutText.trim().split("\n").slice(-5);
-          for (let i = lines.length - 1; i >= 0; i--) {
-            const data = JSON.parse(lines[i]);
-            if (data.type === "assistant" && data.message?.content?.[0]?.text) {
-              errorMsg = `Claude Code output: ${data.message.content[0].text.slice(0, 500)}`;
-              break;
-            }
+        // Try to extract from parsed messages first
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          if (msg.type === "assistant" && msg.message?.content?.[0]?.text) {
+            outputText = msg.message.content[0].text as string;
+            sessionId = msg.session_id as string | null;
+            break;
           }
-        } catch {
-          // ignore
         }
 
+        // Fallback: try to extract from raw stdout
+        if (outputText === "No result message found in Claude Code output") {
+          try {
+            const lines = stdoutText.trim().split("\n").slice(-5);
+            for (let i = lines.length - 1; i >= 0; i--) {
+              const data = JSON.parse(lines[i]);
+              if (data.type === "assistant" && data.message?.content?.[0]?.text) {
+                outputText = `${data.message.content[0].text.slice(0, 500)}`;
+                sessionId = data.session_id as string | null;
+                break;
+              }
+            }
+          } catch {
+            // ignore parsing errors
+          }
+        }
+
+        // For simple prompts that get responses, this should be considered success
+        const isSimpleResponse = outputText && outputText !== "No result message found in Claude Code output";
+
         return {
-          output: truncateOutput(errorMsg, 800),
-          success: false,
-          session_id: null,
+          output: truncateOutput(outputText, 800),
+          success: isSimpleResponse,
+          session_id: sessionId,
           retry_code: "none",
         };
       }

@@ -1,15 +1,14 @@
 /**
- * ADW Plan-Build Workflow — two-step: plan then build.
+ * ADW Plan-Build-Test Workflow — three-step: plan, build, then test.
  *
  * Uses @anthropic-ai/claude-agent-sdk for streaming agent execution.
- * DB logging and WS broadcasting are stubbed (console/file only).
  *
- * Usage: bun run adws/workflows/adw_plan_build.ts --adw-id <id>
+ * Usage: bun run adws/workflows/adw_plan_build_test.ts --adw-id <id>
  */
 
 import { parseArgs } from "util";
-import { runPlanStep, runBuildStep, runStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
-import { createLogger, writeWorkflowStatus } from "../src/logger";
+import { runPlanStep, runBuildStep, runTestStep, runStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
+import { createLogger, writeWorkflowStatus } from "../../src/logger";
 import {
   extractPlanPath,
   createDefaultStepUsage,
@@ -17,15 +16,15 @@ import {
   createFinalStatusComment,
   getAdwEnv,
   fetchAndClassifyIssue,
-} from "../src/utils";
+} from "../../src/utils";
 
-const WORKFLOW = "plan_build";
-const TOTAL_STEPS = 2;
+const WORKFLOW = "plan_build_test";
+const TOTAL_STEPS = 3;
 
 async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean> {
   const startTime = Date.now();
   const logger = createLogger(adwId, WORKFLOW);
-  logger.info(`Starting ADW Plan-Build Workflow — ADW ID: ${adwId}`);
+  logger.info(`Starting ADW Plan-Build-Test Workflow — ADW ID: ${adwId}`);
 
   const { prompt, workingDir, models } = getAdwEnv();
   const commentStep = createCommentStep(issueNumber);
@@ -45,7 +44,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
 
   logger.info(`Prompt: ${resolvedPrompt.slice(0, 200)}...`);
   logger.info(`Working Dir: ${workingDir}`);
-  logger.info(`Plan/Build Model: ${models.default}`);
+  logger.info(`Models — plan/build: ${models.default}, test: ${models.review}`);
 
   const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
   const stepOpts = (stepName: string, stepNumber: number) => ({
@@ -74,6 +73,11 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
     const build = await runStep(stepOpts("build", 2), (log) =>
       runBuildStep(planPath, { model: models.default, cwd: workingDir, logger: log }));
     if (!build.ok) { await finalize(false); return false; }
+
+    // Step 3: Test
+    const test = await runStep(stepOpts("test", 3), (log) =>
+      runTestStep({ model: models.review, cwd: workingDir, logger: log }));
+    if (!test.ok) { await finalize(false); return false; }
 
     // Workflow summary
     const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
@@ -107,7 +111,7 @@ if (import.meta.main) {
 
   const adwId = values["adw-id"];
   if (!adwId) {
-    console.error("Usage: bun run adw_plan_build.ts --adw-id <id> [--issue <number>]");
+    console.error("Usage: bun run adw_plan_build_test.ts --adw-id <id> [--issue <number>]");
     process.exit(1);
   }
 

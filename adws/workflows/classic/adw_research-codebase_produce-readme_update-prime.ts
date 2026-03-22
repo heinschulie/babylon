@@ -28,8 +28,8 @@
 import { parseArgs } from "util";
 import { readdirSync, statSync, renameSync, mkdirSync, existsSync } from "fs";
 import { join, isAbsolute } from "path";
-import { runResearchCodebaseStep, runProduceReadmeStep, runUpdatePrimeStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
-import { createLogger, taggedLogger, writeWorkflowStatus, type TaggedLogger } from "../src/logger";
+import { runResearchCodebaseStep, runProduceReadmeStep, runUpdatePrimeStep, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
+import { createLogger, taggedLogger, writeWorkflowStatus, type TaggedLogger } from "../../src/logger";
 import {
   createStepBanner,
   createDefaultStepUsage,
@@ -41,7 +41,7 @@ import {
   slugify,
   findMostRecentMd,
   extractMdPath,
-} from "../src/utils";
+} from "../../src/utils";
 
 const STEP_README = "produce-readme";
 const DOCS_DIR = "docs";

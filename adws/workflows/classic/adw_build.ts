@@ -12,13 +12,13 @@
  */
 
 import { parseArgs } from "util";
-import { runBuildStep, runStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
-import { createLogger, writeWorkflowStatus } from "../src/logger";
+import { runBuildStep, runStep, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
+import { createLogger, writeWorkflowStatus } from "../../src/logger";
 import {
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
-} from "../src/utils";
+} from "../../src/utils";
 
 const STEP_BUILD = "build";
 const TOTAL_STEPS = 1;

@@ -16,8 +16,8 @@
 import { parseArgs } from 'util';
 import { existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { runDocumentStep, formatUsage, sumUsage, type StepUsage } from '../src/agent-sdk';
-import { createLogger, taggedLogger, writeWorkflowStatus } from '../src/logger';
+import { runDocumentStep, formatUsage, sumUsage, type StepUsage } from '../../src/agent-sdk';
+import { createLogger, taggedLogger, writeWorkflowStatus } from '../../src/logger';
 import {
 	exec,
 	getProjectRoot,
@@ -27,9 +27,9 @@ import {
 	createCommentStep,
 	createFinalStatusComment,
 	fmtDuration
-} from '../src/utils';
-import { commitChanges, finalizeGitOperations } from '../src/git-ops';
-import { ADWState } from '../src/state';
+} from '../../src/utils';
+import { commitChanges, finalizeGitOperations } from '../../src/git-ops';
+import { ADWState } from '../../src/state';
 
 const WORKFLOW_NAME = 'document';
 const STEP_DOCUMENT = 'document';

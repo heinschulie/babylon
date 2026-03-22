@@ -95,4 +95,8 @@ cldmm:
 
 # Generate docs + README from codebase research
 docs adw-id="docs-run":
-  bun run adws/workflows/research-codebase_produce-readme_update-prime.ts --adw-id {{adw-id}}
+  bun run adws/workflows/classic/adw_research-codebase_produce-readme_update-prime.ts --adw-id {{adw-id}}
+
+# Classic SDLC workflow (plan → build → test → review → document)
+sdlc adw-id:
+  bun run adws/workflows/classic/adw_sdlc.ts --adw-id {{adw-id}}

@@ -14,12 +14,12 @@
 
 import { parseArgs } from "util";
 import { existsSync } from "fs";
-import { runClassifyStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
-import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
-import { fetchIssue, getRepoUrl, extractRepoPath } from "../src/github";
-import { createBranch, commitChanges, finalizeGitOperations } from "../src/git-ops";
-import { ADWState } from "../src/state";
-import { ensureAdwId } from "../src/workflow-ops";
+import { runClassifyStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
+import { createLogger, taggedLogger, writeWorkflowStatus } from "../../src/logger";
+import { fetchIssue, getRepoUrl, extractRepoPath } from "../../src/github";
+import { createBranch, commitChanges, finalizeGitOperations } from "../../src/git-ops";
+import { ADWState } from "../../src/state";
+import { ensureAdwId } from "../../src/workflow-ops";
 import {
   createStepBanner,
   extractPlanPath,
@@ -30,7 +30,7 @@ import {
   fmtDuration,
   parseClassification,
   buildIssuePlanPrompt,
-} from "../src/utils";
+} from "../../src/utils";
 
 const STEP_CLASSIFY = "classify";
 const STEP_BRANCH = "branch";

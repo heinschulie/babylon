@@ -24,8 +24,8 @@ import {
   sumUsage,
   type StepUsage,
   type QueryResult,
-} from "../src/agent-sdk";
-import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
+} from "../../src/agent-sdk";
+import { createLogger, taggedLogger, writeWorkflowStatus } from "../../src/logger";
 import {
   parseReviewResult,
   extractReviewVerdict,
@@ -37,8 +37,8 @@ import {
   createFinalStatusComment,
   getAdwEnv,
   fmtDuration,
-} from "../src/utils";
-import { postReviewToIssue } from "../src/github";
+} from "../../src/utils";
+import { postReviewToIssue } from "../../src/github";
 
 const MAX_REVIEW_RETRY_ATTEMPTS = 3;
 

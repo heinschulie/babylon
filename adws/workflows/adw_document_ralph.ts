@@ -1,17 +1,16 @@
 /**
- * ADW Document Trigger Workflow — generates documentation from a parent issue's sub-issues.
+ * ADW Document Ralph — generates documentation from a parent issue's sub-issues.
  *
- * Triggered by a "document" keyword comment on the parent issue.
+ * Triggered by a "--document" keyword comment on the parent issue.
  * Fetches closed sub-issues, reads git diff on feature branch, invokes /document,
  * commits documentation, and pushes.
  *
- * Usage: bun run adws/workflows/adw_document_trigger.ts --adw-id <id> --issue <parent-issue-number>
+ * Usage: bun run adws/workflows/adw_document_ralph.ts --adw-id <id> --issue <parent-issue-number>
  */
 
 import { parseArgs } from "util";
 import {
   runDocumentStep,
-  formatUsage,
   sumUsage,
   type StepUsage,
 } from "../src/agent-sdk";
@@ -22,7 +21,6 @@ import {
   createCommentStep,
   createFinalStatusComment,
   exec,
-  fmtDuration,
 } from "../src/utils";
 import { ADWState } from "../src/state";
 import {
@@ -40,8 +38,8 @@ async function runWorkflow(
   issueNumberStr: string
 ): Promise<boolean> {
   const startTime = Date.now();
-  const logger = createLogger(adwId, "document-trigger");
-  logger.info(`Starting ADW Document Trigger — ADW ID: ${adwId}, Issue: #${parentIssueNumber}`);
+  const logger = createLogger(adwId, "document-ralph");
+  logger.info(`Starting ADW Document Ralph — ADW ID: ${adwId}, Issue: #${parentIssueNumber}`);
 
   const { workingDir, models } = getAdwEnv();
   const commentStep = createCommentStep(issueNumberStr);
@@ -50,17 +48,17 @@ async function runWorkflow(
   const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
 
   try {
-    // ─── Validate "document" keyword comment ──────────────────────────
+    // ─── Validate "--document" keyword comment ─────────────────────────
     const repoUrl = await getRepoUrl();
     const repoPath = extractRepoPath(repoUrl);
     const parentIssue = await fetchIssue(String(parentIssueNumber), repoPath);
 
-    const keywordComment = findKeywordFromComment("document", parentIssue);
+    const keywordComment = findKeywordFromComment("--document", parentIssue);
     if (!keywordComment) {
-      logger.error(`No "document" keyword comment found on issue #${parentIssueNumber}`);
+      logger.error(`No "--document" keyword comment found on issue #${parentIssueNumber}`);
       return false;
     }
-    logger.info(`Found "document" keyword comment from ${keywordComment.createdAt}`);
+    logger.info(`Found "--document" keyword comment from ${keywordComment.createdAt}`);
 
     // ─── Fetch closed sub-issues ──────────────────────────────────────
     const closedSubIssues = await fetchSubIssues(parentIssueNumber, "closed");
@@ -155,7 +153,7 @@ async function runWorkflow(
     const ok = docResult.success;
 
     writeWorkflowStatus(logger.logDir, {
-      workflow: "document-trigger",
+      workflow: "document-ralph",
       adwId,
       ok,
       startTime,
@@ -163,7 +161,7 @@ async function runWorkflow(
     });
 
     await commentFinalStatus({
-      workflow: "document-trigger",
+      workflow: "document-ralph",
       adwId,
       ok,
       startTime,
@@ -180,7 +178,7 @@ async function runWorkflow(
       : createDefaultStepUsage();
 
     writeWorkflowStatus(logger.logDir, {
-      workflow: "document-trigger",
+      workflow: "document-ralph",
       adwId,
       ok: false,
       startTime,
@@ -188,7 +186,7 @@ async function runWorkflow(
     });
     await commentStep(`Workflow exception: ${String(e).slice(0, 200)}`);
     await commentFinalStatus({
-      workflow: "document-trigger",
+      workflow: "document-ralph",
       adwId,
       ok: false,
       startTime,
@@ -212,7 +210,7 @@ if (import.meta.main) {
   });
 
   if (values["help"]) {
-    console.log("Usage: bun run adw_document_trigger.ts --adw-id <id> --issue <parent-issue-number>");
+    console.log("Usage: bun run adw_document_ralph.ts --adw-id <id> --issue <parent-issue-number>");
     process.exit(0);
   }
 
@@ -220,7 +218,7 @@ if (import.meta.main) {
   const issueStr = values["issue"];
 
   if (!adwId || !issueStr) {
-    console.error("Usage: bun run adw_document_trigger.ts --adw-id <id> --issue <parent-issue-number>");
+    console.error("Usage: bun run adw_document_ralph.ts --adw-id <id> --issue <parent-issue-number>");
     process.exit(1);
   }
 

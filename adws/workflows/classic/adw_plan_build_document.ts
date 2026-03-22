@@ -1,34 +1,31 @@
 /**
- * ADW Plan-Build-Review Workflow — three-step: plan, build, review.
+ * ADW Plan-Build-Document Workflow — three-step: plan, build, document.
  *
  * Uses @anthropic-ai/claude-agent-sdk for streaming agent execution.
- * DB logging and WS broadcasting are stubbed (console/file only).
+ * Documentation is generated without test results or review artifacts.
  *
- * Usage: bun run adws/workflows/adw_plan_build_review.ts --adw-id <id>
+ * Usage: bun run adws/workflows/adw_plan_build_document.ts --adw-id <id>
  */
 
 import { parseArgs } from "util";
-import { runPlanStep, runBuildStep, runReviewStep, runStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
-import { createLogger, writeWorkflowStatus } from "../src/logger";
-import { postReviewToIssue } from "../src/github";
+import { runPlanStep, runBuildStep, runDocumentStep, runStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
+import { createLogger, writeWorkflowStatus } from "../../src/logger";
 import {
-  parseReviewResult,
-  extractReviewVerdict,
   extractPlanPath,
   createDefaultStepUsage,
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
   fetchAndClassifyIssue,
-} from "../src/utils";
+} from "../../src/utils";
 
-const WORKFLOW = "plan_build_review";
+const WORKFLOW = "plan_build_document";
 const TOTAL_STEPS = 3;
 
 async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean> {
   const startTime = Date.now();
   const logger = createLogger(adwId, WORKFLOW);
-  logger.info(`Starting ADW Plan-Build-Review — ADW ID: ${adwId}`);
+  logger.info(`Starting ADW Plan-Build-Document Workflow — ADW ID: ${adwId}`);
 
   const { prompt, workingDir, models } = getAdwEnv();
   const commentStep = createCommentStep(issueNumber);
@@ -48,7 +45,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
 
   logger.info(`Prompt: ${resolvedPrompt.slice(0, 200)}...`);
   logger.info(`Working Dir: ${workingDir}`);
-  logger.info(`Plan/Build Model: ${models.default}  Review Model: ${models.review}`);
+  logger.info(`Models — plan/build/document: ${models.default}`);
 
   const allStepUsages: { step: string; ok: boolean; usage: StepUsage }[] = [];
   const stepOpts = (stepName: string, stepNumber: number) => ({
@@ -78,29 +75,23 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
       runBuildStep(planPath, { model: models.default, cwd: workingDir, logger: log }));
     if (!build.ok) { await finalize(false); return false; }
 
-    // Step 3: Review
-    const review = await runStep(stepOpts("review", 3), (log) =>
-      runReviewStep(adwId, planPath, { model: models.review, cwd: workingDir, logger: log }));
-    if (!review.ok) { await finalize(false); return false; }
-
-    // Parse review verdict and post to GitHub
-    const parsedReview = parseReviewResult(review.result);
-    const { ok: reviewOk, verdict } = extractReviewVerdict(parsedReview);
-    await commentStep(`REVIEW verdict: ${verdict} ${reviewOk ? "✅" : "⚠️"}`);
-    if (issueNumber) await postReviewToIssue(issueNumber, adwId, parsedReview, logger);
+    // Step 3: Document
+    const doc = await runStep(stepOpts("document", 3), (log) =>
+      runDocumentStep(adwId, { model: models.default, cwd: workingDir, logger: log, specPath: planPath }));
+    if (!doc.ok) { await finalize(false); return false; }
 
     // Workflow summary
     const totalUsage = sumUsage(allStepUsages.map((s) => s.usage));
     logger.info(`\n${"═".repeat(60)}`);
     logger.info(`  WORKFLOW COMPLETE — ${Math.round((Date.now() - startTime) / 1000)}s`);
-    logger.info(`  Plan: ${planPath}  Verdict: ${verdict}`);
+    logger.info(`  Plan file: ${planPath}`);
     logger.info(`  USAGE PER STEP:`);
     for (const { step, usage } of allStepUsages) logger.info(`    [${step}] ${formatUsage(usage)}`);
     logger.info(`  TOTAL: ${formatUsage(totalUsage)}`);
     logger.info(`${"═".repeat(60)}`);
 
-    await finalize(reviewOk);
-    return reviewOk;
+    await finalize(true);
+    return true;
   } catch (e) {
     logger.error(`Workflow exception: ${e}`);
     await commentStep(`Workflow exception ❌: ${String(e).slice(0, 200)}`);
@@ -121,7 +112,7 @@ if (import.meta.main) {
 
   const adwId = values["adw-id"];
   if (!adwId) {
-    console.error("Usage: bun run adw_plan_build_review.ts --adw-id <id> [--issue <number>]");
+    console.error("Usage: bun run adw_plan_build_document.ts --adw-id <id> [--issue <number>]");
     process.exit(1);
   }
 

@@ -18,19 +18,19 @@ import {
   formatUsage,
   sumUsage,
   type StepUsage,
-} from "../src/agent-sdk";
-import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
+} from "../../src/agent-sdk";
+import { createLogger, taggedLogger, writeWorkflowStatus } from "../../src/logger";
 import {
   findKeywordFromComment,
   getRepoUrl,
   extractRepoPath,
   fetchIssue,
-} from "../src/github";
+} from "../../src/github";
 import {
   commitChanges,
   finalizeGitOperations,
-} from "../src/git-ops";
-import { ADWState } from "../src/state";
+} from "../../src/git-ops";
+import { ADWState } from "../../src/state";
 import {
   exec,
   getAdwEnv,
@@ -40,7 +40,7 @@ import {
   extractPlanPath,
   createDefaultStepUsage,
   fmtDuration,
-} from "../src/utils";
+} from "../../src/utils";
 
 const STEP_PATCH_PLAN = "patch_plan";
 const STEP_PATCH_BUILD = "patch_build";
