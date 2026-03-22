@@ -214,3 +214,9 @@
 - PRD-008-001: Finalization: sumUsage(), writeWorkflowStatus(), commentFinalStatus(), pushBranch()
 - Files changed: `adws/workflows/adw_ralph.ts`
 - Tests: 68 pass
+
+## PRD-009-001 + PRD-009-002: Document trigger workflow + GitHub Actions
+- Created `adws/workflows/adw_document_trigger.ts`: validates "document" keyword comment, fetches closed sub-issues, aggregates context, runs /document, commits + pushes
+- Created `.github/workflows/document-trigger.yml`: triggered on issue_comment(created), filters for "document" keyword, checks out feature branch, runs document trigger workflow
+- Files changed: `adws/workflows/adw_document_trigger.ts`, `.github/workflows/document-trigger.yml`
+- Tests: 68 pass
