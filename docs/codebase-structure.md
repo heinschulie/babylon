@@ -43,8 +43,7 @@ babylon/
 ├── ai_docs/              — AI documentation
 ├── docs/                 — 9 architecture research docs
 ├── scripts/              — Shell utilities
-├── specs/                — Feature specs
-├── temp/                 — Temporary files
+├── temp/                 — Temporary files (specs, research, thoughts)
 ├── package.json          — Root workspace (bun workspaces)
 ├── turbo.json            — Turborepo task config
 ├── convex.json           — Convex config (functions: "convex/")

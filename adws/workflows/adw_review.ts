@@ -47,12 +47,12 @@ const STEP_PATCH_PLAN = "patch-plan";
 const STEP_PATCH_BUILD = "patch-build";
 
 
-/** Find spec file — either from CLI arg or most recent in specs/. */
+/** Find spec file — either from CLI arg or most recent in temp/specs/. */
 function findSpecFile(specPathArg: string | undefined, workingDir: string): string | null {
   if (specPathArg) return specPathArg;
 
-  // Fallback: most recent .md in specs/
-  const specsDir = join(workingDir, "specs");
+  // Fallback: most recent .md in temp/specs/
+  const specsDir = join(workingDir, "temp", "specs");
   try {
     const mdFiles = readdirSync(specsDir)
       .filter((f) => f.endsWith(".md"))
@@ -91,7 +91,7 @@ async function runWorkflow(
   // Find spec file
   const specPath = findSpecFile(specPathArg, workingDir);
   if (!specPath) {
-    logger.error("Could not find spec file. Provide --spec-path or place specs in specs/");
+    logger.error("Could not find spec file. Provide --spec-path or place specs in temp/specs/");
     return false;
   }
 

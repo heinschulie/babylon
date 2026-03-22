@@ -16,7 +16,7 @@ issue_screenshots: $ARGUMENT (optional) - comma-separated list of screenshot pat
 - Read the original specification (spec) file at `spec_path` if provided to understand the context and requirements
 - IMPORTANT Use the `review_change_request` to understand exactly what needs and use it as the basis for your patch plan
 - If `issue_screenshots` are provided, examine them to better understand the visual context of the issue
-- Create the patch plan in `specs/patch/` directory with filename: `patch-adw-{adw_id}-{descriptive-name}.md`
+- Create the patch plan in `temp/specs/patch/` directory with filename: `patch-adw-{adw_id}-{descriptive-name}.md`
   - Replace `{descriptive-name}` with a short name based on the issue (e.g., "fix-button-color", "update-validation", "correct-layout")
 - IMPORTANT: This is a PATCH - keep the scope minimal. Only fix what's described in the `review_change_request` and nothing more. Address only the `review_change_request`.
 - Run `git diff --stat`. If changes are available, use them to understand what's been done in the codebase and so you can understand the exact changes you should detail in the patch plan.

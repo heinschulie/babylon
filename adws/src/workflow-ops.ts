@@ -19,7 +19,6 @@ import type { Logger } from "./logger";
 // Agent name constants
 const AGENT_PLANNER = "sdlc_planner";
 const AGENT_IMPLEMENTOR = "sdlc_implementor";
-const AGENT_CLASSIFIER = "issue_classifier";
 const AGENT_BRANCH_GENERATOR = "branch_generator";
 const AGENT_PR_CREATOR = "pr_creator";
 
@@ -76,44 +75,6 @@ export function extractAdwInfo(
   return { model_set: "base" };
 }
 
-/** Classify a GitHub issue and return the appropriate slash command. */
-export async function classifyIssue(
-  issue: GitHubIssue,
-  adwId: string,
-  logger: Logger
-): Promise<[IssueClassSlashCommand | null, string | null]> {
-  const minimalIssue = JSON.stringify({
-    number: issue.number,
-    title: issue.title,
-    body: issue.body,
-  });
-
-  const request: AgentTemplateRequest = {
-    agent_name: AGENT_CLASSIFIER,
-    slash_command: "/classify_issue",
-    args: [minimalIssue],
-    adw_id: adwId,
-    model: "sonnet",
-  };
-
-  logger.debug(`Classifying issue: ${issue.title}`);
-  const response = await executeTemplate(request);
-
-  if (!response.success) return [null, response.output];
-
-  const output = response.output.trim();
-  const match = output.match(/\/chore|\/bug|\/feature|\/patch|0/);
-
-  if (match) {
-    const cmd = match[0];
-    if (cmd === "0") return [null, `No command selected: ${response.output}`];
-    if (["/chore", "/bug", "/feature"].includes(cmd)) {
-      return [cmd as IssueClassSlashCommand, null];
-    }
-  }
-
-  return [null, `Invalid command selected: ${response.output}`];
-}
 
 /** Build implementation plan for the issue. */
 export async function buildPlan(
@@ -269,10 +230,10 @@ export function ensurePlanExists(state: ADWState, issueNumber: string): string {
   const planFile = state.get("plan_file") as string | undefined;
   if (planFile) return planFile;
 
-  const plans = existsSync("specs")
-    ? readdirSync("specs")
+  const plans = existsSync("temp/specs")
+    ? readdirSync("temp/specs")
         .filter((f) => f.includes(issueNumber) && f.endsWith(".md"))
-        .map((f) => join("specs", f))
+        .map((f) => join("temp", "specs", f))
     : [];
   if (plans.length > 0) return plans[0];
 
@@ -441,7 +402,7 @@ export async function findSpecFile(
   if (exitCode === 0) {
     const files = stdout.split("\n");
     const specFiles = files.filter(
-      (f) => f.startsWith("specs/") && f.endsWith(".md")
+      (f) => f.startsWith("temp/specs/") && f.endsWith(".md")
     );
     if (specFiles.length > 0) {
       let found = specFiles[0];
@@ -459,7 +420,7 @@ export async function findSpecFile(
       const issueNum = match[1];
       const adwId = state.get("adw_id") as string;
       const searchDir = worktreePath ?? process.cwd();
-      const specsDir = join(searchDir, "specs");
+      const specsDir = join(searchDir, "temp", "specs");
       const found = existsSync(specsDir)
         ? readdirSync(specsDir)
             .filter(
@@ -521,7 +482,7 @@ export async function createAndImplementPatch(
 
   const patchFilePath = response.output.trim();
 
-  if (!patchFilePath.includes("specs/patch/") || !patchFilePath.endsWith(".md")) {
+  if (!patchFilePath.includes("temp/specs/patch/") || !patchFilePath.endsWith(".md")) {
     logger.error(`Invalid patch plan path returned: ${patchFilePath}`);
     return [
       null,

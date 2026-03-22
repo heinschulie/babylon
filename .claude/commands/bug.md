@@ -12,7 +12,7 @@ issue_json: $3
 - IMPORTANT: You're writing a plan to resolve a bug based on the `Bug` that will add value to the application.
 - IMPORTANT: The `Bug` describes the bug that will be resolved but remember we're not resolving the bug, we're creating the plan that will be used to resolve the bug based on the `Plan Format` below.
 - You're writing a plan to resolve a bug, it should be thorough and precise so we fix the root cause and prevent regressions.
-- Create the plan in the `specs/` directory with filename: `issue-{issue_number}-adw-{adw_id}-sdlc_planner-{descriptive-name}.md`
+- Create the plan in the `temp/specs/` directory with filename: `issue-{issue_number}-adw-{adw_id}-sdlc_planner-{descriptive-name}.md`
   - Replace `{descriptive-name}` with a short, descriptive name based on the bug (e.g., "fix-login-error", "resolve-timeout", "patch-memory-leak")
 - Use the plan format below to create the plan. 
 - Research the codebase to understand the bug, reproduce it, and put together a plan to fix it.
@@ -21,7 +21,7 @@ issue_json: $3
 - IMPORTANT: Be surgical with your bug fix, solve the bug at hand and don't fall off track.
 - IMPORTANT: We want the minimal number of changes that will fix and address the bug.
 - Don't use decorators. Keep it simple.
-- If you need a new library, use `uv add` and be sure to report it in the `Notes` section of the `Plan Format`.
+- If you need a new library, use `bun add` and be sure to report it in the `Notes` section of the `Plan Format`.
 - IMPORTANT: If the bug affects the UI or user interactions:
   - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `.claude/commands/e2e/test_<descriptive_name>.md` based on examples in that directory
   - Add E2E test validation to your Validation Commands section
@@ -34,8 +34,8 @@ issue_json: $3
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `app/server/**` - Contains the codebase server.
-- `app/client/**` - Contains the codebase client.
+- `convex/**` - Contains the Convex backend functions
+- `apps/web/**` and `apps/verifier/**` - Contains the SvelteKit frontend apps
 - `scripts/**` - Contains the scripts to start and stop the server + client.
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
@@ -90,9 +90,9 @@ Execute every command to validate the bug is fixed with zero regressions.
 
 <If you created an E2E test, include the following validation step: "Read .claude/commands/test_e2e.md`, then read and execute your new E2E `.claude/commands/e2e/test_<descriptive_name>.md` test file to validate this functionality works.">
 
-- `cd app/server && uv run pytest` - Run server tests to validate the bug is fixed with zero regressions
-- `cd app/client && bun tsc --noEmit` - Run frontend tests to validate the bug is fixed with zero regressions
-- `cd app/client && bun run build` - Run frontend build to validate the bug is fixed with zero regressions
+- `bun run test:run` - Run all tests (Convex backend + frontend unit tests)
+- `bun run check` - Run svelte-check across all apps
+- `bun run build` - Run production build across all apps
 
 ## Notes
 <optionally list any additional notes or context that are relevant to the bug that will be helpful to the developer>

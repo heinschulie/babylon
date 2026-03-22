@@ -34,7 +34,7 @@ Ask these questions using AskUserQuestion before installing:
 #### Question 3: Environment Check
 **Question**: "Should I verify your environment first?"
 **Options**:
-- "Yes, check prerequisites (Recommended)" - Verify Python, Node, uv versions
+- "Yes, check prerequisites (Recommended)" - Verify Bun and Node versions
 - "No, just install" - Skip checks, proceed directly
 
 #### Question 4: Environment Variables Setup
@@ -114,17 +114,16 @@ find ai_docs/filename.md -mtime -1 2>/dev/null
 After gathering responses:
 
 **Database = Fresh**: Run full init hook (creates new db)
-**Database = Keep existing**: Skip `init_db.py` step, only sync deps
+**Database = Keep existing**: Skip database reset, only sync deps
 **Database = Skip**: Only run dependency installation
 
-**Mode = Full**: Run `uv sync` and `npm install`
-**Mode = Minimal**: Run `uv sync --no-dev` and `npm install --production`
-**Mode = Skip if exists**: Check for .venv and node_modules first
+**Mode = Full**: Run `bun install`
+**Mode = Minimal**: Run `bun install --production`
+**Mode = Skip if exists**: Check for node_modules first
 
 **Environment Check = Yes**: Before installing, verify:
-- Python 3.11+ installed
+- Bun installed
 - Node.js 18+ installed
-- uv installed
 - Report any missing prerequisites before proceeding
 
 **Environment Variables = Yes**: Execute the env vars workflow described above

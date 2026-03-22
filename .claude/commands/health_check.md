@@ -1,5 +1,5 @@
 # Health Check
 
-!`uv run adws/adw_tests/health_check.py`
+!`bun run adw:test`
 
 Report the results of the health check.

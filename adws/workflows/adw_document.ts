@@ -56,14 +56,14 @@ async function checkForChanges(
 	return hasChanges;
 }
 
-/** Find spec file path from state or specs/ directory. */
+/** Find spec file path from state or temp/specs/ directory. */
 function findSpecFile(state: ADWState, projectRoot: string): string | null {
 	// Check state first
 	const planFile = state.get('plan_file') as string | undefined;
 	if (planFile && existsSync(planFile)) return planFile;
 
-	// Fallback: look in specs/ for file matching adw_id
-	const specsDir = join(projectRoot, 'specs');
+	// Fallback: look in temp/specs/ for file matching adw_id
+	const specsDir = join(projectRoot, 'temp', 'specs');
 	try {
 		const files = readdirSync(specsDir).filter((f) => f.endsWith('.md'));
 		const match = files.find((f) => f.includes(state.adwId));

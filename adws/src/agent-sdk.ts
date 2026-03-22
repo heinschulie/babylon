@@ -311,6 +311,14 @@ export function runPatchPlanStep(
   return runSkillStep(`/patch ${args.join(" ")}`, options);
 }
 
+/** Run a classify-issue step — `/classify_issue <issueJson>`. */
+export function runClassifyStep(
+  issueJson: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  return runSkillStep(`/classify_issue ${issueJson}`, options);
+}
+
 /** Quick single-turn prompt for extracting info. */
 export function quickPrompt(
   prompt: string,

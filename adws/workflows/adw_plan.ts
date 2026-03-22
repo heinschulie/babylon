@@ -3,7 +3,7 @@
  *
  * Steps:
  * 1. Fetch GitHub issue
- * 2. Classify issue type (/chore, /bug, /feature, /patch)
+ * 2. Classify issue type (/chore, /bug, /feature)
  * 3. Generate branch name + create branch
  * 4. Build implementation plan via /plan skill
  * 5. Commit plan
@@ -14,7 +14,7 @@
 
 import { parseArgs } from "util";
 import { existsSync } from "fs";
-import { runPlanStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
+import { runClassifyStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus } from "../src/logger";
 import { fetchIssue, getRepoUrl, extractRepoPath } from "../src/github";
 import { createBranch, commitChanges, finalizeGitOperations } from "../src/git-ops";
@@ -28,6 +28,8 @@ import {
   createCommentStep,
   createFinalStatusComment,
   fmtDuration,
+  parseClassification,
+  buildIssuePlanPrompt,
 } from "../src/utils";
 
 const STEP_CLASSIFY = "classify";
@@ -93,26 +95,19 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
       body: issue.body,
     });
 
-    const classifyResult = await quickPrompt(
-      `/classify_issue ${minimalIssue}`,
-      { model: models.research, cwd: workingDir, logger: classifyLog }
-    );
+    const classifyResult = await runClassifyStep(minimalIssue, {
+      model: models.research, cwd: workingDir, logger: classifyLog,
+    });
 
-    if (!classifyResult.success || !classifyResult.result) {
-      classifyLog.error(`Failed to classify issue: ${classifyResult.error ?? "no result"}`);
+    const classification = parseClassification(classifyResult);
+    if (classification.error) {
+      classifyLog.error(classification.error);
       classifyLog.finalize(false);
+      await commentStep(`Error classifying issue: ${classification.error}`);
       return false;
     }
 
-    const commandMatch = classifyResult.result.match(/\/chore|\/bug|\/feature|\/patch|0/);
-    if (!commandMatch || commandMatch[0] === "0") {
-      classifyLog.error(`Invalid classification: ${classifyResult.result}`);
-      classifyLog.finalize(false);
-      await commentStep(`Error classifying issue: ${classifyResult.result}`);
-      return false;
-    }
-
-    const issueCommand = commandMatch[0];
+    const issueCommand = classification.issueClass!;
     state.update({ issue_class: issueCommand as any });
     await state.save("adw_plan");
     classifyLog.info(`Issue classified as: ${issueCommand}`);
@@ -165,12 +160,13 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
 
     await commentStep(`Step 3/${TOTAL_STEPS} PLAN started...`);
 
-    const planPrompt = `Issue #${issue.number}: ${issue.title}\n\n${issue.body ?? ""}`;
-    const planResult = await runPlanStep(planPrompt, {
+    const { prompt: typedPlanPrompt } = buildIssuePlanPrompt(
+      issueCommand, String(issue.number), resolvedAdwId, minimalIssue
+    );
+    const planResult = await quickPrompt(typedPlanPrompt, {
       model: models.default,
       cwd: workingDir,
       logger: planLog,
-      adwId: resolvedAdwId,
     });
 
     const planUsage = planResult.usage ?? createDefaultStepUsage();

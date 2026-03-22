@@ -42,7 +42,7 @@ import {
 import { ADWState } from '../src/state';
 import { getRepoUrl, extractRepoPath, fetchIssue } from '../src/github';
 import { createBranch, commitChanges, finalizeGitOperations } from '../src/git-ops';
-import { classifyIssue, ensureAdwId } from '../src/workflow-ops';
+import { ensureAdwId } from '../src/workflow-ops';
 
 // Constants
 const WORKFLOW_NAME = 'test';

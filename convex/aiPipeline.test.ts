@@ -36,34 +36,46 @@ async function seedAttemptWithAudio(t: ReturnType<typeof convexTest>, userId: st
 describe('aiPipeline', () => {
 	describe('processAttempt idempotency', () => {
 		it('avoids duplicate feedback rows on repeated action invocation', async () => {
-			const t = convexTest(schema, modules);
-			const asUser = t.withIdentity({ subject: 'user1' });
-			const { attemptId, phraseId } = await seedAttemptWithAudio(t, 'user1');
+			// Temporarily unset API keys to use mock responses in tests
+			const originalOpenAI = process.env.OPENAI_API_KEY;
+			const originalAnthropic = process.env.CONVEX_ANTHROPIC_API_KEY;
+			delete process.env.OPENAI_API_KEY;
+			delete process.env.CONVEX_ANTHROPIC_API_KEY;
 
-			await asUser.action(api.aiPipeline.processAttempt, {
-				attemptId,
-				phraseId,
-				englishPrompt: 'Hello',
-				targetPhrase: 'Molo'
-			});
-			const second = await asUser.action(api.aiPipeline.processAttempt, {
-				attemptId,
-				phraseId,
-				englishPrompt: 'Hello',
-				targetPhrase: 'Molo'
-			});
+			try {
+				const t = convexTest(schema, modules);
+				const asUser = t.withIdentity({ subject: 'user1' });
+				const { attemptId, phraseId } = await seedAttemptWithAudio(t, 'user1');
 
-			const feedbackRows = await t.run(async (ctx) =>
-				ctx.db
-					.query('aiFeedback')
-					.withIndex('by_attempt', (q) => q.eq('attemptId', attemptId))
-					.collect()
-			);
-			const attempt = await t.run(async (ctx) => ctx.db.get(attemptId));
+				await asUser.action(api.aiPipeline.processAttempt, {
+					attemptId,
+					phraseId,
+					englishPrompt: 'Hello',
+					targetPhrase: 'Molo'
+				});
+				const second = await asUser.action(api.aiPipeline.processAttempt, {
+					attemptId,
+					phraseId,
+					englishPrompt: 'Hello',
+					targetPhrase: 'Molo'
+				});
 
-			expect(feedbackRows).toHaveLength(1);
-			expect(attempt?.status).toBe('feedback_ready');
-			expect(second).toMatchObject({ skipped: true });
+				const feedbackRows = await t.run(async (ctx) =>
+					ctx.db
+						.query('aiFeedback')
+						.withIndex('by_attempt', (q) => q.eq('attemptId', attemptId))
+						.collect()
+				);
+				const attempt = await t.run(async (ctx) => ctx.db.get(attemptId));
+
+				expect(feedbackRows).toHaveLength(1);
+				expect(attempt?.status).toBe('feedback_ready');
+				expect(second).toMatchObject({ skipped: true });
+			} finally {
+				// Restore original environment variables
+				if (originalOpenAI) process.env.OPENAI_API_KEY = originalOpenAI;
+				if (originalAnthropic) process.env.CONVEX_ANTHROPIC_API_KEY = originalAnthropic;
+			}
 		});
 
 		it('returns in_progress for a fresh second processing claim', async () => {

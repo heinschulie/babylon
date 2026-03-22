@@ -8,7 +8,7 @@
  */
 
 import { parseArgs } from "util";
-import { runPlanStep, runBuildStep, runReviewStep, runStep, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
+import { runPlanStep, runBuildStep, runReviewStep, runStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../src/agent-sdk";
 import { createLogger, writeWorkflowStatus } from "../src/logger";
 import { postReviewToIssue } from "../src/github";
 import {
@@ -19,6 +19,7 @@ import {
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
+  fetchAndClassifyIssue,
 } from "../src/utils";
 
 const WORKFLOW = "plan_build_review";
@@ -33,9 +34,19 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
   const commentStep = createCommentStep(issueNumber);
   const commentFinalStatus = createFinalStatusComment(issueNumber);
 
-  if (!prompt) { logger.error("No ADW_PROMPT set"); return false; }
+  // Resolve plan prompt: issue-driven (type-specific) or ADW_PROMPT (generic)
+  let resolvedPrompt = prompt;
+  let useTypeSpecific = false;
+  if (!prompt && issueNumber) {
+    const classified = await fetchAndClassifyIssue(issueNumber, adwId, { model: models.research, cwd: workingDir });
+    if (!classified.ok) { logger.error(classified.error); return false; }
+    resolvedPrompt = classified.planPrompt;
+    useTypeSpecific = true;
+    logger.info(`Issue #${issueNumber} classified as ${classified.issueClass}`);
+  }
+  if (!resolvedPrompt) { logger.error("No ADW_PROMPT set and no --issue provided"); return false; }
 
-  logger.info(`Prompt: ${prompt.slice(0, 200)}...`);
+  logger.info(`Prompt: ${resolvedPrompt.slice(0, 200)}...`);
   logger.info(`Working Dir: ${workingDir}`);
   logger.info(`Plan/Build Model: ${models.default}  Review Model: ${models.review}`);
 
@@ -51,9 +62,11 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
   };
 
   try {
-    // Step 1: Plan
+    // Step 1: Plan (type-specific when issue-driven, generic otherwise)
     const plan = await runStep(stepOpts("plan", 1), (log) =>
-      runPlanStep(prompt, { model: models.default, cwd: workingDir, logger: log, adwId }));
+      useTypeSpecific
+        ? quickPrompt(resolvedPrompt!, { model: models.default, cwd: workingDir, logger: log })
+        : runPlanStep(resolvedPrompt!, { model: models.default, cwd: workingDir, logger: log, adwId }));
     if (!plan.ok) { await finalize(false); return false; }
 
     const planPath = extractPlanPath(plan.result ?? "", workingDir, adwId);

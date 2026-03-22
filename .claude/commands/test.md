@@ -1,14 +1,15 @@
 # Application Validation Test Suite
 
-Execute comprehensive validation tests for both frontend and backend components, returning results in a standardized JSON format for automated processing.
+Execute comprehensive validation tests for frontend, backend, and ADW components, returning results in a standardized JSON format for automated processing.
 
 ## Purpose
 
-Proactively identify and fix issues in the application before they impact users or developers. By running this comprehensive test suite, you can:
-- Detect syntax errors, type mismatches, and import failures
-- Identify broken tests or security vulnerabilities  
-- Verify build processes and dependencies
-- Ensure the application is in a healthy state
+Proactively identify and fix issues before they impact users. This suite:
+- Detects type errors, import failures, and broken Svelte components
+- Runs Convex backend tests (convex-test + edge-runtime)
+- Runs frontend unit tests (Vitest + jsdom)
+- Runs ADW workflow tests
+- Verifies builds across the monorepo
 
 ## Variables
 
@@ -29,47 +30,45 @@ TEST_COMMAND_TIMEOUT: 5 minutes
   - Capture stderr output for error field
   - Timeout commands after `TEST_COMMAND_TIMEOUT`
   - IMPORTANT: If a test fails, stop processing tests and return the results thus far
-- Some tests may have dependencies (e.g., server must be stopped for port availability)
-- API health check is required
-- Test execution order is important - dependencies should be validated first
 - All file paths are relative to the project root
-- Always run `pwd` and `cd` before each test to ensure you're operating in the correct directory for the given test
 
 ## Test Execution Sequence
 
-### Backend Tests
+### Backend Tests (Convex)
 
-1. **Python Syntax Check**
-   - Preparation Command: None
-   - Command: `cd app/server && uv run python -m py_compile server.py main.py core/*.py`
-   - test_name: "python_syntax_check"
-   - test_purpose: "Validates Python syntax by compiling source files to bytecode, catching syntax errors like missing colons, invalid indentation, or malformed statements"
-
-2. **Backend Code Quality Check**
-   - Preparation Command: None
-   - Command: `cd app/server && uv run ruff check .`
-   - test_name: "backend_linting"
-   - test_purpose: "Validates Python code quality, identifies unused imports, style violations, and potential bugs"
-
-3. **All Backend Tests**
-   - Preparation Command: None
-   - Command: `cd app/server && uv run pytest tests/ -v --tb=short`
-   - test_name: "all_backend_tests"
-   - test_purpose: "Validates all backend functionality including file processing, SQL security, LLM integration, and API endpoints"
+1. **Convex Backend Tests**
+   - Command: `cd apps/web && bun run test:run`
+   - test_name: "convex_backend_tests"
+   - test_purpose: "Runs all Convex backend tests (convex-test with edge-runtime) and web app unit tests (jsdom) via Vitest"
 
 ### Frontend Tests
 
-4. **TypeScript Type Check**
-   - Preparation Command: None
-   - Command: `cd app/client && bun tsc --noEmit`
-   - test_name: "typescript_check"
-   - test_purpose: "Validates TypeScript type correctness without generating output files, catching type errors, missing imports, and incorrect function signatures"
+2. **SvelteKit Type Check (Web)**
+   - Command: `cd apps/web && bun run check`
+   - test_name: "web_typecheck"
+   - test_purpose: "Runs svelte-check against the web app — catches type errors, invalid Svelte 5 runes usage, missing imports, and component prop mismatches"
 
-5. **Frontend Build**
-   - Preparation Command: None
-   - Command: `cd app/client && bun run build`
-   - test_name: "frontend_build"
-   - test_purpose: "Validates the complete frontend build process including bundling, asset optimization, and production compilation"
+3. **SvelteKit Type Check (Verifier)**
+   - Command: `cd apps/verifier && bun run check`
+   - test_name: "verifier_typecheck"
+   - test_purpose: "Runs svelte-check against the verifier app — catches type errors, invalid Svelte 5 runes usage, missing imports, and component prop mismatches"
+
+4. **Web Build**
+   - Command: `cd apps/web && bun run build`
+   - test_name: "web_build"
+   - test_purpose: "Full production build of the web app — validates Vite bundling, Paraglide i18n compilation, SvelteKit adapter-node output, and Tailwind CSS processing"
+
+5. **Verifier Build**
+   - Command: `cd apps/verifier && bun run build`
+   - test_name: "verifier_build"
+   - test_purpose: "Full production build of the verifier app — validates Vite bundling, Paraglide i18n compilation, SvelteKit adapter-node output, and Tailwind CSS processing"
+
+### ADW Tests
+
+6. **ADW Workflow Tests**
+   - Command: `bun run adw:test`
+   - test_name: "adw_tests"
+   - test_purpose: "Runs ADW workflow tests (agent-driven workflow integration tests) via Vitest"
 
 ## Report
 
@@ -89,8 +88,7 @@ TEST_COMMAND_TIMEOUT: 5 minutes
     "execution_command": "string",
     "test_purpose": "string",
     "error": "optional string"
-  },
-  ...
+  }
 ]
 ```
 
@@ -99,17 +97,17 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 ```json
 [
   {
-    "test_name": "frontend_build",
+    "test_name": "web_typecheck",
     "passed": false,
-    "execution_command": "cd app/client && bun run build",
-    "test_purpose": "Validates TypeScript compilation, module resolution, and production build process for the frontend application",
-    "error": "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'"
+    "execution_command": "cd apps/web && bun run check",
+    "test_purpose": "Runs svelte-check against the web app — catches type errors, invalid Svelte 5 runes usage, missing imports, and component prop mismatches",
+    "error": "Error: Type 'string' is not assignable to type 'number' (src/routes/+page.svelte:42)"
   },
   {
-    "test_name": "all_backend_tests",
+    "test_name": "convex_backend_tests",
     "passed": true,
-    "execution_command": "cd app/server && uv run pytest tests/ -v --tb=short",
-    "test_purpose": "Validates all backend functionality including file processing, SQL security, LLM integration, and API endpoints"
+    "execution_command": "cd apps/web && bun run test:run",
+    "test_purpose": "Runs all Convex backend tests (convex-test with edge-runtime) and web app unit tests (jsdom) via Vitest"
   }
 ]
 ```

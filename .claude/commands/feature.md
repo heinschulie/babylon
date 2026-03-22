@@ -11,7 +11,7 @@ issue_json: $3
 
 - IMPORTANT: You're writing a plan to implement a net new feature based on the `Feature` that will add value to the application.
 - IMPORTANT: The `Feature` describes the feature that will be implemented but remember we're not implementing a new feature, we're creating the plan that will be used to implement the feature based on the `Plan Format` below.
-- Create the plan in the `specs/` directory with filename: `issue-{issue_number}-adw-{adw_id}-sdlc_planner-{descriptive-name}.md`
+- Create the plan in the `temp/specs/` directory with filename: `issue-{issue_number}-adw-{adw_id}-sdlc_planner-{descriptive-name}.md`
   - Replace `{descriptive-name}` with a short, descriptive name based on the feature (e.g., "add-auth-system", "implement-search", "create-dashboard")
 - Use the `Plan Format` below to create the plan. 
 - Research the codebase to understand existing patterns, architecture, and conventions before planning the feature.
@@ -19,7 +19,7 @@ issue_json: $3
 - Use your reasoning model: THINK HARD about the feature requirements, design, and implementation approach.
 - Follow existing patterns and conventions in the codebase. Don't reinvent the wheel.
 - Design for extensibility and maintainability.
-- If you need a new library, use `uv add` and be sure to report it in the `Notes` section of the `Plan Format`.
+- If you need a new library, use `bun add` and be sure to report it in the `Notes` section of the `Plan Format`.
 - Don't use decorators. Keep it simple.
 - IMPORTANT: If the feature includes UI components or user interactions:
   - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `.claude/commands/e2e/test_<descriptive_name>.md` based on examples in that directory
@@ -33,8 +33,8 @@ issue_json: $3
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `app/server/**` - Contains the codebase server.
-- `app/client/**` - Contains the codebase client.
+- `convex/**` - Contains the Convex backend functions
+- `apps/web/**` and `apps/verifier/**` - Contains the SvelteKit frontend apps
 - `scripts/**` - Contains the scripts to start and stop the server + client.
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
@@ -108,9 +108,9 @@ Execute every command to validate the feature works correctly with zero regressi
 
 <If you created an E2E test, include the following validation step: `Read .claude/commands/test_e2e.md`, then read and execute your new E2E `.claude/commands/e2e/test_<descriptive_name>.md` test file to validate this functionality works.>
 
-- `cd app/server && uv run pytest` - Run server tests to validate the feature works with zero regressions
-- `cd app/client && bun tsc --noEmit` - Run frontend tests to validate the feature works with zero regressions
-- `cd app/client && bun run build` - Run frontend build to validate the feature works with zero regressions
+- `bun run test:run` - Run all tests (Convex backend + frontend unit tests)
+- `bun run check` - Run svelte-check across all apps
+- `bun run build` - Run production build across all apps
 
 ## Notes
 <optionally list any additional notes, future considerations, or context that are relevant to the feature that will be helpful to the developer>
