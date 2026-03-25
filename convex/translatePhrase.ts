@@ -19,7 +19,7 @@ export const translateAndPhoneticize = internalAction({
 		languageCode: v.string()
 	},
 	handler: async (ctx, args) => {
-		const apiKey = process.env.ANTHROPIC_API_KEY;
+		const apiKey = process.env.CONVEX_ANTHROPIC_API_KEY;
 		if (!apiKey) {
 			await ctx.runMutation(internal.translatePhraseData.patchTranslation, {
 				phraseId: args.phraseId,

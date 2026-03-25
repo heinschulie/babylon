@@ -67,7 +67,7 @@ packages/ui/        — shadcn-svelte components (no i18n — props only)
 packages/convex/    — Convex type exports
 convex/             — Backend: schema, mutations, queries, actions
 docs/               — Architecture docs, setup guides
-thoughts/           — Plans and research docs
+temp/               — Temporary outputs (specs, research, thoughts)
 ```
 
 ## Conventions

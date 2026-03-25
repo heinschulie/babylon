@@ -1,581 +1,228 @@
-# Language Recall App - Implementation Progress
-
-## Overview
-Project: Language Recall PWA
-Created: 2026-01-22
-Total Steps: 78
-Phases: 8
-
----
-
-## Phase 1: Project Setup & Infrastructure (9 items)
-Status: COMPLETE
-
-- [x] PRD-001-001: Initialize SvelteKit project
-- [x] PRD-001-002: Add Tailwind CSS
-- [x] PRD-001-003: Initialize shadcn-svelte
-- [x] PRD-001-004: Add shadcn components
-- [x] PRD-001-005: Install and init Convex
-- [x] PRD-001-006: Create Convex client config
-- [x] PRD-001-007: Configure root layout
-- [x] PRD-001-008: Create env template
-- [x] PRD-001-009: Verify dev server
-
----
-
-## Phase 2: Authentication with BetterAuth (11 items)
-Status: COMPLETE
-
-- [x] PRD-002-001: Install auth dependencies
-- [x] PRD-002-002: Create convex.config.ts
-- [x] PRD-002-003: Create auth.ts config
-- [x] PRD-002-004: Create auth.config.ts
-- [x] PRD-002-005: Create http.ts routes
-- [x] PRD-002-006: Create auth-client.ts
-- [x] PRD-002-007: Create auth store
-- [x] PRD-002-008: Create login page
-- [x] PRD-002-009: Create register page
-- [x] PRD-002-010: Write auth tests
-- [x] PRD-002-011: Verify auth setup
-
----
-
-## Phase 3: Data Model & Schema (7 items)
-Status: COMPLETE
-
-- [x] PRD-003-001: Define sessions table
-- [x] PRD-003-002: Add sessions indexes
-- [x] PRD-003-003: Define phrases table
-- [x] PRD-003-004: Add phrases indexes
-- [x] PRD-003-005: Define userPreferences table
-- [x] PRD-003-006: Define scheduledNotifications table
-- [x] PRD-003-007: Verify schema
-
----
-
-## Phase 4: Core CRUD Operations (13 items)
-Status: COMPLETE
-
-- [x] PRD-004-001: Sessions list query
-- [x] PRD-004-002: Sessions getByDate query
-- [x] PRD-004-003: Sessions create mutation
-- [x] PRD-004-004: Sessions remove mutation
-- [x] PRD-004-005: Sessions tests
-- [x] PRD-004-006: Phrases listBySession query
-- [x] PRD-004-007: Phrases create mutation
-- [x] PRD-004-008: Phrases update mutation
-- [x] PRD-004-009: Phrases remove mutation
-- [x] PRD-004-010: Phrases tests
-- [x] PRD-004-011: Preferences get query
-- [x] PRD-004-012: Preferences upsert mutation
-- [x] PRD-004-013: CRUD verification
-
----
-
-## Phase 5: Frontend UI (14 items)
-Status: COMPLETE
-
-- [x] PRD-005-001: Home page structure
-- [x] PRD-005-002: Home page query
-- [x] PRD-005-003: New session dialog
-- [x] PRD-005-004: Session detail page
-- [x] PRD-005-005: Session detail query
-- [x] PRD-005-006: Add phrase dialog
-- [x] PRD-005-007: Delete phrase
-- [x] PRD-005-008: Settings page structure
-- [x] PRD-005-009: Settings preferences
-- [x] PRD-005-010: Settings save
-- [x] PRD-005-011: Header component
-- [x] PRD-005-012: Header integration
-- [x] PRD-005-013: Auth redirect
-- [x] PRD-005-014: UI verification
-
----
-
-## Phase 6: Push Notifications & Scheduling (15 items)
-Status: COMPLETE
-
-- [x] PRD-006-001: Install web-push
-- [x] PRD-006-002: Generate VAPID keys
-- [x] PRD-006-003: Create service worker
-- [x] PRD-006-004: Create notification helper
-- [x] PRD-006-005: URL Base64 helper
-- [x] PRD-006-006: Schedule function
-- [x] PRD-006-007: Random times generator
-- [x] PRD-006-008: Send action
-- [x] PRD-006-009: Mark sent mutation
-- [x] PRD-006-010: Internal queries
-- [x] PRD-006-011: Phrase create hook
-- [x] PRD-006-012: Reveal page
-- [x] PRD-006-013: Settings enable button
-- [x] PRD-006-014: Notification tests
-- [x] PRD-006-015: Notification verification
-
----
-
-## Phase 7: PWA Configuration (6 items)
-Status: COMPLETE
-
-- [x] PRD-007-001: Create manifest.json
-- [x] PRD-007-002: Create 192x192 icon
-- [x] PRD-007-003: Create 512x512 icon
-- [x] PRD-007-004: Add HTML meta tags
-- [x] PRD-007-005: Create badge icon
-- [x] PRD-007-006: PWA verification
-
----
-
-## Phase 8: Testing (8 items)
-Status: COMPLETE
-
-- [x] PRD-008-001: Install test dependencies
-- [x] PRD-008-002: Create vitest config
-- [x] PRD-008-003: Install convex-test
-- [x] PRD-008-004: Sessions tests
-- [x] PRD-008-005: Phrases tests
-- [x] PRD-008-006: Package scripts
-- [x] PRD-008-007: All tests pass
-- [x] PRD-008-008: Final verification
-
----
-
-## Progress Log
-
-### 2026-01-22
-- Created prd.json with 78 implementation steps across 8 phases
-- Created progress.txt tracking file
-- Ready to begin Phase 1: Project Setup & Infrastructure
-
-- PRD-001-001 DONE: Init SvelteKit with TS/ESLint/Prettier
-  - Used sv create for Svelte 5 skeleton project
-  - Added eslint + prettier + plugins manually
-  - Created eslint.config.js, .prettierrc, .prettierignore
-  - All feedback loops pass (typecheck, lint, build)
-
-- PRD-001-002 DONE: Add Tailwind CSS
-  - Installed tailwindcss@4.1.18 + @tailwindcss/vite
-  - Configured vite.config.ts with tailwindcss plugin
-  - Created src/app.css with @import 'tailwindcss'
-  - Imported app.css in +layout.svelte
-  - Added tailwind.config.ts for shadcn compat
-  - Added prd.json/progress.txt to .prettierignore
-  - Files: vite.config.ts, src/app.css, src/routes/+layout.svelte, tailwind.config.ts, .prettierignore, package.json
-
-- PRD-001-003 DONE: Initialize shadcn-svelte
-  - Ran pnpm dlx shadcn-svelte@latest init with slate base color
-  - Created components.json with path aliases
-  - Created src/lib/utils.ts with cn() helper
-  - Updated src/app.css with OKLCH color vars + tw-animate-css
-  - Created src/lib/components/ui dir (empty, components added in PRD-001-004)
-  - New deps: @lucide/svelte, clsx, tailwind-merge, tailwind-variants, tw-animate-css
-  - Files: components.json, src/lib/utils.ts, src/app.css, src/lib/components/ui/
-
-- PRD-001-004 DONE: Add shadcn components
-  - Ran pnpm dlx shadcn-svelte@latest add button card input label dialog alert
-  - Formatted with prettier
-  - Added ESLint override to disable svelte/no-navigation-without-resolve for ui/
-  - New deps: bits-ui, @internationalized/date
-  - Files: src/lib/components/ui/*, eslint.config.js
-
-- PRD-001-005 DONE: Install and init Convex
-  - Installed convex + convex-svelte packages
-  - Created convex/ dir with tsconfig.json
-  - Created convex.json config pointing to convex/
-  - convex-svelte provides Svelte 5 hooks: setupConvex, useQuery, useConvexClient
-  - New deps: convex, convex-svelte
-  - Files: convex/tsconfig.json, convex.json, package.json
-
-- PRD-001-006 DONE: Create Convex client config
-  - Created src/lib/convex.ts with ConvexClient
-  - Reads VITE_CONVEX_URL from env, throws if missing
-  - Exports convexClient singleton + CONVEX_URL constant
-  - Files: src/lib/convex.ts
-
-- PRD-001-007 DONE: Configure root layout
-  - Added setupConvex() from convex-svelte
-  - Added setContext('convex', convexClient) for manual access
-  - Files: src/routes/+layout.svelte
-
-- PRD-001-008 DONE: Create env template
-  - Created .env.example with VITE_CONVEX_URL
-  - Files: .env.example
-
-- PRD-001-009 DONE: Verify dev server
-  - pnpm build: succeeds
-  - pnpm check: 0 errors, 0 warnings
-  - Phase 1 complete!
-
-- PRD-002-001 DONE: Install auth dependencies
-  - Installed better-auth@1.4.9 + @convex-dev/better-auth@0.10.10
-  - Used 1.4.9 to match peer dep requirement
-  - Minor peer dep warnings for internal transitive deps (non-blocking)
-  - Files: package.json, pnpm-lock.yaml
-
-- PRD-002-002 DONE: Create convex.config.ts
-  - Created convex/convex.config.ts with defineApp + betterAuth component
-  - Uses @convex-dev/better-auth/convex.config for component registration
-  - Pattern: defineApp() -> app.use(betterAuth) -> export default app
-  - Files: convex/convex.config.ts
-
-- PRD-002-003 DONE: Create auth.ts config
-  - Created convex/auth.ts with betterAuth + emailAndPassword
-  - Uses createClient from @convex-dev/better-auth
-  - Imports from _generated/ (created on Convex deploy)
-  - Added SITE_URL to .env.example
-  - Files: convex/auth.ts, .env.example
-
-- PRD-002-004 DONE: Create auth.config.ts
-  - Created convex/auth.config.ts with getAuthConfigProvider
-  - Required by auth.ts for convex plugin
-  - Added @types/node devDep for process.env
-  - Files: convex/auth.config.ts, package.json
-
-- PRD-002-005 DONE: Create http.ts routes
-  - Created convex/http.ts with httpRouter + registerRoutes
-  - Uses { cors: true } for client-side SvelteKit SPA
-  - Registers BetterAuth endpoints on Convex HTTP router
-  - Files: convex/http.ts
-
-- PRD-002-006 DONE: Create auth-client.ts
-  - Created src/lib/auth-client.ts with createAuthClient from better-auth/svelte
-  - Uses convexClient plugin from @convex-dev/better-auth/client/plugins
-  - baseURL points to VITE_CONVEX_SITE_URL (Convex HTTP site)
-  - Added VITE_CONVEX_SITE_URL to .env.example
-  - Files: src/lib/auth-client.ts, .env.example
-
-- PRD-002-007 DONE: Create auth store
-  - Created src/lib/stores/auth.ts
-  - Wraps better-auth's useSession() hook
-  - Exports: writable (re-exported), session, isAuthenticated, isLoading, user
-  - isAuthenticated is derived store checking session.data !== null
-  - Files: src/lib/stores/auth.ts
-
-- PRD-002-008 DONE: Create login page
-  - Created src/routes/login/+page.svelte
-  - Uses authClient.signIn.email() for authentication
-  - Uses resolve() from $app/paths for type-safe navigation (eslint rule)
-  - Created placeholder src/routes/register/+page.svelte for route type resolution
-  - Svelte 5 $state() for reactive form fields
-  - shadcn Card, Input, Label, Button components
-  - Files: src/routes/login/+page.svelte, src/routes/register/+page.svelte
-
-- PRD-002-009 DONE: Create register page
-  - Completed src/routes/register/+page.svelte
-  - Uses authClient.signUp.email() with name, email, password
-  - Same pattern as login: resolve(), $state(), shadcn components
-  - Files: src/routes/register/+page.svelte
-
-- PRD-002-010 DONE: Write auth tests
-  - Installed vitest, added test/test:run scripts
-  - Created src/lib/stores/auth.test.ts with 8 tests
-  - Tests: session export, isAuthenticated (null/exists/undefined), isLoading, user
-  - Mocks $lib/auth-client with writable store
-  - Files: package.json, src/lib/stores/auth.test.ts
-
-- PRD-002-011 DONE: Verify auth setup
-  - pnpm build: succeeds
-  - pnpm check: 0 errors, 0 warnings
-  - Phase 2 complete!
-
-- PRD-003-001 to PRD-003-007 DONE: Create Convex schema
-  - Created convex/schema.ts with full data model
-  - Tables: sessions, phrases, userPreferences, scheduledNotifications
-  - All indexes defined: by_user, by_user_date, by_session, etc.
-  - Build and typecheck pass
-  - Phase 3 complete!
-
-- PRD-004-001 to PRD-004-004 DONE: Sessions CRUD
-  - convex/sessions.ts: list, getByDate, create, remove
-  - getAuthUserId helper using authComponent.getAuthUser
-  - Cascade delete phrases on session remove
-  - Files: convex/sessions.ts
-
-- PRD-004-006 to PRD-004-009 DONE: Phrases CRUD
-  - convex/phrases.ts: listBySession, create, update, remove
-  - Session ownership check on create
-  - Files: convex/phrases.ts
-
-- PRD-004-011 to PRD-004-012 DONE: Preferences CRUD
-  - convex/preferences.ts: get (with defaults), upsert
-  - Default: quietHoursStart=22, quietHoursEnd=8, notificationsPerPhrase=3
-  - Files: convex/preferences.ts
-
-- PRD-004-005 DONE: Sessions tests
-  - Installed convex-test@0.0.41 + @edge-runtime/vm
-  - Created vitest.config.ts with environmentMatchGlobs for edge-runtime (convex) + jsdom (svelte)
-  - Created convex/_generated/ stub files (api.js/d.ts, server.js/d.ts, dataModel.d.ts)
-  - Created convex/lib/auth.ts shared auth helper with test support
-  - Refactored sessions.ts, phrases.ts, preferences.ts to use shared auth helper
-  - Auth helper uses Convex identity first (tests), falls back to BetterAuth (production)
-  - Created convex/sessions.test.ts with 13 tests covering:
-    - list: empty, create+list, user isolation
-    - getByDate: null for missing, returns existing
-    - create: new session, duplicate returns existing, multi-user same date
-    - remove: cascade deletes phrases, not found error, auth check
-    - authentication: requires auth for list/create
-  - Updated eslint.config.js to ignore convex/_generated/
-  - All tests pass, typecheck clean, lint clean, build passes
-  - Files: convex/sessions.test.ts, convex/lib/auth.ts, convex/_generated/*, vitest.config.ts, eslint.config.js, package.json
-
-- PRD-004-010 DONE: Phrases tests
-  - Created convex/phrases.test.ts with 15 tests covering:
-    - listBySession: empty, create+list, auth check (other user's session)
-    - create: owned session, cannot create phrase for other users session, non-existent session
-    - update: english, translation, not authorized, not found
-    - remove: basic, not authorized, not found
-    - authentication: requires auth for listBySession/create
-  - All tests pass, typecheck clean, lint clean, build passes
-  - Files: convex/phrases.test.ts
-
-- PRD-004-013 DONE: CRUD verification
-  - pnpm build: succeeds
-  - pnpm check: 0 errors, 0 warnings
-  - pnpm test:run: 36 tests pass (auth, sessions, phrases)
-  - Phase 4 complete!
-
-- PRD-005-001 DONE: Home page structure
-  - Created src/routes/+page.svelte with sessions list layout
-  - "Learning Sessions" heading + "New Session" button
-  - Empty state placeholder text
-  - Files: src/routes/+page.svelte
-
-- PRD-005-002 DONE: Home page query
-  - Integrated useQuery from convex-svelte
-  - Subscribe to api.sessions.list
-  - Loading/error/empty/data states handled
-  - Session cards with date + targetLanguage
-  - Files: src/routes/+page.svelte
-
-- PRD-005-003 DONE: New session dialog
-  - shadcn Dialog with targetLanguage input
-  - useConvexClient for mutations
-  - createSession calls api.sessions.create
-  - Auto-generates today's date (YYYY-MM-DD)
-  - Error/loading states, validation
-  - Files: src/routes/+page.svelte
-
-- PRD-005-004 DONE: Session detail page structure
-  - Created src/routes/session/[id]/+page.svelte
-  - "Phrases" section heading
-  - "Add Phrase" button, back link
-  - Empty state placeholder
-  - Files: src/routes/session/[id]/+page.svelte
-
-- PRD-005-005 DONE: Session detail query
-  - Integrated useQuery with api.phrases.listBySession
-  - sessionId from page.params cast to Id<'sessions'>
-  - Loading/error/empty/data states handled
-  - Phrase cards with english + translation
-  - Files: src/routes/session/[id]/+page.svelte
-
-- PRD-005-006 DONE: Add phrase dialog
-  - Dialog with english + translation inputs
-  - createPhrase calls api.phrases.create
-  - Validation for empty fields
-  - Error/loading states
-  - Files: src/routes/session/[id]/+page.svelte
-
-- PRD-005-007 DONE: Delete phrase
-  - removePhrase with browser confirm()
-  - Delete button per phrase card
-  - Calls api.phrases.remove
-  - Files: src/routes/session/[id]/+page.svelte
-
-- PRD-005-008 DONE: Settings page structure
-  - Created src/routes/settings/+page.svelte
-  - "Settings" heading, notification prefs card
-  - Save button placeholder
-  - Files: src/routes/settings/+page.svelte
-
-- PRD-005-009 DONE: Settings preferences
-  - quietStart, quietEnd, perPhrase inputs
-  - Load from api.preferences.get
-  - $effect syncs data to form state
-  - Files: src/routes/settings/+page.svelte
-
-- PRD-005-010 DONE: Settings save
-  - handleSave with saving/saved state
-  - updatePreferences calls api.preferences.upsert
-  - 2s saved feedback indicator
-  - Files: src/routes/settings/+page.svelte
-
-- PRD-005-011 DONE: Header component
-  - Recall logo/link, Settings link, Logout button
-  - Shows user name/email when authenticated
-  - handleLogout calls authClient.signOut
-  - Files: src/lib/components/Header.svelte
-
-- PRD-005-012 DONE: Header integration
-  - Import Header in +layout.svelte
-  - Render above page content
-  - Files: src/routes/+layout.svelte
-
-- PRD-005-013 DONE: Auth redirect
-  - $effect watches isLoading/isAuthenticated
-  - Redirects to /login when not authenticated
-  - Files: src/routes/+page.svelte
-
-- PRD-005-014 DONE: UI verification
-  - pnpm build: succeeds
-  - pnpm check: 0 errors, 0 warnings
-  - Phase 5 complete!
-
-- PRD-006-001 DONE: Install web-push
-  - Added web-push 3.6.7 dependency
-  - Files: package.json
-
-- PRD-006-002 DONE: Generate VAPID keys
-  - Added VITE_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to .env.example
-  - Files: .env.example
-
-- PRD-006-003 DONE: Create service worker
-  - push event handler with showNotification
-  - notificationclick handler navigates to url
-  - Added serviceworker globals to eslint config
-  - Files: static/sw.js, eslint.config.js
-
-- PRD-006-004 DONE: Create notification helper
-  - requestNotificationPermission with PushManager.subscribe
-  - getSubscription helper
-  - Files: src/lib/notifications.ts
-
-- PRD-006-005 DONE: URL Base64 helper
-  - urlBase64ToUint8Array for applicationServerKey
-  - Files: src/lib/notifications.ts
-
-- PRD-006-006 DONE: Schedule function
-  - scheduleForPhrase internalMutation
-  - scheduler.runAt for each notification time
-  - Files: convex/notifications.ts
-
-- PRD-006-007 DONE: Random times generator
-  - generateRandomTimes respects quiet hours
-  - Handles midnight wraparound (22-8)
-  - Files: convex/notifications.ts
-
-- PRD-006-008 DONE: Send action
-  - send internalAction with web-push
-  - Fetches phrase, prefs, sends notification
-  - Files: convex/notifications.ts
-
-- PRD-006-009 DONE: Mark sent mutation
-  - markSent internalMutation
-  - Sets sent: true on notification
-  - Files: convex/notifications.ts
-
-- PRD-006-010 DONE: Internal queries
-  - getPhraseById, getPreferencesByUserId, getNotificationById
-  - All in convex/notifications.ts for simplicity
-  - Files: convex/notifications.ts
-
-- PRD-006-011 DONE: Phrase create hook
-  - scheduler.runAfter in phrases.create
-  - Only schedules if user has pushSubscription
-  - Files: convex/phrases.ts
-
-- PRD-006-012 DONE: Reveal page
-  - /reveal/[id] route with phrase lookup
-  - revealed state toggle, "Reveal Answer" button
-  - Added phrases.get query
-  - Files: src/routes/reveal/[id]/+page.svelte, convex/phrases.ts, convex/_generated/api.d.ts
-
-- PRD-006-013 DONE: Settings enable button
-  - enableNotifications function
-  - requestNotificationPermission from notifications helper
-  - Saves pushSubscription to preferences
-  - Files: src/routes/settings/+page.svelte
-
-- PRD-006-014 DONE: Notification tests
-  - Tests for generateRandomTimes function
-  - Covers quiet hours, sorting, time window
-  - Files: convex/notifications.test.ts
-
-- PRD-006-015 DONE: Notification verification
-  - pnpm build: succeeds
-  - pnpm check: 0 errors, 0 warnings
-  - Phase 6 complete!
-
-- PRD-007-001 to PRD-007-005 DONE: PWA assets
-  - Created static/manifest.json with app metadata
-  - Created icon-192.png, icon-512.png, badge-72.png
-  - Added meta tags to app.html (theme-color, apple-mobile-web-app-capable)
-  - Files: static/manifest.json, static/*.png, src/app.html
-
-- PRD-007-006 DONE: PWA verification
-  - pnpm build: succeeds
-  - pnpm check: 0 errors, 0 warnings
-  - Phase 7 complete!
-
-- PRD-008-001 to PRD-008-008 DONE: Testing phase
-  - Added @testing-library/svelte, jsdom
-  - vitest.config.ts with svelte/jsdom/edge-runtime
-  - convex-test for Convex function testing
-  - 43 tests total: auth (8), sessions (13), phrases (15), notifications (7)
-  - pnpm test:run: all tests pass
-  - pnpm build: succeeds
-  - pnpm check: 0 errors
-  - Phase 8 complete!
-  - ALL PHASES COMPLETE!
-
----
-
-## Phase 9: Cross-Origin Auth Fix (21 items)
-Status: COMPLETE
-
-- [x] PRD-009-001: Install @mmailaender/convex-better-auth-svelte
-- [x] PRD-009-002: Create auth API route file
-- [x] PRD-009-003: Implement API route handler
-- [x] PRD-009-004: Create server hooks file
-- [x] PRD-009-005: Implement handle function
-- [x] PRD-009-006: Create server auth helper file
-- [x] PRD-009-007: Implement createAuth function
-- [x] PRD-009-008: Update App.Locals interface
-- [x] PRD-009-009: Remove baseURL from auth-client
-- [x] PRD-009-010: Add createSvelteAuthClient to layout
-- [x] PRD-009-011: Update auth store useSession
-- [x] PRD-009-012: Implement isAuthenticated derived store
-- [x] PRD-009-013: Implement isLoading derived store
-- [x] PRD-009-014: Implement user derived store
-- [x] PRD-009-015: Add PUBLIC_ prefixed env vars
-- [x] PRD-009-016: Add SITE_URL variable
-- [x] PRD-009-017: Update convex/http.ts CORS
-- [x] PRD-009-018: Verify trustedOrigins
-- [x] PRD-009-019: TypeScript check
-- [x] PRD-009-020: Build verification
-- [x] PRD-009-021: Tests pass
-
-### 2026-01-23
-- PRD-009-001 DONE: Install @mmailaender/convex-better-auth-svelte
-  - Added @mmailaender/convex-better-auth-svelte@0.5.0
-  - Added @types/web-push for existing type error
-  - Added convex/_generated/ to .prettierignore
-  - Files: package.json, .prettierignore
-
-- PRD-009-002 + PRD-009-003 DONE: Create auth API route
-  - Created src/routes/api/auth/[...all]/+server.ts
-  - Uses createSvelteKitHandler from adapter
-  - Exports GET and POST handlers
-  - Files: src/routes/api/auth/[...all]/+server.ts
-
-- PRD-009-004 to PRD-009-008 DONE: Server hooks + auth helper
-  - Created src/hooks.server.ts with Handle + getToken
-  - Created src/lib/server/auth.ts with createAuth for token extraction
-  - Updated App.Locals interface with token?: string
-  - Files: src/hooks.server.ts, src/lib/server/auth.ts, src/app.d.ts
-
-- PRD-009-009 to PRD-009-021 DONE: Cross-origin auth complete
-  - Removed baseURL from auth-client (uses local /api/auth)
-  - Added createSvelteAuthClient to layout
-  - Auth store already had correct patterns
-  - Added PUBLIC_CONVEX_URL and PUBLIC_CONVEX_SITE_URL env vars
-  - Simplified CORS to cors: true
-  - All verifications pass: typecheck, build, tests
-  - Phase 9 complete!
-
----
-
-## Notes
-- Each step has verification commands in prd.json
-- Mark items with [x] when completed
-- Update phase status when all items complete
-- Add log entries with date for each work session
+## PRD-001-001: runStep() abstraction
+- Created `runStep()` in `adws/src/agent-sdk.ts`
+- Encapsulates per-step boilerplate: banner, tagged logger, usage tracking, finalize, comment posting
+- `onFail` param controls halt vs continue behavior on failure
+- Exports: `RunStepOpts`, `RunStepResult`, `runStep()`
+- Circular dep agent-sdk↔utils safe: utils only does `import type { StepUsage }`
+- Files changed: `adws/src/agent-sdk.ts`
+- Pre-existing typecheck/lint failures in @babylon/verifier (not from this change)
+- Tests: 128 pass
+
+## PRD-001-002: Migrate adw_plan_build_review.ts to runStep()
+- Replaced 3 inline step blocks with `runStep()` calls
+- Eliminated `stepStatuses` array — `allStepUsages` now tracks `{ step, ok, usage }`
+- Extracted `finalize()` helper for workflow-level status writing + final comment
+- Removed unused imports: `taggedLogger`, `fmtDuration`, `createStepBanner`, `type AdwRecord`
+- 259 → 123 lines (53% reduction)
+- Files changed: `adws/workflows/adw_plan_build_review.ts`
+- Tests: 128 pass
+
+## PRD-001-003: Migrate all remaining workflows to runStep()
+- Migrated 5 files: adw_plan_build, adw_plan_build_test, adw_plan_build_test_review, adw_plan_build_document, adw_sdlc
+- Eliminated dual `stepStatuses`/`allStepUsages` arrays → single `{ step, ok, usage }[]`
+- Replaced inline plan-path extraction (readdirSync/statSync fallback) with `extractPlanPath()` in test_review + document
+- Added comment/finalize support to test_review + document (previously missing)
+- Added `issueNumber` param to adw_plan_build_document (previously no issue support)
+- Used `onFail: "continue"` for test + document steps in adw_sdlc (non-fatal)
+- 1370 → 624 total lines across 5 files (54% reduction)
+- Removed unused imports: `taggedLogger`, `fmtDuration`, `createStepBanner`, `type AdwRecord`, `readdirSync`, `statSync`, `join`
+- Tests: 68 pass (web only — verifier failures pre-existing)
+
+## PRD-002-001 + PRD-002-002: createSDK() factory & migration
+- Created `createSDK({ model?, cwd? })` factory in `adws/src/agent-sdk.ts`
+- Encapsulates `permissionMode`, `allowDangerouslySkipPermissions`, `settingSources`, default model
+- Returns `{ query: (prompt) => AsyncGenerator }` — single call replaces import + inline options
+- Migrated all 10 step functions + `quickPrompt` to use `createSDK()`
+- `permissionMode` now appears exactly once in file; SDK import also once (inside factory)
+- Extracted `DEFAULT_MODEL` constant for reuse
+- Files changed: `adws/src/agent-sdk.ts`
+- Tests: 68 pass
+
+## PRD-002-003: Align quickPrompt() to return QueryResult
+- Changed `quickPrompt()` return type from `string | null` to `QueryResult`
+- Error case now returns `{ success: false, error }` instead of `null`
+- Updated 3 callers: adw_plan.ts (classify + branch), adw_test.ts (resolve)
+- Callers now use `.success` / `.result` / `.error` instead of null checks
+- Files changed: `adws/src/agent-sdk.ts`, `adws/workflows/adw_plan.ts`, `adws/workflows/adw_test.ts`
+- Tests: 128 pass
+
+## PRD-003-001 + PRD-003-002: Consolidate ADW record pattern, replace standardizeGetAdw()
+- Removed `AdwRecord` interface and `standardizeGetAdw()` from utils.ts
+- Added `ADWEnv` interface + `getAdwEnv()` — flat, sync, reads env vars directly
+- `getAdwEnv()` returns `{ prompt: string | null, workingDir: string, models: WorkflowModels }`
+- `getWorkflowModels()` now called internally by `getAdwEnv()`, no longer imported by workflows
+- Updated all 13 workflow files to use `getAdwEnv()` as unified config source
+- Pipeline workflows (plan_build, sdlc, etc.): replaced `standardizeGetAdw()` + `getWorkflowModels()` with single `getAdwEnv()`
+- Issue-driven workflows (plan, test, document): replaced manual `getWorkflowModels()` + `process.env.ADW_WORKING_DIR` with `getAdwEnv()`
+- `ADWState` remains for persistent state — clear separation: env config vs persistent state
+- Removed dead `working_dir` null checks (getAdwEnv always returns a string via `process.cwd()` fallback)
+- Files changed: `adws/src/utils.ts`, all 13 `adws/workflows/*.ts`
+- Tests: 128 pass
+
+## PRD-004-001: Consolidate allStepUsages[] and stepStatuses[]
+- Eliminated `stepStatuses` from 3 remaining files: adw_build.ts, adw_test.ts, adw_research-codebase_produce-readme_update-prime.ts
+- Unified on `allStepUsages: { step, ok, usage }[]` — single array tracks step name, success, and usage
+- adw_build.ts: merged dual arrays, pass `allStepUsages` to `commentFinalStatus()`
+- adw_test.ts: added `ok` field to push in `runTestsWithResolution`, removed standalone `stepStatuses`
+- adw_research-codebase_produce-readme_update-prime.ts: added `ok` to push calls, removed derived `stepStatuses` maps
+- Verification: `stepStatuses` count = 0 across all workflows, `allStepUsages` total = 94
+- Files changed: `adws/workflows/adw_build.ts`, `adws/workflows/adw_test.ts`, `adws/workflows/adw_research-codebase_produce-readme_update-prime.ts`
+- Tests: 128 pass (verifier failures pre-existing)
+
+## PRD-004-002 + PRD-004-003: Standardize comment format, confirm document workflow support
+- Replaced `formatIssueMessage()` with direct messages in adw_plan.ts, adw_test.ts, adw_patch.ts
+- `formatIssueMessage()` added redundant `adwId_agentName:` prefix — `makeIssueComment()` already adds `[ADW-AGENTS]`
+- All orchestration workflows now use consistent `Step N/M NAME completed/failed ✅/❌ (duration)` format
+- Migrated adw_build.ts to use `runStep()` — eliminated ~80 lines of manual boilerplate
+- Removed `formatIssueMessage()` from workflow-ops.ts (dead code)
+- Removed unused `makeIssueComment` imports from adw_plan.ts, adw_test.ts, adw_patch.ts
+- Removed unused `ADW_BOT_IDENTIFIER` import from workflow-ops.ts
+- PRD-004-003 already passed (comment support added to adw_plan_build_document.ts in PRD-001-003)
+- Files changed: `adws/workflows/adw_plan.ts`, `adws/workflows/adw_test.ts`, `adws/workflows/adw_patch.ts`, `adws/workflows/adw_build.ts`, `adws/src/workflow-ops.ts`
+- Tests: 68 pass
+
+## PRD-005-001: Harden extractPlanPath()
+- Removed mtime fallback that returned newest file regardless of adwId — concurrency hazard
+- Added existsSync() checks on regex-matched paths before returning
+- Deterministic fallback: only matches files containing adwId in specs/
+- No more statSync/sort — simpler, faster, concurrent-safe
+- Files changed: `adws/src/utils.ts`
+- Tests: 79 pass
+
+## PRD-006-001: Workflow-configurable cron trigger
+- Cron trigger no longer hardcoded to adw_plan_build
+- Workflow selection priority: comment keyword > issue label > default
+- Comment `adw sdlc` → runs `adw_sdlc.ts`; label `workflow:adw_sdlc` → same
+- Plain `adw` comment still defaults to adw_plan_build (backwards compatible)
+- Validates workflow file exists before triggering, logs unknown workflows
+- Refactored: `shouldProcessIssue` → `evaluateIssue` returns `TriggerInfo | null`
+- Files changed: `adws/triggers/cron.ts`
+- Tests: 79 pass
+
+## PRD-007-001 + PRD-007-002: Update /create-adw and /port-adw templates
+- Replaced outdated SDK patterns with `createSDK()` and `runStep()` references
+- Replaced `standardizeGetAdw()`/`AdwRecord` with `getAdwEnv()`/`ADWEnv`
+- Updated shared module listings to match current exports
+- Replaced manual comment/usage boilerplate with `createCommentStep()`, `createFinalStatusComment()`, `runStep()` patterns
+- Updated model selection docs to reference `getAdwEnv().models`
+- Files changed: `.claude/commands/create-adw.md`, `.claude/commands/port-adw.md`
+- Tests: 79 pass
+
+## PRD-004-001 (v2): Replace 9 step functions with runSkillStep()
+- Created `runSkillStep(prompt, opts)` — generic runner: createSDK + consumeQuery + try/catch
+- All 9 step functions + quickPrompt now delegate to runSkillStep()
+- `createSDK` appears exactly 2× (factory def + runSkillStep call), down from 10×
+- Thin wrappers preserve existing call signatures — zero caller changes needed
+- File: 457 → 321 lines (30% reduction)
+- Files changed: `adws/src/agent-sdk.ts`
+- Tests: 128 pass
+
+## PRD-001-001 + PRD-001-003: Fix adw_document.ts ReferenceError + add --issue CLI
+- `commentFinalStatus` in catch block was undeclared — ReferenceError on any exception
+- Added `issueNumber?: string` param to `runWorkflow()`
+- Created `commentStep` + `commentFinalStatus` via factory functions before try block
+- Added `--issue` CLI arg, wired through to `runWorkflow()`
+- Also fixed adw_test.ts: `commentStep`/`commentFinalStatus` were scoped inside try, unreachable from catch — hoisted above try
+- Files changed: `adws/workflows/adw_document.ts`, `adws/workflows/adw_test.ts`
+- Tests: 68 pass (verifier failures pre-existing)
+
+## PRD-001-002: Standardize catch blocks across Tier-2 workflows
+- All 5 Tier-2 workflows now use identical catch shape: writeWorkflowStatus + commentStep(truncated) + commentFinalStatus + return false
+- Added `commentStep()` to test, patch, plan catch blocks (were missing error comment to GitHub)
+- Added `createDefaultStepUsage()` fallback to review, patch, document (were unsafe on empty allStepUsages)
+- Files changed: `adws/workflows/adw_test.ts`, `adws/workflows/adw_review.ts`, `adws/workflows/adw_document.ts`, `adws/workflows/adw_patch.ts`, `adws/workflows/adw_plan.ts`
+- Tests: 128 pass (verifier failures pre-existing)
+
+## PRD-002-001 + PRD-003-002: CLI consistency + static import in adw_patch.ts
+- Replaced `process.env.ADW_ISSUE_NUMBER` with `--issue` CLI arg, matching all other workflows
+- Added `issueNumber` param to `runWorkflow()`, wired from CLI `values["issue"]`
+- Replaced dynamic `await import("../src/utils")` with static `exec` import at top of file
+- Removed unused imports: `join` (path), `readdirSync`/`statSync` (fs)
+- Updated usage doc comment
+- Files changed: `adws/workflows/adw_patch.ts`
+- Tests: 128 pass (verifier failures pre-existing)
+
+## PRD-003-001: Replace inline regex with extractPlanPath() in adw_review.ts
+- Replaced 11-line hand-rolled regex block (lines 230-241) with single `extractPlanPath()` call
+- `extractPlanPath()` already handles abs/rel/adwId-fallback + existsSync checks — inline version lacked existence checks
+- `readdirSync`/`statSync`/`join` imports retained (still used by `findSpecFile()`)
+- Files changed: `adws/workflows/adw_review.ts`
+- Tests: pass (verifier failures pre-existing)
+
+## PRD-005-001 + PRD-006-001: Already passing
+- PRD-005-001: `ok` field already present in all 3 `allStepUsages.push()` calls — likely fixed during PRD-001-002 catch block standardization
+- PRD-006-001: `taggedLogger` and retry/parallel docs already present in create-adw.md — likely added during PRD-007-001
+- Marked both as passing after verification
+
+## PRD-006-002: Add ADWState guidance to /create-adw and /port-adw templates
+- Added `ADWState` persistence pattern docs to both templates
+- Covers: create/load, update, get, save, when-to-use vs when-not-to
+- `quickPrompt()` was already documented (line 32 in create-adw.md)
+- Files changed: `.claude/commands/create-adw.md`, `.claude/commands/port-adw.md`
+- Tests: pass
+
+## PRD-001-001 + PRD-001-002 + PRD-001-003: GitHub sub-issue utilities
+- Added `createSubIssue()`: creates issue via gh CLI, links to parent via GraphQL addSubIssue mutation
+- Added `fetchSubIssues()`: queries parent's subIssues via GraphQL, returns {number, title, body, state, labels}, filters by state (open/closed/all)
+- Added `closeSubIssue()`: thin wrapper around `gh issue close --comment`
+- Added `SubIssue` interface export
+- Follows existing patterns: getRepoUrl(), getGitHubEnv(), exec(), error handling
+- Files changed: `adws/src/github.ts`
+- Tests: 68 pass (verifier failures pre-existing)
+
+## PRD-002-001 + PRD-002-002: TDD Skill AFK Mode
+- Removed HITL planning phase (section 1): no more "Confirm with user" checkboxes or "Ask:" prompts
+- Replaced with "Read the Specification" — reads issue body for interface spec, behaviors, mocking boundaries
+- Removed refactor step (section 4) entirely — refactoring now handled by separate /refactor command
+- Kept all reference docs (deep-modules.md, mocking.md, tests.md, interface-design.md, refactoring.md)
+- Skill now runs to completion without prompting for user input
+- Files changed: `.claude/skills/tdd/SKILL.md`
+
+## PRD-003-001 + PRD-003-002: Refactor command + step functions
+- Created `.claude/commands/refactor.md`: reads changed files cold, loads TDD reference docs, refactors with test verification after each change
+- Key constraint: no new behavior, no new tests, only structural improvements
+- Added `runTddStep(issueBody, options)` to agent-sdk.ts — invokes /tdd with issue body as context
+- Added `runRefactorStep(adwId, options)` to agent-sdk.ts — invokes /refactor with adwId
+- Both follow existing thin-wrapper pattern delegating to `runSkillStep()`
+- Files changed: `.claude/commands/refactor.md`, `adws/src/agent-sdk.ts`
+- Tests: 68 pass
+
+## PRD-004-001 + PRD-004-002: Review command issue support
+- Updated `.claude/commands/review.md`: $2 now accepts numeric issue number or file path
+- When numeric, agent fetches issue via `gh issue view <number> --json body,title`
+- Existing spec_file behavior unchanged
+- Updated `runReviewStep()` in agent-sdk.ts: optional `issueNumber` in options
+- When issueNumber provided and no specPath, passes issue number as the spec arg
+- Files changed: `.claude/commands/review.md`, `adws/src/agent-sdk.ts`
+- Tests: 68 pass
+
+## PRD-005-001 + PRD-005-002: PRD-to-Issues TDD front-loading
+- Updated issue template with 5 required sections: Interface Specification, Behaviors to Test, Mocking Boundaries, Acceptance Criteria, Dependencies
+- These front-load all decisions /tdd needs to run autonomously
+- Replaced `gh issue create` with sub-issue workflow: create issue + link via GraphQL addSubIssue mutation
+- Added labels: `sub-issue` + type label per issue
+- Files changed: `.claude/commands/prd-to-issues.md`
+
+## PRD-006-001 thru PRD-008-001: adw_ralph.ts — full workflow
+- Created `adws/workflows/adw_ralph.ts` with complete Tier 2 scaffold
+- PRD-006-001: parseArgs (--adw-id, --issue, --max-iterations, --help), import.meta.main, ADWState, createCommentStep, createFinalStatusComment
+- PRD-006-002: Feature branch creation via createBranch(), uses quickPrompt() for branch name, checks for existing branch
+- PRD-006-003: Main loop: fetchSubIssues() → quickPrompt() to select → COMPLETE on empty
+- PRD-007-001: TDD step via runTddStep() with issue body, tracks usage, skips on failure
+- PRD-007-002: Refactor step via runRefactorStep(), non-fatal on failure
+- PRD-007-003: Review step via runReviewStep() with issueNumber, patch retry loop (max 2 attempts), closeSubIssue() on success
+- PRD-008-001: Finalization: sumUsage(), writeWorkflowStatus(), commentFinalStatus(), pushBranch()
+- Files changed: `adws/workflows/adw_ralph.ts`
+- Tests: 68 pass
+
+## PRD-009-001 + PRD-009-002: Document trigger workflow + GitHub Actions
+- Created `adws/workflows/adw_document_trigger.ts`: validates "document" keyword comment, fetches closed sub-issues, aggregates context, runs /document, commits + pushes
+- Created `.github/workflows/document-trigger.yml`: triggered on issue_comment(created), filters for "document" keyword, checks out feature branch, runs document trigger workflow
+- Files changed: `adws/workflows/adw_document_trigger.ts`, `.github/workflows/document-trigger.yml`
+- Tests: 68 pass
+
+## PRD-010-001: Deprecate shell-based Ralph
+- Archived ralph.sh, ralph-gh.sh, prompt-gh.md to temp/archive/ralph-legacy/
+- Copied prd.json to archive as well (kept original for tracking)
+- No references to legacy files found in CLAUDE.md or AGENTS.md
+- adw_ralph.ts is now the canonical Ralph loop

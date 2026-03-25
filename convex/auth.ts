@@ -8,8 +8,7 @@ import authConfig from './auth.config';
 
 const LOCAL_TRUSTED_ORIGINS = new Set([
 	'http://localhost:5173',
-	'http://localhost:5178',
-	'http://localhost:5180'
+	'http://localhost:5178'
 ]);
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
@@ -55,6 +54,7 @@ type AuthEnv = {
 	allowLocalhostOrigins: boolean;
 	requireEmailVerificationOverride?: boolean;
 	allowUnverifiedEmailsInProduction: boolean;
+	extraTrustedOrigins: string[];
 };
 
 function readAuthEnv(): AuthEnv {
@@ -67,6 +67,7 @@ function readAuthEnv(): AuthEnv {
 	const requireEmailVerificationOverride = parseBooleanEnv('AUTH_REQUIRE_EMAIL_VERIFICATION');
 	const allowUnverifiedEmailsInProduction =
 		parseBooleanEnv('AUTH_ALLOW_UNVERIFIED_EMAILS_PROD') === true;
+	const extraTrustedOrigins = parseCommaSeparatedEnv('AUTH_EXTRA_TRUSTED_ORIGINS');
 
 	assertValidUrl(siteUrl, 'SITE_URL');
 
@@ -78,7 +79,8 @@ function readAuthEnv(): AuthEnv {
 		isProduction,
 		allowLocalhostOrigins,
 		requireEmailVerificationOverride,
-		allowUnverifiedEmailsInProduction
+		allowUnverifiedEmailsInProduction,
+		extraTrustedOrigins
 	};
 }
 
@@ -110,6 +112,9 @@ function buildTrustedOrigins(env: AuthEnv): string[] {
 		for (const origin of LOCAL_TRUSTED_ORIGINS) {
 			candidates.add(origin);
 		}
+	}
+	for (const origin of env.extraTrustedOrigins) {
+		candidates.add(origin);
 	}
 
 	const trustedOrigins: string[] = [];
@@ -144,6 +149,15 @@ function parseBooleanEnv(name: string): boolean | undefined {
 	if (normalized === 'true') return true;
 	if (normalized === 'false') return false;
 	throw new Error(`Invalid boolean environment variable ${name}: ${raw}`);
+}
+
+function parseCommaSeparatedEnv(name: string): string[] {
+	const raw = process.env[name];
+	if (raw == null || raw.trim() === '') return [];
+	return raw
+		.split(',')
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
 }
 
 function normalizeOptionalUrl(value: string | undefined, name: string): string | undefined {

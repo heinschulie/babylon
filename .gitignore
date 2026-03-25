@@ -8,6 +8,10 @@ node_modules
 .turbo
 **/build
 
+# Logs
+/agents
+/temp/builds
+
 # OS
 .DS_Store
 Thumbs.db

@@ -28,11 +28,22 @@
 		"format": "turbo run format",
 		"typecheck": "turbo run typecheck",
 		"test": "turbo run test",
-		"test:run": "turbo run test:run"
+		"test:run": "turbo run test:run",
+		"adw:webhook": "bun run adws/triggers/webhook.ts",
+		"adw:cron": "bun run adws/triggers/cron.ts",
+		"adw:plan-build": "bun run adws/workflows/classic/adw_plan_build.ts",
+		"adw:test": "vitest run adws/tests/"
 	},
 	"devDependencies": {
+		"@types/bun": "^1.3.10",
 		"bun": "^1.3.9",
 		"convex": "^1.31.6",
-		"turbo": "^2.5.8"
+		"turbo": "^2.5.8",
+		"zod": "^4.3.6"
+	},
+	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "^0.2.79",
+		"@aws-sdk/client-s3": "^3.1014.0",
+		"playwright": "^1.58.2"
 	}
 }
