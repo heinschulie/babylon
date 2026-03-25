@@ -9,13 +9,13 @@
 import { parseArgs } from "util";
 import { runPlanStep, runBuildStep, runTestStep, runStep, quickPrompt, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
 import { createLogger, writeWorkflowStatus } from "../../src/logger";
+import { fetchAndClassifyIssue } from "../../src/issue-utils";
 import {
   extractPlanPath,
   createDefaultStepUsage,
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
-  fetchAndClassifyIssue,
 } from "../../src/utils";
 
 const WORKFLOW = "plan_build_test";

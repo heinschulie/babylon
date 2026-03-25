@@ -17,6 +17,7 @@ issue_json: $3
 - Use the plan format below to create the plan. 
 - Research the codebase to understand the bug, reproduce it, and put together a plan to fix it.
 - IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to fix the bug.
+- IMPORTANT: Include the current conversation ID in the plan's Metadata section as `conversation_id`. This allows humans or agents to trace back to the conversation that spawned the plan.
 - Use your reasoning model: THINK HARD about the bug, its root cause, and the steps to fix it properly.
 - IMPORTANT: Be surgical with your bug fix, solve the bug at hand and don't fall off track.
 - IMPORTANT: We want the minimal number of changes that will fix and address the bug.
@@ -53,6 +54,7 @@ Ignore all other files in the codebase.
 issue_number: `{issue_number}`
 adw_id: `{adw_id}`
 issue_json: `{issue_json}`
+conversation_id: `{conversation_id}`
 
 ## Bug Description
 <describe the bug in detail, including symptoms and expected vs actual behavior>

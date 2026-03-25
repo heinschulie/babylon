@@ -25,12 +25,14 @@ import { postReviewToIssue } from "../../src/github";
 import {
   parseReviewResult,
   extractReviewVerdict,
+} from "../../src/review-utils";
+import { fetchAndClassifyIssue } from "../../src/issue-utils";
+import {
   extractPlanPath,
   createDefaultStepUsage,
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
-  fetchAndClassifyIssue,
 } from "../../src/utils";
 
 const WORKFLOW = "sdlc";

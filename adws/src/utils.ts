@@ -3,86 +3,6 @@ import { readdirSync, statSync, existsSync } from "fs";
 import type { StepUsage } from "./agent-sdk";
 import { makeIssueComment } from "./github";
 
-// ─── Review result types & parsing ──────────────────────────────────────────
-
-/** Review issue from the /review skill JSON output. */
-export interface ReviewIssue {
-  review_issue_number: number;
-  screenshot_path: string;
-  issue_description: string;
-  issue_resolution: string;
-  issue_severity: "blocker" | "tech_debt" | "skippable";
-}
-
-/** Parsed review result from /review skill. */
-export interface ReviewResult {
-  success: boolean;
-  review_summary?: string;
-  review_issues: ReviewIssue[];
-  screenshots?: string[];
-}
-
-/**
- * Parse review result JSON from the /review skill output.
- * Returns a safe default with a blocker issue on empty or unparseable input.
- */
-export function parseReviewResult(raw: string | undefined): ReviewResult {
-  if (!raw) {
-    return {
-      success: false,
-      review_issues: [
-        {
-          review_issue_number: 1,
-          screenshot_path: "",
-          issue_description: "Review returned no output",
-          issue_resolution: "Re-run review",
-          issue_severity: "blocker",
-        },
-      ],
-    };
-  }
-
-  try {
-    return parseJson<ReviewResult>(raw);
-  } catch (e) {
-    return {
-      success: false,
-      review_issues: [
-        {
-          review_issue_number: 1,
-          screenshot_path: "",
-          issue_description: `Failed to parse review result: ${e}`,
-          issue_resolution: "Fix review output format",
-          issue_severity: "blocker",
-        },
-      ],
-    };
-  }
-}
-
-/**
- * Extract a verdict from a parsed review result.
- * - PASS: no issues or only skippable/tech_debt issues
- * - FAIL: at least one blocker issue
- * - PASS_WITH_ISSUES: success but has non-blocker issues
- */
-export function extractReviewVerdict(result: ReviewResult): { ok: boolean; verdict: string } {
-  const blockerCount = result.review_issues.filter(
-    (i) => i.issue_severity === "blocker"
-  ).length;
-
-  if (result.success && blockerCount === 0) {
-    const hasIssues = result.review_issues.length > 0;
-    return { ok: true, verdict: hasIssues ? "PASS_WITH_ISSUES" : "PASS" };
-  }
-
-  if (blockerCount > 0) {
-    return { ok: false, verdict: "FAIL" };
-  }
-
-  // success is false but no blockers — trust the issue list over the flag
-  return { ok: true, verdict: "PASS_WITH_ISSUES" };
-}
 
 /**
  * Generate a short 8-character UUID for ADW tracking.
@@ -91,87 +11,126 @@ export function makeAdwId(): string {
   return crypto.randomUUID().slice(0, 8);
 }
 
-/**
- * Parse JSON that may be wrapped in markdown code blocks.
- */
-export function parseJson<T = unknown>(text: string): T {
-  // Try to extract JSON from markdown code blocks
-  const codeBlockPattern = /```(?:json)?\s*\n(.*?)\n```/s;
-  const match = text.match(codeBlockPattern);
+/** JSON boundary detection results. */
+interface JsonBoundaries {
+  content: string;
+  found: boolean;
+}
 
-  let jsonStr = match ? match[1].trim() : text.trim();
+/** JSON parsing utilities for handling markdown-wrapped JSON */
+export class JsonParser {
 
-  // Try to find JSON boundaries if not already clean
-  if (!jsonStr.startsWith("[") && !jsonStr.startsWith("{")) {
-    const arrayStart = jsonStr.indexOf("[");
-    const arrayEnd = jsonStr.lastIndexOf("]");
-    const objStart = jsonStr.indexOf("{");
-    const objEnd = jsonStr.lastIndexOf("}");
+  /** Extract JSON content from markdown code blocks. */
+  private static extractFromCodeBlock(text: string): string {
+    const codeBlockPattern = /```(?:json)?\s*\n(.*?)\n```/s;
+    const match = text.match(codeBlockPattern);
+    return match ? match[1].trim() : text.trim();
+  }
 
-    if (arrayStart !== -1 && (objStart === -1 || arrayStart < objStart)) {
-      if (arrayEnd !== -1) jsonStr = jsonStr.slice(arrayStart, arrayEnd + 1);
-    } else if (objStart !== -1) {
-      if (objEnd !== -1) jsonStr = jsonStr.slice(objStart, objEnd + 1);
+  /** Find JSON boundaries in text that doesn't start with { or [. */
+  private static findJsonBoundaries(text: string): JsonBoundaries {
+    if (text.startsWith("[") || text.startsWith("{")) {
+      return { content: text, found: true };
+    }
+
+    const candidates = [
+      { start: text.indexOf("["), end: text.lastIndexOf("]") },
+      { start: text.indexOf("{"), end: text.lastIndexOf("}") }
+    ];
+
+    // Find the first valid candidate (prefer arrays if they start earlier)
+    for (const candidate of candidates) {
+      if (candidate.start !== -1 && candidate.end !== -1 && candidate.end > candidate.start) {
+        return {
+          content: text.slice(candidate.start, candidate.end + 1),
+          found: true
+        };
+      }
+    }
+
+    return { content: text, found: false };
+  }
+
+  /** Parse JSON that may be wrapped in markdown code blocks. */
+  static parse<T = unknown>(text: string): T {
+    const extracted = this.extractFromCodeBlock(text);
+    const boundaries = this.findJsonBoundaries(extracted);
+
+    try {
+      return JSON.parse(boundaries.content) as T;
+    } catch (e) {
+      const preview = boundaries.content.slice(0, 200);
+      throw new Error(
+        `Failed to parse JSON: ${e}. Text was: ${preview}${boundaries.content.length > 200 ? '...' : ''}`
+      );
+    }
+  }
+}
+
+
+/** Environment variable management utilities */
+export class EnvironmentManager {
+  /**
+   * Check that all required environment variables are set.
+   * Throws if any are missing.
+   * API key is stored as CONVEX_ANTHROPIC_API_KEY (not ANTHROPIC_API_KEY) to avoid Bun auto-injecting it into SDK subprocesses.
+   */
+  static checkRequired(vars: string[] = ["CLAUDE_CODE_PATH"]): void {
+    const missing = vars.filter((v) => !process.env[v]);
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required environment variables: ${missing.join(", ")}`
+      );
     }
   }
 
-  try {
-    return JSON.parse(jsonStr) as T;
-  } catch (e) {
-    throw new Error(
-      `Failed to parse JSON: ${e}. Text was: ${jsonStr.slice(0, 200)}...`
-    );
+  /** Create base environment variables for subprocess execution. */
+  private static createBaseEnv(): Record<string, string | undefined> {
+    return {
+      GITHUB_PAT: process.env.GITHUB_PAT,
+      CLAUDE_CODE_PATH: process.env.CLAUDE_CODE_PATH ?? "claude",
+      CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR:
+        process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR ?? "true",
+      E2B_API_KEY: process.env.E2B_API_KEY,
+      CLOUDFLARED_TUNNEL_TOKEN: process.env.CLOUDFLARED_TUNNEL_TOKEN,
+      HOME: process.env.HOME,
+      USER: process.env.USER,
+      PATH: process.env.PATH,
+      SHELL: process.env.SHELL,
+      TERM: process.env.TERM,
+      LANG: process.env.LANG,
+      LC_ALL: process.env.LC_ALL,
+      PWD: process.cwd(),
+    };
+  }
+
+  /** Add aliases to environment variables. */
+  private static addAliases(env: Record<string, string | undefined>): void {
+    if (process.env.GITHUB_PAT) {
+      env.GH_TOKEN = process.env.GITHUB_PAT;
+    }
+  }
+
+  /** Filter out undefined values from environment object. */
+  private static filterDefined(env: Record<string, string | undefined>): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const [k, v] of Object.entries(env)) {
+      if (v !== undefined) result[k] = v;
+    }
+    return result;
+  }
+
+  /**
+   * Get filtered environment variables safe for subprocess execution.
+   * Filtered env for CLI subprocess execution.
+   */
+  static getSafeSubprocessEnv(): Record<string, string> {
+    const env = this.createBaseEnv();
+    this.addAliases(env);
+    return this.filterDefined(env);
   }
 }
 
-/**
- * Check that all required environment variables are set.
- * Throws if any are missing.
- * API key is stored as CONVEX_ANTHROPIC_API_KEY (not ANTHROPIC_API_KEY) to avoid Bun auto-injecting it into SDK subprocesses.
- */
-export function checkEnvVars(vars: string[] = ["CLAUDE_CODE_PATH"]): void {
-  const missing = vars.filter((v) => !process.env[v]);
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}`
-    );
-  }
-}
-
-/**
- * Get filtered environment variables safe for subprocess execution.
- * Filtered env for CLI subprocess execution.
- */
-export function getSafeSubprocessEnv(): Record<string, string> {
-  const env: Record<string, string | undefined> = {
-    GITHUB_PAT: process.env.GITHUB_PAT,
-    CLAUDE_CODE_PATH: process.env.CLAUDE_CODE_PATH ?? "claude",
-    CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR:
-      process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR ?? "true",
-    E2B_API_KEY: process.env.E2B_API_KEY,
-    CLOUDFLARED_TUNNEL_TOKEN: process.env.CLOUDFLARED_TUNNEL_TOKEN,
-    HOME: process.env.HOME,
-    USER: process.env.USER,
-    PATH: process.env.PATH,
-    SHELL: process.env.SHELL,
-    TERM: process.env.TERM,
-    LANG: process.env.LANG,
-    LC_ALL: process.env.LC_ALL,
-    PWD: process.cwd(),
-  };
-
-  // Add GH_TOKEN alias
-  if (process.env.GITHUB_PAT) {
-    env.GH_TOKEN = process.env.GITHUB_PAT;
-  }
-
-  // Filter out undefined values
-  const result: Record<string, string> = {};
-  for (const [k, v] of Object.entries(env)) {
-    if (v !== undefined) result[k] = v;
-  }
-  return result;
-}
 
 /**
  * Get the project root directory (parent of adws/).
@@ -407,156 +366,4 @@ export function getWorkflowModels(): WorkflowModels {
 }
 
 
-// ─── Issue Classification Utilities ─────────────────────────────────────────
 
-import type { IssueClassSlashCommand, GitHubIssue } from "./schemas";
-import type { QueryResult } from "./agent-sdk";
-
-/** Parse a classification result into an IssueClassSlashCommand. */
-export function parseClassification(
-  result: QueryResult
-): { issueClass: IssueClassSlashCommand; error?: undefined } | { issueClass?: undefined; error: string } {
-  if (!result.success || !result.result) {
-    return { error: `Classification failed: ${result.error ?? "no result"}` };
-  }
-  const match = result.result.match(/\/chore|\/bug|\/feature|0/);
-  if (!match || match[0] === "0") {
-    return { error: `Invalid classification: ${result.result}` };
-  }
-  return { issueClass: match[0] as IssueClassSlashCommand };
-}
-
-/** Build the type-specific plan prompt for an issue. */
-export function buildIssuePlanPrompt(
-  issueClass: IssueClassSlashCommand,
-  issueNumber: string,
-  adwId: string,
-  issueJson: string
-): { command: string; prompt: string } {
-  return {
-    command: issueClass,
-    prompt: `${issueClass} ${issueNumber} ${adwId} ${issueJson}`,
-  };
-}
-
-/** Fetch an issue, classify it, and return everything needed for planning. */
-export async function fetchAndClassifyIssue(
-  issueNumber: string,
-  adwId: string,
-  opts: { model?: string; cwd?: string; logger?: any }
-): Promise<
-  | { ok: true; issue: GitHubIssue; issueClass: IssueClassSlashCommand; planPrompt: string; issueJson: string }
-  | { ok: false; error: string }
-> {
-  const { fetchIssue, getRepoUrl, extractRepoPath } = await import("./github");
-  const { runClassifyStep } = await import("./agent-sdk");
-
-  // Fetch repo info
-  let repoPath: string;
-  try {
-    const repoUrl = await getRepoUrl();
-    repoPath = extractRepoPath(repoUrl);
-  } catch (e) {
-    return { ok: false, error: `Failed to get repo URL: ${e}` };
-  }
-
-  // Fetch issue
-  let issue: GitHubIssue;
-  try {
-    issue = await fetchIssue(issueNumber, repoPath);
-  } catch (e) {
-    return { ok: false, error: `Failed to fetch issue: ${e}` };
-  }
-
-  // Classify
-  const issueJson = JSON.stringify({
-    number: issue.number,
-    title: issue.title,
-    body: issue.body,
-  });
-
-  const classifyResult = await runClassifyStep(issueJson, {
-    model: opts.model,
-    cwd: opts.cwd,
-    logger: opts.logger,
-  });
-
-  const parsed = parseClassification(classifyResult);
-  if (parsed.error) {
-    return { ok: false, error: parsed.error };
-  }
-
-  const { prompt: planPrompt } = buildIssuePlanPrompt(
-    parsed.issueClass,
-    issueNumber,
-    adwId,
-    issueJson
-  );
-
-  return {
-    ok: true,
-    issue,
-    issueClass: parsed.issueClass,
-    planPrompt,
-    issueJson,
-  };
-}
-
-// ─── Research Workflow Utilities ────────────────────────────────────────────
-
-/** Discover frontend app directories under apps/. */
-export function discoverApps(workingDir: string): string[] {
-  const appsPath = join(workingDir, "apps");
-  try {
-    return readdirSync(appsPath)
-      .filter((entry) => {
-        const entryPath = join(appsPath, entry);
-        return statSync(entryPath).isDirectory() && !entry.startsWith(".");
-      });
-  } catch {
-    return [];
-  }
-}
-
-/** Slugify a topic name for use as a filename. */
-export function slugify(topic: string): string {
-  return topic
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-/** Find the most recently created .md file in a directory. */
-export function findMostRecentMd(dir: string): string | null {
-  try {
-    const mdFiles = readdirSync(dir)
-      .filter((f) => f.endsWith(".md"))
-      .map((f) => ({
-        path: join(dir, f),
-        mtime: statSync(join(dir, f)).mtimeMs,
-      }))
-      .sort((a, b) => b.mtime - a.mtime);
-    return mdFiles.length > 0 ? mdFiles[0].path : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Extract a .md path from agent result text, or return null. */
-export function extractMdPath(resultText: string, workingDir: string): string | null {
-  const absMatch = resultText.match(/\/[^\s`"']+\.md/);
-  if (absMatch) {
-    const matched = absMatch[0];
-    // Only trust it as absolute if it actually exists on disk
-    if (isAbsolute(matched) && existsSync(matched)) return matched;
-    // Otherwise treat as relative to workingDir
-    const asRelative = join(workingDir, matched);
-    if (existsSync(asRelative)) return asRelative;
-  }
-
-  const relMatch = resultText.match(/(?:temp\/research\/[^\s`"']+\.md)/);
-  if (relMatch) return join(workingDir, relMatch[0]);
-
-  return null;
-}

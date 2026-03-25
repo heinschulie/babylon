@@ -8,6 +8,58 @@ import {
 import type { ADWState } from "./state";
 import type { Logger } from "./logger";
 
+/** Checkout an existing branch. */
+export async function checkoutBranch(
+  branchName: string,
+  cwd?: string
+): Promise<[boolean, string | null]> {
+  const { stderr, exitCode } = await exec(["git", "checkout", branchName], { cwd });
+  if (exitCode !== 0) return [false, stderr];
+  return [true, null];
+}
+
+/** Returns false if branchName is a feature branch (hein/feature/issue-*). */
+export function isStableBranch(branchName: string): boolean {
+  return !/^hein\/feature\/issue-/.test(branchName);
+}
+
+/** Assert current branch is stable. Throws if on a feature branch. */
+export async function assertStableBranch(cwd?: string): Promise<void> {
+  const branch = await getCurrentBranch(cwd);
+  if (!isStableBranch(branch)) {
+    throw new Error(`Refusing to run from unstable feature branch: ${branch}. Switch to a stable branch (e.g. main) first.`);
+  }
+}
+
+/** Get current HEAD sha. */
+export async function getHeadSha(cwd?: string): Promise<string> {
+  const { stdout } = await exec(["git", "rev-parse", "HEAD"], { cwd });
+  return stdout;
+}
+
+/** Count files in a git diff range. */
+export async function diffFileCount(
+  fromSha: string,
+  toRef: string = "HEAD",
+  cwd?: string
+): Promise<number> {
+  const list = await diffFileList(fromSha, toRef, cwd);
+  return list.length;
+}
+
+/** List changed file paths between two SHAs. */
+export async function diffFileList(
+  fromSha: string,
+  toRef: string = "HEAD",
+  cwd?: string
+): Promise<string[]> {
+  const { stdout } = await exec(
+    ["git", "diff", "--name-only", fromSha, toRef],
+    { cwd }
+  );
+  return stdout ? stdout.split("\n").filter(Boolean) : [];
+}
+
 /** Get current git branch name. */
 export async function getCurrentBranch(cwd?: string): Promise<string> {
   const { stdout } = await exec(
@@ -60,25 +112,40 @@ export async function checkPrExists(
   return null;
 }
 
-/** Create and checkout a new branch. */
+/** Create and checkout a new branch. Resumes local or remote orphans. */
 export async function createBranch(
   branchName: string,
   cwd?: string
 ): Promise<[boolean, string | null]> {
+  // 1. Try create new branch
   const { stderr, exitCode } = await exec(
     ["git", "checkout", "-b", branchName],
     { cwd }
   );
 
-  if (exitCode !== 0) {
-    if (stderr.includes("already exists")) {
-      const result = await exec(["git", "checkout", branchName], { cwd });
-      if (result.exitCode !== 0) return [false, result.stderr];
-      return [true, null];
-    }
-    return [false, stderr];
+  if (exitCode === 0) return [true, null];
+
+  if (stderr.includes("already exists")) {
+    // 2. Branch exists locally — checkout (resume orphan)
+    const result = await exec(["git", "checkout", branchName], { cwd });
+    if (result.exitCode !== 0) return [false, result.stderr];
+    return [true, null];
   }
-  return [true, null];
+
+  // 3. Try fetch from remote
+  const fetchResult = await exec(
+    ["git", "fetch", "origin", branchName],
+    { cwd }
+  );
+  if (fetchResult.exitCode === 0) {
+    const trackResult = await exec(
+      ["git", "checkout", "-b", branchName, `origin/${branchName}`],
+      { cwd }
+    );
+    if (trackResult.exitCode === 0) return [true, null];
+  }
+
+  return [false, stderr];
 }
 
 /** Stage all changes and commit. */

@@ -1,10 +1,8 @@
 import { join } from "path";
-import { mkdirSync, existsSync, readFileSync } from "fs";
+import { mkdirSync, existsSync, readFileSync, readdirSync } from "fs";
 import { ADWStateDataSchema, type ADWStateData } from "./schemas";
 import { getProjectRoot } from "./utils";
 import type { Logger } from "./logger";
-
-const STATE_FILENAME = "adw_state.json";
 
 const CORE_FIELDS = new Set([
   "adw_id",
@@ -16,17 +14,24 @@ const CORE_FIELDS = new Set([
   "backend_port",
   "frontend_port",
   "model_set",
+  "base_branch",
   "all_adws",
 ]);
 
 export class ADWState {
   readonly adwId: string;
   private data: Record<string, unknown>;
+  private logDir: string | undefined;
 
-  constructor(adwId: string) {
+  constructor(adwId: string, logDir?: string) {
     if (!adwId) throw new Error("adw_id is required for ADWState");
     this.adwId = adwId;
+    this.logDir = logDir;
     this.data = { adw_id: adwId };
+  }
+
+  setLogDir(dir: string): void {
+    this.logDir = dir;
   }
 
   update(fields: Partial<ADWStateData>): void {
@@ -58,7 +63,11 @@ export class ADWState {
   }
 
   getStatePath(): string {
-    return join(getProjectRoot(), "agents", this.adwId, STATE_FILENAME);
+    if (this.logDir) {
+      return join(this.logDir, "state.json");
+    }
+    // Legacy fallback (should not be hit once all callers pass logDir)
+    return join(getProjectRoot(), "temp", "builds", `_state_${this.adwId}.json`);
   }
 
   async save(_workflowStep?: string): Promise<void> {
@@ -70,34 +79,56 @@ export class ADWState {
     await Bun.write(statePath, JSON.stringify(stateData, null, 2));
   }
 
-  static load(adwId: string, logger?: Logger): ADWState | null {
-    const statePath = join(
-      getProjectRoot(),
-      "agents",
-      adwId,
-      STATE_FILENAME
-    );
-
-    if (!existsSync(statePath)) return null;
-
+  /** Find the build directory for this adwId by scanning temp/builds/. */
+  private static findLogDir(adwId: string): string | undefined {
+    const buildsDir = join(getProjectRoot(), "temp", "builds");
+    if (!existsSync(buildsDir)) return undefined;
     try {
-      const raw = readFileSync(statePath, "utf-8");
-      const data = JSON.parse(raw);
-      const stateData = ADWStateDataSchema.parse(data);
-
-      const state = new ADWState(stateData.adw_id);
-      state.data = stateData as Record<string, unknown>;
-
-      if (logger) {
-        logger.info(`Found existing state from ${statePath}`);
-        logger.debug(`State: ${JSON.stringify(stateData, null, 2)}`);
+      for (const entry of readdirSync(buildsDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (!entry.name.endsWith(`_${adwId}`)) continue;
+        const candidate = join(buildsDir, entry.name, "state.json");
+        if (existsSync(candidate)) return join(buildsDir, entry.name);
       }
-
-      return state;
-    } catch (e) {
-      if (logger) logger.error(`Failed to load state from ${statePath}: ${e}`);
-      return null;
+    } catch {
+      // ignore
     }
+    return undefined;
+  }
+
+  static load(adwId: string, logger?: Logger, logDir?: string): ADWState | null {
+    // 1. Try explicit logDir
+    // 2. Scan temp/builds/ for dir ending with _{adwId}
+    // 3. Legacy _state_{adwId}.json fallback
+    const resolvedLogDir = logDir ?? ADWState.findLogDir(adwId);
+
+    const candidates: string[] = [];
+    if (resolvedLogDir) candidates.push(join(resolvedLogDir, "state.json"));
+    candidates.push(join(getProjectRoot(), "temp", "builds", `_state_${adwId}.json`));
+
+    for (const statePath of candidates) {
+      if (!existsSync(statePath)) continue;
+
+      try {
+        const raw = readFileSync(statePath, "utf-8");
+        const data = JSON.parse(raw);
+        const stateData = ADWStateDataSchema.parse(data);
+
+        const state = new ADWState(stateData.adw_id, resolvedLogDir);
+        state.data = stateData as Record<string, unknown>;
+
+        if (logger) {
+          logger.info(`Found existing state from ${statePath}`);
+          logger.debug(`State: ${JSON.stringify(stateData, null, 2)}`);
+        }
+
+        return state;
+      } catch (e) {
+        if (logger) logger.error(`Failed to load state from ${statePath}: ${e}`);
+      }
+    }
+
+    return null;
   }
 
   static fromStdin(): ADWState | null {
@@ -120,6 +151,7 @@ export class ADWState {
       plan_file: this.data.plan_file,
       issue_class: this.data.issue_class,
       worktree_path: this.data.worktree_path,
+      base_branch: this.data.base_branch,
       backend_port: this.data.backend_port,
       frontend_port: this.data.frontend_port,
       all_adws: this.data.all_adws ?? [],

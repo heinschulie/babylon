@@ -17,6 +17,7 @@ issue_json: $3
 - Use the plan format below to create the plan. 
 - Research the codebase and put together a plan to accomplish the chore.
 - IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to accomplish the chore.
+- IMPORTANT: Include the current conversation ID in the plan's Metadata section as `conversation_id`. This allows humans or agents to trace back to the conversation that spawned the plan.
 - Use your reasoning model: THINK HARD about the plan and the steps to accomplish the chore.
 - Respect requested files in the `Relevant Files` section.
 - Start your research by reading the `README.md` file.
@@ -46,6 +47,7 @@ Ignore all other files in the codebase.
 issue_number: `{issue_number}`
 adw_id: `{adw_id}`
 issue_json: `{issue_json}`
+conversation_id: `{conversation_id}`
 
 ## Chore Description
 <describe the chore in detail>

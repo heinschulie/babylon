@@ -309,13 +309,10 @@ export async function fetchSubIssues(
   const env = getGitHubEnv();
   const [owner, name] = repoPath.split("/");
 
-  // Map state param to GitHub SubIssueOrder filter values
-  const stateFilter = state === "all" ? "" : `,states:[${state === "open" ? "OPEN" : "CLOSED"}]`;
-
   const result = await exec(
     [
       "gh", "api", "graphql",
-      "-f", `query=query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){subIssues(first:100${stateFilter}){nodes{number title body state labels(first:20){nodes{name}}}}}}}`,
+      "-f", `query=query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){subIssues(first:100){nodes{number title body state labels(first:20){nodes{name}}}}}}}`,
       "-F", `owner=${owner}`,
       "-F", `name=${name}`,
       "-F", `num=${parentIssueNumber}`,
@@ -336,13 +333,17 @@ export async function fetchSubIssues(
     labels: { nodes: Array<{ name: string }> };
   }>;
 
-  return nodes.map((n) => ({
+  const mapped = nodes.map((n) => ({
     number: n.number,
     title: n.title,
     body: n.body,
     state: n.state.toLowerCase(),
     labels: n.labels.nodes.map((l) => l.name),
   }));
+
+  // Client-side state filtering (GitHub API no longer supports states argument)
+  if (state === "all") return mapped;
+  return mapped.filter((n) => n.state === state);
 }
 
 /**
@@ -447,6 +448,60 @@ interface ReviewResultForPost {
   screenshots?: string[];
 }
 
+/** Review markdown comment builder */
+class ReviewCommentBuilder {
+  /** Build markdown comment from review results and URL map */
+  static buildComment(
+    review: ReviewResultForPost,
+    urlMap: Record<string, string>,
+    adwId: string
+  ): string {
+    const verdict = review.success ? "PASS ✅" : "FAIL ❌";
+    const lines: string[] = [
+      `## Review ${verdict}`,
+      "",
+    ];
+
+    if (review.review_summary) {
+      lines.push(review.review_summary, "");
+    }
+
+    // Screenshots section
+    const showcaseScreenshots = (review.screenshots ?? []).filter(Boolean);
+    if (showcaseScreenshots.length > 0) {
+      lines.push("### Screenshots", "");
+      for (const path of showcaseScreenshots) {
+        const url = urlMap[path];
+        if (url && url !== path) {
+          lines.push(`![${path.split("/").pop() ?? "screenshot"}](${url})`, "");
+        } else {
+          lines.push(`- \`${path}\` (upload failed)`, "");
+        }
+      }
+    }
+
+    // Issues section
+    if (review.review_issues.length > 0) {
+      lines.push("### Issues", "");
+      for (const issue of review.review_issues) {
+        const severity = issue.issue_severity.toUpperCase();
+        lines.push(`**#${issue.review_issue_number} [${severity}]** — ${issue.issue_description}`);
+        lines.push(`> Resolution: ${issue.issue_resolution}`);
+        if (issue.screenshot_path) {
+          const url = urlMap[issue.screenshot_path];
+          if (url && url !== issue.screenshot_path) {
+            lines.push(`> ![issue-${issue.review_issue_number}](${url})`);
+          }
+        }
+        lines.push("");
+      }
+    }
+
+    lines.push(`---`, `ADW ID: \`${adwId}\``);
+    return lines.join("\n");
+  }
+}
+
 /** Post review results to a GitHub issue with R2-hosted screenshots. */
 export async function postReviewToIssue(
   issueNumber: string,
@@ -469,51 +524,8 @@ export async function postReviewToIssue(
     logger.info(`Uploaded ${Object.keys(urlMap).length} screenshots to R2`);
   }
 
-  // Build markdown comment
-  const verdict = review.success ? "PASS ✅" : "FAIL ❌";
-  const lines: string[] = [
-    `## Review ${verdict}`,
-    "",
-  ];
-
-  if (review.review_summary) {
-    lines.push(review.review_summary, "");
-  }
-
-  // Screenshots section
-  const showcaseScreenshots = (review.screenshots ?? []).filter(Boolean);
-  if (showcaseScreenshots.length > 0) {
-    lines.push("### Screenshots", "");
-    for (const path of showcaseScreenshots) {
-      const url = urlMap[path];
-      if (url && url !== path) {
-        lines.push(`![${path.split("/").pop() ?? "screenshot"}](${url})`, "");
-      } else {
-        lines.push(`- \`${path}\` (upload failed)`, "");
-      }
-    }
-  }
-
-  // Issues section
-  if (review.review_issues.length > 0) {
-    lines.push("### Issues", "");
-    for (const issue of review.review_issues) {
-      const severity = issue.issue_severity.toUpperCase();
-      lines.push(`**#${issue.review_issue_number} [${severity}]** — ${issue.issue_description}`);
-      lines.push(`> Resolution: ${issue.issue_resolution}`);
-      if (issue.screenshot_path) {
-        const url = urlMap[issue.screenshot_path];
-        if (url && url !== issue.screenshot_path) {
-          lines.push(`> ![issue-${issue.review_issue_number}](${url})`);
-        }
-      }
-      lines.push("");
-    }
-  }
-
-  lines.push(`---`, `ADW ID: \`${adwId}\``);
-
-  const comment = lines.join("\n");
+  // Build and post comment
+  const comment = ReviewCommentBuilder.buildComment(review, urlMap, adwId);
 
   try {
     await makeIssueComment(issueNumber, comment);

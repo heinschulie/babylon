@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { promptClaudeCode } from "../src/agent";
-import { makeAdwId } from "../src/utils";
+import { makeAdwId, getProjectRoot } from "../src/utils";
 import { mkdirSync } from "fs";
 import { join } from "path";
 
@@ -13,7 +13,7 @@ const hasApiKey = !!process.env.CONVEX_ANTHROPIC_API_KEY;
 describe.skipIf(!hasApiKey)("agent integration", () => {
   it("sonnet model responds to simple prompt", async () => {
     const adwId = makeAdwId();
-    const outputDir = join("agents", adwId, "test_sonnet");
+    const outputDir = join(getProjectRoot(), "temp", "builds", `test_sonnet_${adwId}`);
     mkdirSync(outputDir, { recursive: true });
 
     const response = await promptClaudeCode({
@@ -31,7 +31,7 @@ describe.skipIf(!hasApiKey)("agent integration", () => {
 
   it("opus model responds to simple prompt", async () => {
     const adwId = makeAdwId();
-    const outputDir = join("agents", adwId, "test_opus");
+    const outputDir = join(getProjectRoot(), "temp", "builds", `test_opus_${adwId}`);
     mkdirSync(outputDir, { recursive: true });
 
     const response = await promptClaudeCode({

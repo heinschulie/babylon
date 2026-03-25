@@ -13,7 +13,7 @@ import {
   extractRepoPath,
 } from "./github";
 import { ADWState } from "./state";
-import { exec, getProjectRoot, makeAdwId, parseJson } from "./utils";
+import { exec, getProjectRoot, makeAdwId, JsonParser } from "./utils";
 import type { Logger } from "./logger";
 
 // Agent name constants
@@ -21,6 +21,9 @@ const AGENT_PLANNER = "sdlc_planner";
 const AGENT_IMPLEMENTOR = "sdlc_implementor";
 const AGENT_BRANCH_GENERATOR = "branch_generator";
 const AGENT_PR_CREATOR = "pr_creator";
+
+// Common model name
+const MODEL_SONNET = "sonnet";
 
 /** Available ADW workflows for runtime validation. */
 export const AVAILABLE_ADW_WORKFLOWS = [
@@ -76,6 +79,80 @@ export function extractAdwInfo(
 }
 
 
+/** Create minimal issue JSON for agent requests. */
+function createMinimalIssue(issue: GitHubIssue): string {
+  return JSON.stringify({
+    number: issue.number,
+    title: issue.title,
+    body: issue.body,
+  });
+}
+
+/** Agent request factory for consistent request creation */
+class AgentRequestFactory {
+  /** Create an agent template request with common defaults. */
+  static create(
+    agentName: string,
+    slashCommand: string,
+    args: string[],
+    adwId: string,
+    workingDir?: string
+  ): AgentTemplateRequest {
+    return {
+      agent_name: agentName,
+      slash_command: slashCommand as AgentTemplateRequest["slash_command"],
+      args,
+      adw_id: adwId,
+      model: MODEL_SONNET,
+      working_dir: workingDir,
+    };
+  }
+
+  /** Create a commit request with specific pattern. */
+  static createCommitRequest(
+    agentName: string,
+    issueType: string,
+    issueJson: string,
+    adwId: string,
+    workingDir?: string
+  ): AgentTemplateRequest {
+    return this.create(
+      `${agentName}_committer`,
+      "/commit",
+      [agentName, issueType, issueJson],
+      adwId,
+      workingDir
+    );
+  }
+
+  /** Create a pull request creation request. */
+  static createPullRequestRequest(
+    branchName: string,
+    issueJson: string,
+    planFile: string,
+    adwId: string,
+    workingDir?: string
+  ): AgentTemplateRequest {
+    return this.create(
+      AGENT_PR_CREATOR,
+      "/pull_request",
+      [branchName, issueJson, planFile, adwId],
+      adwId,
+      workingDir
+    );
+  }
+
+  /** Create a patch request with specific arguments. */
+  static createPatchRequest(
+    agentName: string,
+    args: string[],
+    adwId: string,
+    workingDir?: string
+  ): AgentTemplateRequest {
+    return this.create(agentName, "/patch", args, adwId, workingDir);
+  }
+}
+
 /** Build implementation plan for the issue. */
 export async function buildPlan(
   issue: GitHubIssue,
@@ -84,20 +161,14 @@ export async function buildPlan(
   logger: Logger,
   workingDir?: string
 ): Promise<AgentPromptResponse> {
-  const minimalIssue = JSON.stringify({
-    number: issue.number,
-    title: issue.title,
-    body: issue.body,
-  });
-
-  const request: AgentTemplateRequest = {
-    agent_name: AGENT_PLANNER,
-    slash_command: command as AgentTemplateRequest["slash_command"],
-    args: [String(issue.number), adwId, minimalIssue],
-    adw_id: adwId,
-    model: "sonnet",
-    working_dir: workingDir,
-  };
+  const minimalIssue = createMinimalIssue(issue);
+  const request = AgentRequestFactory.create(
+    AGENT_PLANNER,
+    command,
+    [String(issue.number), adwId, minimalIssue],
+    adwId,
+    workingDir
+  );
 
   return executeTemplate(request);
 }
@@ -110,14 +181,13 @@ export async function implementPlan(
   agentName?: string,
   workingDir?: string
 ): Promise<AgentPromptResponse> {
-  const request: AgentTemplateRequest = {
-    agent_name: agentName ?? AGENT_IMPLEMENTOR,
-    slash_command: "/implement",
-    args: [planFile],
-    adw_id: adwId,
-    model: "sonnet",
-    working_dir: workingDir,
-  };
+  const request = AgentRequestFactory.create(
+    agentName ?? AGENT_IMPLEMENTOR,
+    "/implement",
+    [planFile],
+    adwId,
+    workingDir
+  );
 
   return executeTemplate(request);
 }
@@ -130,19 +200,13 @@ export async function generateBranchName(
   logger: Logger
 ): Promise<[string | null, string | null]> {
   const issueType = issueClass.replace("/", "");
-  const minimalIssue = JSON.stringify({
-    number: issue.number,
-    title: issue.title,
-    body: issue.body,
-  });
-
-  const request: AgentTemplateRequest = {
-    agent_name: AGENT_BRANCH_GENERATOR,
-    slash_command: "/generate_branch_name",
-    args: [issueType, adwId, minimalIssue],
-    adw_id: adwId,
-    model: "sonnet",
-  };
+  const minimalIssue = createMinimalIssue(issue);
+  const request = AgentRequestFactory.create(
+    AGENT_BRANCH_GENERATOR,
+    "/generate_branch_name",
+    [issueType, adwId, minimalIssue],
+    adwId
+  );
 
   const response = await executeTemplate(request);
   if (!response.success) return [null, response.output];
@@ -169,14 +233,13 @@ export async function createCommit(
     body: issue.body,
   });
 
-  const request: AgentTemplateRequest = {
-    agent_name: uniqueAgentName,
-    slash_command: "/commit",
-    args: [agentName, issueType, minimalIssue],
-    adw_id: adwId,
-    model: "sonnet",
-    working_dir: workingDir,
-  };
+  const request = AgentRequestFactory.createCommitRequest(
+    agentName,
+    issueType,
+    minimalIssue,
+    adwId,
+    workingDir
+  );
 
   const response = await executeTemplate(request);
   if (!response.success) return [null, response.output];
@@ -208,14 +271,13 @@ export async function createPullRequest(
     });
   }
 
-  const request: AgentTemplateRequest = {
-    agent_name: AGENT_PR_CREATOR,
-    slash_command: "/pull_request",
-    args: [branchName, issueJson, planFile, adwId],
-    adw_id: adwId,
-    model: "sonnet",
-    working_dir: workingDir,
-  };
+  const request = AgentRequestFactory.createPullRequestRequest(
+    branchName,
+    issueJson,
+    planFile,
+    adwId,
+    workingDir
+  );
 
   const response = await executeTemplate(request);
   if (!response.success) return [null, response.output];
@@ -246,15 +308,16 @@ export function ensurePlanExists(state: ADWState, issueNumber: string): string {
 export async function ensureAdwId(
   issueNumber: string,
   adwId?: string,
-  logger?: Logger
+  logger?: Logger,
+  logDir?: string
 ): Promise<string> {
   if (adwId) {
-    const state = ADWState.load(adwId, logger);
+    const state = ADWState.load(adwId, logger, logDir);
     if (state) {
       logger?.info(`Found existing ADW state for ID: ${adwId}`);
       return adwId;
     }
-    const newState = new ADWState(adwId);
+    const newState = new ADWState(adwId, logDir);
     newState.update({ adw_id: adwId, issue_number: issueNumber });
     await newState.save("ensure_adw_id");
     logger?.info(`Created new ADW state for provided ID: ${adwId}`);
@@ -262,7 +325,7 @@ export async function ensureAdwId(
   }
 
   const newAdwId = makeAdwId();
-  const state = new ADWState(newAdwId);
+  const state = new ADWState(newAdwId, logDir);
   state.update({ adw_id: newAdwId, issue_number: issueNumber });
   await state.save("ensure_adw_id");
   logger?.info(`Created new ADW ID and state: ${newAdwId}`);
@@ -295,17 +358,19 @@ export function findPlanForIssue(
   issueNumber: string,
   adwId?: string
 ): string | null {
-  const agentsDir = join(getProjectRoot(), "agents");
-  if (!existsSync(agentsDir)) return null;
-
-  if (adwId) {
-    const planPath = join(agentsDir, adwId, AGENT_PLANNER, "plan.md");
-    if (existsSync(planPath)) return planPath;
-  }
+  const buildsDir = join(getProjectRoot(), "temp", "builds");
+  if (!existsSync(buildsDir)) return null;
 
   try {
-    for (const agentId of readdirSync(agentsDir)) {
-      const planPath = join(agentsDir, agentId, AGENT_PLANNER, "plan.md");
+    for (const entry of readdirSync(buildsDir)) {
+      // Match by adwId suffix or issue number prefix
+      if (adwId && !entry.endsWith(`_${adwId}`)) continue;
+      if (!adwId && !entry.startsWith(`${issueNumber}_`)) continue;
+
+      // Check under steps/ first (new layout), then fallback to flat (legacy)
+      const stepsPath = join(buildsDir, entry, "steps", AGENT_PLANNER, "plan.md");
+      if (existsSync(stepsPath)) return stepsPath;
+      const planPath = join(buildsDir, entry, AGENT_PLANNER, "plan.md");
       if (existsSync(planPath)) return planPath;
     }
   } catch {
@@ -441,6 +506,38 @@ export async function findSpecFile(
   return null;
 }
 
+/** Create error response tuple. */
+function createErrorResponse(output: string): [null, AgentPromptResponse] {
+  return [
+    null,
+    {
+      output,
+      success: false,
+      retry_code: "none",
+    },
+  ];
+}
+
+/** Validate patch file path format. */
+function isValidPatchPath(path: string): boolean {
+  return path.includes("temp/specs/patch/") && path.endsWith(".md");
+}
+
+/** Build arguments for patch request. */
+function buildPatchArgs(
+  adwId: string,
+  reviewChangeRequest: string,
+  specPath: string | undefined,
+  agentNamePlanner: string,
+  issueScreenshots?: string
+): string[] {
+  const args = [adwId, reviewChangeRequest];
+  args.push(specPath ?? "");
+  args.push(agentNamePlanner);
+  if (issueScreenshots) args.push(issueScreenshots);
+  return args;
+}
+
 /** Create a patch plan and implement it. */
 export async function createAndImplementPatch(
   adwId: string,
@@ -452,46 +549,27 @@ export async function createAndImplementPatch(
   issueScreenshots?: string,
   workingDir?: string
 ): Promise<[string | null, AgentPromptResponse]> {
-  const args = [adwId, reviewChangeRequest];
-  args.push(specPath ?? "");
-  args.push(agentNamePlanner);
-  if (issueScreenshots) args.push(issueScreenshots);
+  const args = buildPatchArgs(adwId, reviewChangeRequest, specPath, agentNamePlanner, issueScreenshots);
 
-  const request: AgentTemplateRequest = {
-    agent_name: agentNamePlanner,
-    slash_command: "/patch",
+  const request = AgentRequestFactory.createPatchRequest(
+    agentNamePlanner,
     args,
-    adw_id: adwId,
-    model: "sonnet",
-    working_dir: workingDir,
-  };
+    adwId,
+    workingDir
+  );
 
   const response = await executeTemplate(request);
 
   if (!response.success) {
     logger.error(`Error creating patch plan: ${response.output}`);
-    return [
-      null,
-      {
-        output: `Failed to create patch plan: ${response.output}`,
-        success: false,
-        retry_code: "none",
-      },
-    ];
+    return createErrorResponse(`Failed to create patch plan: ${response.output}`);
   }
 
   const patchFilePath = response.output.trim();
 
-  if (!patchFilePath.includes("temp/specs/patch/") || !patchFilePath.endsWith(".md")) {
+  if (!isValidPatchPath(patchFilePath)) {
     logger.error(`Invalid patch plan path returned: ${patchFilePath}`);
-    return [
-      null,
-      {
-        output: `Invalid patch plan path: ${patchFilePath}`,
-        success: false,
-        retry_code: "none",
-      },
-    ];
+    return createErrorResponse(`Invalid patch plan path: ${patchFilePath}`);
   }
 
   logger.info(`Created patch plan: ${patchFilePath}`);

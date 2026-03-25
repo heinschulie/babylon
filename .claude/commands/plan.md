@@ -19,6 +19,7 @@ prompt: $2
 - Research the codebase starting with `README.md`
 - IMPORTANT: When you finish your plan, return only the path to the plan file created.
 - IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value
+- IMPORTANT: Include the current conversation ID in the plan's Metadata section as `conversation_id`. This allows humans or agents to trace back to the conversation that spawned the plan.
 - Use your reasoning model: ULTRATHINK about the task requirements and appropriate level of planning needed
 - Follow existing patterns and conventions in the codebase
 
@@ -39,6 +40,7 @@ prompt: $2
 
 adw_id: `{adw_id}`
 prompt: `{prompt}`
+conversation_id: `{conversation_id}`
 task_type: <chore|feature|refactor|fix|enhancement>
 complexity: <simple|medium|complex>
 
@@ -132,3 +134,14 @@ Use the task description from the `prompt` variable.
 ## Report
 
 IMPORTANT: Exclusively return the path to the plan file created.
+
+## Step Summary
+
+IMPORTANT: You MUST end your output with this exact block. Fill in each field with a single line.
+
+## Step Summary
+- status: pass | fail
+- action: <one line describing what you did>
+- decision: <one line -- key choice and why>
+- blockers: <one line, or "none">
+- files_changed: <comma-separated list, or "none">

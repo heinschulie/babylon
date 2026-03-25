@@ -10,6 +10,7 @@ Create a Product Requirements Document (PRD) by interviewing the user, exploring
 
 ## Instructions
 
+- **Stable branch guard**: Before starting, check the current git branch. If on a branch matching `hein/feature/issue-*`, STOP and tell the user they must switch to a stable branch (e.g., `main`) before creating a PRD. Do not proceed.
 - Ask the user for a detailed description of the problem and any solution ideas before doing anything else
 - Explore the repo to verify user assertions and understand current codebase state
 - Interview the user relentlessly about every aspect of the plan until shared understanding is reached; walk down each branch of the design tree, resolving dependencies between decisions one-by-one
@@ -18,6 +19,7 @@ Create a Product Requirements Document (PRD) by interviewing the user, exploring
 - Skip steps you don't consider necessary
 - Do NOT include specific file paths or code snippets in the PRD — they become outdated quickly
 - Submit the final PRD as a GitHub issue using `gh issue create`
+- IMPORTANT: Include the current conversation ID in the PRD's Metadata section as `conversation_id`. This allows humans or agents to trace back to the conversation that spawned the PRD.
 
 ## Workflow
 
@@ -30,6 +32,9 @@ Create a Product Requirements Document (PRD) by interviewing the user, exploring
 ### PRD Template
 
 ```
+## Metadata
+conversation_id: `{conversation_id}`
+
 ## Problem Statement
 The problem from the user's perspective.
 

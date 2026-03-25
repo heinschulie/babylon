@@ -110,7 +110,7 @@ async function runWorkflow(adwId: string, issueNumber?: string): Promise<boolean
 	logger.info(`Starting ADW Document Workflow — ADW ID: ${adwId}`);
 
 	// Load existing state (required)
-	const state = ADWState.load(adwId, logger);
+	const state = ADWState.load(adwId, logger, logger.logDir);
 	if (!state) {
 		logger.error(`No state found for ADW ID: ${adwId}`);
 		logger.error('Run plan/build/test/review workflows first');

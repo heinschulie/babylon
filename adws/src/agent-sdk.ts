@@ -4,9 +4,13 @@
  * Uses @anthropic-ai/claude-agent-sdk for streaming agent execution.
  */
 
-import type { Logger } from "./logger";
+import { join } from "path";
+import { appendFileSync, mkdirSync, writeFileSync } from "fs";
+import type { Logger, StepSummary } from "./logger";
 import { taggedLogger, type TaggedLogger } from "./logger";
 import { createStepBanner, createDefaultStepUsage, fmtDuration } from "./utils";
+import { openStep } from "./step-recorder";
+import { STEP_COMMANDS, type StepCommand } from "./step-commands";
 
 export interface StepUsage {
   input_tokens: number;
@@ -24,12 +28,15 @@ export interface QueryResult {
   session_id?: string;
   result?: string;
   usage?: StepUsage;
+  summary?: StepSummary;
 }
 
 interface RunStepOptions {
   model?: string;
   cwd?: string;
   logger?: Logger;
+  logDir?: string;
+  stepName?: string;
 }
 
 /** Summarize a BetaMessage content array into a compact log line. */
@@ -49,6 +56,29 @@ function summarizeContent(content: any[]): string {
     }
   }
   return parts.join(" | ").slice(0, 300);
+}
+
+/** Extract a ## Step Summary block from agent output text. */
+export function extractStepSummary(text: string): StepSummary | null {
+  const match = text.match(/## Step Summary\s*\n([\s\S]*?)(?:\n##|\n```|$)/);
+  if (!match) return null;
+  const block = match[1];
+  const get = (key: string) => {
+    const m = block.match(new RegExp(`-\\s*${key}:\\s*(.+)`));
+    return m?.[1]?.trim() ?? "";
+  };
+  const status = get("status");
+  if (status !== "pass" && status !== "fail") return null;
+  const vv = get("visual_validation");
+  const visual_validation = vv === "passed" || vv === "failed" || vv === "skipped" ? vv : undefined;
+  return {
+    status,
+    action: get("action"),
+    decision: get("decision"),
+    blockers: get("blockers"),
+    files_changed: get("files_changed"),
+    ...(visual_validation && { visual_validation }),
+  };
 }
 
 /** Extract usage data from a result message. */
@@ -103,6 +133,8 @@ export interface RunStepOpts {
   allStepUsages: { step: string; ok: boolean; usage: StepUsage }[];
   /** What to do on failure: "halt" adds "Workflow halted." to comment, "continue" adds "(continuing)". Default: "halt". */
   onFail?: "halt" | "continue";
+  /** Working directory for git operations (deterministic files_changed). */
+  cwd?: string;
 }
 
 /** Result returned by runStep(). */
@@ -123,25 +155,25 @@ export async function runStep(
   opts: RunStepOpts,
   executor: (stepLogger: TaggedLogger) => Promise<QueryResult>,
 ): Promise<RunStepResult> {
-  const { stepName, stepNumber, totalSteps, logger, commentStep, allStepUsages, onFail = "halt" } = opts;
+  const { stepName, stepNumber, totalSteps, logger, commentStep, allStepUsages, onFail = "halt", cwd } = opts;
 
   logger.info(`\n${createStepBanner(stepName, stepNumber, totalSteps)}`);
-  const stepLog = taggedLogger(logger, stepName, { logDir: logger.logDir, step: stepName });
+  const step = await openStep(logger.logDir, stepName, stepName, logger, { cwd });
 
-  const result = await executor(stepLog);
+  const result = await executor(step.log);
   const usage = result.usage ?? createDefaultStepUsage();
   allStepUsages.push({ step: stepName, ok: result.success, usage });
-  stepLog.info(`Usage: ${formatUsage(usage)}`);
+  step.log.info(`Usage: ${formatUsage(usage)}`);
 
   if (!result.success) {
-    stepLog.error(`Failed: ${result.error}`);
-    stepLog.finalize(false, usage);
+    step.log.error(`Failed: ${result.error}`);
+    await step.close(false, usage, result.summary);
     const suffix = onFail === "halt" ? "\nWorkflow halted." : " (continuing)";
     await commentStep(`Step ${stepNumber}/${totalSteps} ${stepName.toUpperCase()} failed ❌ (${fmtDuration(usage.duration_ms)})${suffix}`);
     return { ok: false, usage, result: result.result, error: result.error };
   }
 
-  stepLog.finalize(true, usage);
+  await step.close(true, usage, result.summary);
   await commentStep(`Step ${stepNumber}/${totalSteps} ${stepName.toUpperCase()} completed ✅ (${fmtDuration(usage.duration_ms)})`);
   logger.info(`${stepName} step completed (${stepNumber}/${totalSteps})`);
 
@@ -177,7 +209,16 @@ export async function runSkillStep(
   prompt: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  const { logger } = options;
+  const { logger, logDir, stepName } = options;
+
+  // Save prompt and set up output capture if step dir provided
+  let outputFile: string | undefined;
+  if (logDir && stepName) {
+    const stepDir = join(logDir, "steps", stepName);
+    mkdirSync(stepDir, { recursive: true });
+    writeFileSync(join(stepDir, "prompt.txt"), prompt);
+    outputFile = join(stepDir, "raw_output.jsonl");
+  }
 
   try {
     logger?.info(`Running skill step: ${prompt.slice(0, 100)}`);
@@ -185,34 +226,76 @@ export async function runSkillStep(
     const sdk = await createSDK({ model: options.model, cwd: options.cwd });
     const query = sdk.query(prompt);
 
-    return await consumeQuery(query, logger);
+    return await consumeQuery(query, logger, outputFile);
   } catch (e) {
     logger?.error(`Skill step failed: ${e}`);
     return { success: false, error: String(e) };
   }
 }
 
+/** Log a single message from the stream. Only result messages go to parent (execution.log). */
+function logStreamMessage(message: any, logger?: Logger): void {
+  switch (message.type) {
+    case "result":
+      logger?.info(`[result] subtype=${message.subtype} result=${(message.result ?? "").slice(0, 1000)}${(message.result ?? "").length > 1000 ? "… [truncated]" : ""}`);
+      break;
+    case "assistant":
+      // Assistant content stays in raw_output.jsonl only — not forwarded to execution.log
+      break;
+    default:
+      // SDK debug noise stays in raw_output.jsonl only — not forwarded to execution.log
+      break;
+  }
+}
+
+/** Find the final result message and extract step summary from the stream. */
+async function findFinalResult(
+  query: AsyncGenerator<any, void>,
+  logger?: Logger,
+  outputFile?: string
+): Promise<{ finalResult: any; summary: StepSummary | null }> {
+  let finalResult: any = null;
+  let summary: StepSummary | null = null;
+
+  for await (const message of query) {
+    logStreamMessage(message, logger);
+    if (outputFile) {
+      try { appendFileSync(outputFile, JSON.stringify(message) + "\n"); } catch { /* ignore */ }
+    }
+    if (message.type === "assistant" && !summary) {
+      const content = message.message?.content;
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type === "text" && block.text?.includes("## Step Summary")) {
+            summary = extractStepSummary(block.text);
+            break;
+          }
+        }
+      }
+    }
+    if (message.type === "result") {
+      finalResult = message;
+      // Also check result text for summary
+      if (!summary && finalResult.result) {
+        summary = extractStepSummary(finalResult.result);
+      }
+    }
+  }
+
+  if (summary) {
+    logger?.info(`[summary] status=${summary.status} action=${summary.action} decision=${summary.decision} blockers=${summary.blockers}`);
+  }
+
+  return { finalResult, summary };
+}
+
 /** Consume the async generator from sdk.query(), return the final result. */
 async function consumeQuery(
   query: AsyncGenerator<any, void>,
-  logger?: Logger
+  logger?: Logger,
+  outputFile?: string
 ): Promise<QueryResult> {
-  let finalResult: any = null;
-
-  for await (const message of query) {
-    switch (message.type) {
-      case "result":
-        finalResult = message;
-        logger?.info(`[result] subtype=${message.subtype} result=${(message.result ?? "").slice(0, 500)}`);
-        break;
-      case "assistant":
-        logger?.info(`[assistant] ${summarizeContent(message.message?.content ?? [])}`);
-        break;
-      default:
-        logger?.debug(`[sdk] type=${message.type} subtype=${message.subtype ?? ""}`);
-        break;
-    }
-  }
+  const { finalResult, summary } = await findFinalResult(query, logger, outputFile);
 
   if (!finalResult) {
     return { success: false };
@@ -228,7 +311,21 @@ async function consumeQuery(
     session_id: finalResult.session_id,
     result: finalResult.result,
     usage,
+    summary: summary ?? undefined,
   };
+}
+
+
+/** Generic step runner using command configuration. */
+function runConfigurableStep(stepKey: string, args: any[], options: RunStepOptions = {}): Promise<QueryResult> {
+  const config = STEP_COMMANDS[stepKey];
+  if (!config) {
+    throw new Error(`Unknown step command: ${stepKey}`);
+  }
+
+  const commandArgs = config.buildArgs(...args);
+  const prompt = `${config.command} ${commandArgs.join(" ")}`;
+  return runSkillStep(prompt, options);
 }
 
 /** Run a plan step — `/plan <adwId> <prompt>`. */
@@ -236,7 +333,7 @@ export function runPlanStep(
   prompt: string,
   options: RunStepOptions & { adwId?: string } = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/plan ${options.adwId ?? "unknown"} ${prompt}`, options);
+  return runConfigurableStep("plan", [prompt, options.adwId], options);
 }
 
 /** Run a build step — `/build <planPath>`. */
@@ -244,17 +341,16 @@ export function runBuildStep(
   planPath: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/build ${planPath}`, options);
+  return runConfigurableStep("build", [planPath], options);
 }
 
-/** Run a review step — `/review <adwId> <specPathOrIssueNumber>`. */
+/** Run a review step — `/review <adwId> <specOrIssueBody> [agentName] [reviewImageDir]`. */
 export function runReviewStep(
   adwId: string,
   specPath: string,
-  options: RunStepOptions & { issueNumber?: number } = {}
+  options: RunStepOptions & { issueBody?: string; agentName?: string; reviewImageDir?: string } = {}
 ): Promise<QueryResult> {
-  const specArg = options.issueNumber && !specPath ? String(options.issueNumber) : specPath;
-  return runSkillStep(`/review ${adwId} ${specArg}`, options);
+  return runConfigurableStep("review", [adwId, specPath, options.issueBody, options.agentName, options.reviewImageDir], options);
 }
 
 /** Run a research-codebase step — `/research-codebase <question>`. */
@@ -262,7 +358,7 @@ export function runResearchCodebaseStep(
   question: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/research-codebase ${question}`, options);
+  return runConfigurableStep("researchCodebase", [question], options);
 }
 
 /** Run a produce-readme step — `/produce-readme <sourcePaths> <outputPath> [mode]`. */
@@ -271,15 +367,14 @@ export function runProduceReadmeStep(
   outputPath: string,
   options: RunStepOptions & { mode?: string } = {}
 ): Promise<QueryResult> {
-  const modeArg = options.mode ? ` ${options.mode}` : "";
-  return runSkillStep(`/produce-readme ${sourcePaths} ${outputPath}${modeArg}`, options);
+  return runConfigurableStep("produceReadme", [sourcePaths, outputPath, options.mode], options);
 }
 
 /** Run an update-prime step — `/update_prime`. */
 export function runUpdatePrimeStep(
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/update_prime`, options);
+  return runConfigurableStep("updatePrime", [], options);
 }
 
 /** Run a document step — `/document <adwId> [specPath] [screenshotsDir]`. */
@@ -287,17 +382,14 @@ export function runDocumentStep(
   adwId: string,
   options: RunStepOptions & { specPath?: string; screenshotsDir?: string } = {}
 ): Promise<QueryResult> {
-  const args = [adwId];
-  if (options.specPath) args.push(options.specPath);
-  if (options.screenshotsDir) args.push(options.screenshotsDir);
-  return runSkillStep(`/document ${args.join(" ")}`, options);
+  return runConfigurableStep("document", [adwId, options.specPath, options.screenshotsDir], options);
 }
 
 /** Run a test step — `/test`. */
 export function runTestStep(
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/test`, options);
+  return runConfigurableStep("test", [], options);
 }
 
 /** Run a patch plan step — `/patch <adwId> <changeRequest> [specPath] [agentName]`. */
@@ -306,10 +398,7 @@ export function runPatchPlanStep(
   changeRequest: string,
   options: RunStepOptions & { specPath?: string; agentName?: string } = {}
 ): Promise<QueryResult> {
-  const args = [adwId, JSON.stringify(changeRequest)];
-  if (options.specPath) args.push(options.specPath);
-  if (options.agentName) args.push(options.agentName);
-  return runSkillStep(`/patch ${args.join(" ")}`, options);
+  return runConfigurableStep("patchPlan", [adwId, changeRequest, options.specPath, options.agentName], options);
 }
 
 /** Run a classify-issue step — `/classify_issue <issueJson>`. */
@@ -317,7 +406,7 @@ export function runClassifyStep(
   issueJson: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/classify_issue ${issueJson}`, options);
+  return runConfigurableStep("classify", [issueJson], options);
 }
 
 /** Run a TDD step — `/tdd` with issue body as context. */
@@ -325,15 +414,26 @@ export function runTddStep(
   issueBody: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/tdd\n\n${issueBody}`, options);
+  return runConfigurableStep("tdd", [issueBody], options);
 }
 
-/** Run a refactor step — `/refactor <adwId>`. */
-export function runRefactorStep(
+/** Run a branch-wide refactor sweep — `/refactor <adwId>`. */
+export function runRefactorSweep(
   adwId: string,
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
-  return runSkillStep(`/refactor ${adwId}`, options);
+  return runConfigurableStep("refactorSweep", [adwId], options);
+}
+
+/** Run a scoped refactor step — `/refactor-step` for red-green-refactor loop. */
+export function runRefactorStep(
+  adwId: string,
+  issueNumber: number,
+  issueBody: string,
+  preTddSha: string,
+  options: RunStepOptions = {}
+): Promise<QueryResult> {
+  return runConfigurableStep("refactorStep", [adwId, issueNumber, issueBody, preTddSha], options);
 }
 
 /** Quick single-turn prompt for extracting info. */

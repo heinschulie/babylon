@@ -90,3 +90,14 @@ Execute every command to validate the patch is complete with zero regressions.
 ## Report
 
 - IMPORTANT: Return exclusively the path to the patch plan file created and nothing else.
+
+## Step Summary
+
+IMPORTANT: You MUST end your output with this exact block. Fill in each field with a single line.
+
+## Step Summary
+- status: pass | fail
+- action: <one line describing what you did>
+- decision: <one line -- key choice and why>
+- blockers: <one line, or "none">
+- files_changed: <comma-separated list, or "none">

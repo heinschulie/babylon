@@ -1,0 +1,20 @@
+{
+	"tunnel": "babylon-dev",
+	"domain": "schulie.com",
+	"apps": {
+		"web": {
+			"subdomain": "dev",
+			"port": 5173
+		},
+		"verifier": {
+			"subdomain": "verifier",
+			"port": 5178
+		}
+	},
+	"services": {
+		"webhook": {
+			"subdomain": "webhook",
+			"port": 8001
+		}
+	}
+}

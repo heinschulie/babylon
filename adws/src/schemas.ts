@@ -222,6 +222,7 @@ export const ADWStateDataSchema = z.object({
   worktree_path: z.string().nullable().optional(),
   backend_port: z.number().nullable().optional(),
   frontend_port: z.number().nullable().optional(),
+  base_branch: z.string().nullable().optional(),
   model_set: ModelSetEnum.nullable().default("base"),
   all_adws: z.array(z.string()).default([]),
 });

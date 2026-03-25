@@ -19,6 +19,7 @@ export default defineConfig({
 		sveltekit()
 	],
 	server: {
+		allowedHosts: ['dev.schulie.com'],
 		fs: {
 			allow: [convexDir]
 		}

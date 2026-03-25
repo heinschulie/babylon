@@ -8,36 +8,38 @@ import {
   type ModelSet,
   type RetryCode,
 } from "./schemas";
-import { exec, getProjectRoot, getSafeSubprocessEnv } from "./utils";
+import { exec, getProjectRoot, EnvironmentManager } from "./utils";
 import { ADWState } from "./state";
 import type { Logger } from "./logger";
+import { JsonlProcessor, truncateOutput, isJsonlOutput, JSONL_TYPE_RESULT } from "./jsonl-processor";
+import { CommandExecutor, CLAUDE_PATH } from "./command-executor";
 
-/** Claude Code CLI path */
-const CLAUDE_PATH = process.env.CLAUDE_CODE_PATH ?? "claude";
+/** Common model names */
+const MODEL_SONNET = "sonnet";
 
 /** Model selection mapping: command → { base model, heavy model } */
 export const SLASH_COMMAND_MODEL_MAP: Record<
   SlashCommand,
   Record<ModelSet, string>
 > = {
-  "/classify_issue": { base: "sonnet", heavy: "sonnet" },
-  "/classify_adw": { base: "sonnet", heavy: "sonnet" },
-  "/generate_branch_name": { base: "sonnet", heavy: "sonnet" },
-  "/implement": { base: "sonnet", heavy: "opus" },
-  "/test": { base: "sonnet", heavy: "sonnet" },
-  "/resolve_failed_test": { base: "sonnet", heavy: "opus" },
-  "/test_e2e": { base: "sonnet", heavy: "sonnet" },
-  "/resolve_failed_e2e_test": { base: "sonnet", heavy: "opus" },
-  "/review": { base: "sonnet", heavy: "sonnet" },
-  "/document": { base: "sonnet", heavy: "opus" },
-  "/commit": { base: "sonnet", heavy: "sonnet" },
-  "/pull_request": { base: "sonnet", heavy: "sonnet" },
-  "/chore": { base: "sonnet", heavy: "opus" },
-  "/bug": { base: "sonnet", heavy: "opus" },
-  "/feature": { base: "sonnet", heavy: "opus" },
-  "/patch": { base: "sonnet", heavy: "opus" },
-  "/install_worktree": { base: "sonnet", heavy: "sonnet" },
-  "/track_agentic_kpis": { base: "sonnet", heavy: "sonnet" },
+  "/classify_issue": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/classify_adw": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/generate_branch_name": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/implement": { base: MODEL_SONNET, heavy: "opus" },
+  "/test": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/resolve_failed_test": { base: MODEL_SONNET, heavy: "opus" },
+  "/test_e2e": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/resolve_failed_e2e_test": { base: MODEL_SONNET, heavy: "opus" },
+  "/review": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/document": { base: MODEL_SONNET, heavy: "opus" },
+  "/commit": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/pull_request": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/chore": { base: MODEL_SONNET, heavy: "opus" },
+  "/bug": { base: MODEL_SONNET, heavy: "opus" },
+  "/feature": { base: MODEL_SONNET, heavy: "opus" },
+  "/patch": { base: MODEL_SONNET, heavy: "opus" },
+  "/install_worktree": { base: MODEL_SONNET, heavy: MODEL_SONNET },
+  "/track_agentic_kpis": { base: MODEL_SONNET, heavy: MODEL_SONNET },
 };
 
 /** Get the appropriate model for a template request based on state's model_set. */
@@ -58,62 +60,128 @@ export function getModelForSlashCommand(
   return defaultModel;
 }
 
-/** Truncate output for display, with special JSONL handling. */
-function truncateOutput(
-  output: string,
-  maxLength: number = 500,
-  suffix: string = "... (truncated)"
-): string {
-  if (output.startsWith('{"type":') && output.includes('\n{"type":')) {
-    const lines = output.trim().split("\n");
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const data = JSON.parse(lines[i]);
-        if (data.type === "result" && data.result) {
-          return truncateOutput(data.result, maxLength, suffix);
-        }
-        if (data.type === "assistant" && data.message?.content?.[0]?.text) {
-          return truncateOutput(data.message.content[0].text, maxLength, suffix);
-        }
-      } catch {
-        // skip
-      }
-    }
-    return `[JSONL output with ${lines.length} messages]${suffix}`;
-  }
 
-  if (output.length <= maxLength) return output;
-  const truncateAt = maxLength - suffix.length;
-  return output.slice(0, truncateAt) + suffix;
+
+/** Parse a single JSONL line safely. */
+function parseJsonlLine(line: string): Record<string, unknown> | null {
+  const trimmedLine = line.trim();
+  if (!trimmedLine) return null;
+
+  try {
+    return JSON.parse(trimmedLine);
+  } catch (parseError) {
+    console.warn(`Failed to parse JSONL line: ${trimmedLine.slice(0, 100)}...`, parseError);
+    return null;
+  }
 }
 
-/** Check if Claude Code CLI is installed. */
-async function checkClaudeInstalled(): Promise<string | null> {
-  try {
-    const { exitCode } = await exec([CLAUDE_PATH, "--version"]);
-    if (exitCode !== 0)
-      return `Error: Claude Code CLI not functional at: ${CLAUDE_PATH}`;
-  } catch {
-    return `Error: Claude Code CLI not found at: ${CLAUDE_PATH}`;
+/** Find the last result message in a list of messages. */
+function findResultMessage(messages: Record<string, unknown>[]): Record<string, unknown> | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].type === JSONL_TYPE_RESULT) {
+      return messages[i];
+    }
   }
   return null;
 }
 
-/** Save a prompt to the logging directory. */
-function savePrompt(prompt: string, adwId: string, agentName: string): void {
-  const match = prompt.match(/^(\/\w+)/);
-  if (!match) return;
+/** Process successful execution with result message. */
+function processSuccessWithResult(resultMessage: Record<string, unknown>): AgentPromptResponse {
+  const sessionId = resultMessage.session_id as string | undefined;
+  const isError = resultMessage.is_error as boolean;
+  const subtype = resultMessage.subtype as string;
 
-  const commandName = match[1].slice(1);
-  const promptDir = join(
-    getProjectRoot(),
-    "agents",
-    adwId,
-    agentName,
-    "prompts"
-  );
-  mkdirSync(promptDir, { recursive: true });
-  writeFileSync(join(promptDir, `${commandName}.txt`), prompt);
+  if (subtype === "error_during_execution") {
+    return {
+      output: "Error during execution: Agent encountered an error and did not return a result",
+      success: false,
+      session_id: sessionId ?? null,
+      retry_code: "error_during_execution",
+    };
+  }
+
+  let resultText = (resultMessage.result as string) ?? "";
+  if (isError && resultText.length > 1000) {
+    resultText = truncateOutput(resultText, 800);
+  }
+
+  return {
+    output: resultText,
+    success: !isError,
+    session_id: sessionId ?? null,
+    retry_code: "none",
+  };
+}
+
+/** Process successful execution without result message (fallback processing). */
+function processSuccessWithoutResult(messages: Record<string, unknown>[], stdoutText: string): AgentPromptResponse {
+  let outputText = "No result message found in Claude Code output";
+  let sessionId: string | null = null;
+
+  // Try to extract from parsed messages first
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    const content = JsonlProcessor.extractMessageContent(msg);
+    if (content) {
+      outputText = content;
+      sessionId = msg.session_id as string | null;
+      break;
+    }
+  }
+
+  // Fallback: try to extract from raw stdout
+  if (outputText === "No result message found in Claude Code output") {
+    try {
+      const lines = stdoutText.trim().split("\n").slice(-5);
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const data = JSON.parse(lines[i]);
+        const content = JsonlProcessor.extractMessageContent(data);
+        if (content) {
+          outputText = `${content.slice(0, 500)}`;
+          sessionId = data.session_id as string | null;
+          break;
+        }
+      }
+    } catch {
+      // ignore parsing errors
+    }
+  }
+
+  // For simple prompts that get responses, this should be considered success
+  const isSimpleResponse = outputText && outputText !== "No result message found in Claude Code output";
+
+  return {
+    output: truncateOutput(outputText, 800),
+    success: isSimpleResponse,
+    session_id: sessionId,
+    retry_code: "none",
+  };
+}
+
+/** Process failed execution (non-zero exit code). */
+function processFailedExecution(
+  exitCode: number,
+  stderrText: string,
+  outputFile: string
+): AgentPromptResponse {
+  let errorMsg: string;
+
+  // Try to parse JSONL for structured error
+  const [, resultMessage] = parseJsonlOutput(outputFile);
+  if (resultMessage?.is_error) {
+    errorMsg = `Claude Code error: ${resultMessage.result ?? "Unknown error"}`;
+  } else if (stderrText) {
+    errorMsg = `Claude Code error: ${stderrText}`;
+  } else {
+    errorMsg = `Claude Code error: Command failed with exit code ${exitCode}`;
+  }
+
+  return {
+    output: truncateOutput(errorMsg, 800),
+    success: false,
+    session_id: null,
+    retry_code: "claude_code_error",
+  };
 }
 
 /** Parse JSONL output file and return all messages + result message. */
@@ -126,26 +194,13 @@ export function parseJsonlOutput(
 
     // Parse each line individually to avoid partial JSON failures
     for (const line of content.split("\n")) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-
-      try {
-        const parsed = JSON.parse(trimmedLine);
+      const parsed = parseJsonlLine(line);
+      if (parsed) {
         messages.push(parsed);
-      } catch (parseError) {
-        // Log individual line parsing errors but continue processing
-        console.warn(`Failed to parse JSONL line: ${trimmedLine.slice(0, 100)}...`, parseError);
       }
     }
 
-    let resultMessage: Record<string, unknown> | null = null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].type === "result") {
-        resultMessage = messages[i];
-        break;
-      }
-    }
-
+    const resultMessage = findResultMessage(messages);
     return [messages, resultMessage];
   } catch (fileError) {
     console.warn(`Failed to read JSONL file ${outputFile}:`, fileError);
@@ -198,7 +253,7 @@ export async function promptClaudeCode(
   request: AgentPromptRequest
 ): Promise<AgentPromptResponse> {
   // Check installation
-  const installError = await checkClaudeInstalled();
+  const installError = await CommandExecutor.checkInstallation();
   if (installError) {
     return {
       output: installError,
@@ -209,7 +264,7 @@ export async function promptClaudeCode(
   }
 
   // Save prompt
-  savePrompt(request.prompt, request.adw_id, request.agent_name);
+  CommandExecutor.savePrompt(request.prompt, request.adw_id, request.agent_name);
 
   // Create output directory
   const outputDir = join(request.output_file, "..");
@@ -233,7 +288,7 @@ export async function promptClaudeCode(
     cmd.push("--dangerously-skip-permissions");
   }
 
-  const env = getSafeSubprocessEnv();
+  const env = EnvironmentManager.getSafeSubprocessEnv();
 
   try {
     // Execute Claude Code, streaming stdout to file
@@ -258,94 +313,11 @@ export async function promptClaudeCode(
       const [messages, resultMessage] = parseJsonlOutput(request.output_file);
       convertJsonlToJson(request.output_file);
 
-      if (resultMessage) {
-        const sessionId = resultMessage.session_id as string | undefined;
-        const isError = resultMessage.is_error as boolean;
-        const subtype = resultMessage.subtype as string;
-
-        if (subtype === "error_during_execution") {
-          return {
-            output:
-              "Error during execution: Agent encountered an error and did not return a result",
-            success: false,
-            session_id: sessionId ?? null,
-            retry_code: "error_during_execution",
-          };
-        }
-
-        let resultText = (resultMessage.result as string) ?? "";
-        if (isError && resultText.length > 1000) {
-          resultText = truncateOutput(resultText, 800);
-        }
-
-        return {
-          output: resultText,
-          success: !isError,
-          session_id: sessionId ?? null,
-          retry_code: "none",
-        };
-      } else {
-        // No result message found, try to extract from parsed messages first
-        let outputText = "No result message found in Claude Code output";
-        let sessionId: string | null = null;
-
-        // Try to extract from parsed messages first
-        for (let i = messages.length - 1; i >= 0; i--) {
-          const msg = messages[i];
-          if (msg.type === "assistant" && msg.message?.content?.[0]?.text) {
-            outputText = msg.message.content[0].text as string;
-            sessionId = msg.session_id as string | null;
-            break;
-          }
-        }
-
-        // Fallback: try to extract from raw stdout
-        if (outputText === "No result message found in Claude Code output") {
-          try {
-            const lines = stdoutText.trim().split("\n").slice(-5);
-            for (let i = lines.length - 1; i >= 0; i--) {
-              const data = JSON.parse(lines[i]);
-              if (data.type === "assistant" && data.message?.content?.[0]?.text) {
-                outputText = `${data.message.content[0].text.slice(0, 500)}`;
-                sessionId = data.session_id as string | null;
-                break;
-              }
-            }
-          } catch {
-            // ignore parsing errors
-          }
-        }
-
-        // For simple prompts that get responses, this should be considered success
-        const isSimpleResponse = outputText && outputText !== "No result message found in Claude Code output";
-
-        return {
-          output: truncateOutput(outputText, 800),
-          success: isSimpleResponse,
-          session_id: sessionId,
-          retry_code: "none",
-        };
-      }
+      return resultMessage
+        ? processSuccessWithResult(resultMessage)
+        : processSuccessWithoutResult(messages, stdoutText);
     } else {
-      // Non-zero exit code
-      let errorMsg: string;
-
-      // Try to parse JSONL for structured error
-      const [, resultMessage] = parseJsonlOutput(request.output_file);
-      if (resultMessage?.is_error) {
-        errorMsg = `Claude Code error: ${resultMessage.result ?? "Unknown error"}`;
-      } else if (stderrText) {
-        errorMsg = `Claude Code error: ${stderrText}`;
-      } else {
-        errorMsg = `Claude Code error: Command failed with exit code ${exitCode}`;
-      }
-
-      return {
-        output: truncateOutput(errorMsg, 800),
-        success: false,
-        session_id: null,
-        retry_code: "claude_code_error",
-      };
+      return processFailedExecution(exitCode, stderrText, request.output_file);
     }
   } catch (e) {
     if (e instanceof Error && e.message.includes("timeout")) {
@@ -367,7 +339,8 @@ export async function promptClaudeCode(
 
 /** Execute a Claude Code template with slash command and arguments. */
 export async function executeTemplate(
-  request: AgentTemplateRequest
+  request: AgentTemplateRequest,
+  outputDirOverride?: string
 ): Promise<AgentPromptResponse> {
   // Get the appropriate model
   const mappedModel = getModelForSlashCommand(request);
@@ -377,15 +350,18 @@ export async function executeTemplate(
   const prompt = `${updatedRequest.slash_command} ${updatedRequest.args.join(" ")}`;
 
   // Create output directory
-  const outputDir = join(
+  const outDir = outputDirOverride ?? join(
     getProjectRoot(),
-    "agents",
-    updatedRequest.adw_id,
-    updatedRequest.agent_name
+    "temp",
+    "builds",
+    `${updatedRequest.agent_name}_${updatedRequest.adw_id}`
   );
-  mkdirSync(outputDir, { recursive: true });
+  mkdirSync(outDir, { recursive: true });
 
-  const outputFile = join(outputDir, "raw_output.jsonl");
+  const outputFile = join(outDir, "raw_output.jsonl");
+
+  // Save prompt (use override dir if provided)
+  CommandExecutor.savePrompt(prompt, updatedRequest.adw_id, updatedRequest.agent_name, outputDirOverride);
 
   const promptRequest: AgentPromptRequest = {
     prompt,

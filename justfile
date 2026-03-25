@@ -5,9 +5,9 @@ set dotenv-load := true
 default:
   @just --list
 
-# Dev: web app + Convex backend
+# Dev: web app + Convex backend + webhook server + Cloudflare Tunnel
 dev:
-  bun run dev & bun run convex:dev
+  bun run dev & bun run convex:dev & bun run adws/triggers/webhook.ts & cloudflared tunnel run babylon-dev
 
 # Dev: web app only
 web:
@@ -16,6 +16,10 @@ web:
 # Dev: verifier app only
 verifier:
   bun run dev:verifier
+
+# Dev: Cloudflare Tunnel only
+tunnel:
+  cloudflared tunnel run babylon-dev
 
 # Dev: Convex backend (watch mode)
 convex:
@@ -57,9 +61,10 @@ format:
 lint:
   bun run lint
 
-# Install dependencies
+# Install dependencies + setup tunnels
 install:
   bun install
+  ./scripts/setup-tunnels.sh
 
 # Reset artifacts
 reset:

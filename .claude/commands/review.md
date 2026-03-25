@@ -5,35 +5,37 @@ Follow the `Instructions` below to **review work done against a specification** 
 ## Variables
 
 adw_id: $1
-spec_or_issue: $2 — either a file path to a spec file (temp/specs/*.md) OR a GitHub issue number (numeric). When numeric, fetch the issue via `gh issue view <number> --json body,title` and use the issue title + body as the review spec.
+spec_or_issue: $2 — one of three formats: (a) `INLINE_SPEC::` prefix followed by the full spec text inline, (b) a file path to a spec file (temp/specs/*.md), or (c) a GitHub issue number (numeric). When numeric, fetch the issue via `gh issue view <number> --json body,title` and use the issue title + body as the review spec.
 agent_name: $3 if provided, otherwise use 'review_agent'
-review_image_dir: `<absolute path to codebase>/agents/<adw_id>/<agent_name>/review_img/`
+review_image_dir: $4 if provided, otherwise `<absolute path to codebase>/agents/<adw_id>/<agent_name>/review_img/`
 
 ## Instructions
 
-- **Resolve the spec**: If `$2` is numeric, fetch the issue via `gh issue view $2 --json body,title` and use the title + body as your review spec. If `$2` is a file path, read the spec file as before.
-- **Tooling gate**: Before doing any UI validation, check whether Playwright MCP tools (e.g. `browser_navigate`, `browser_screenshot`) are available. If they are NOT available:
-  - Skip all UI validation, screenshot capture, and the `Setup` section entirely.
-  - Perform a **code-only review**: read the spec, read the diff, and evaluate whether the implementation matches the spec based on the code alone.
-  - In the report, set `screenshots` to an empty array and note in `review_summary` that UI validation was skipped due to missing Playwright tooling.
-  - Do NOT retry or loop attempting to access browser tools — gracefully proceed with code review only.
-- Check current git branch using `git branch` to understand context
+- **Resolve the spec**: CRITICAL — `$2` is the AUTHORITATIVE spec source. Do NOT infer the spec from the git branch name, commit messages, or any other source. Resolve `$2` in this order:
+  1. If `$2` starts with `INLINE_SPEC::`, strip that prefix and use the remaining text as the spec verbatim. Do NOT fetch any issue or read any file — the spec is already provided.
+  2. If `$2` is numeric, fetch the issue via `gh issue view $2 --json body,title` and use the title + body as your review spec.
+  3. Otherwise, treat `$2` as a file path and read the spec file.
+  Review ONLY against the resolved spec — never against a different issue number you see in a branch name or elsewhere.
+- **Frontend detection**: Determine if changes are frontend (files in `apps/`, `packages/ui/`, route files, `.svelte`, `.css`, `.html`) or backend-only by examining the git diff.
+  - If **frontend changes detected**: use `firecrawl_scrape` with `formats: ["screenshot"]` and `screenshotOptions: { fullPage: true }` against the external URL (`DEV_TUNNEL_URL` from `.env.local`, or `http://localhost:PORT` if no tunnel). Capture screenshots of critical functionality paths. If `firecrawl_scrape` fails, report a blocker issue with "Visual validation required but Firecrawl failed" and set `visual_validation: "failed"` — do NOT degrade to code-only review for frontend changes.
+  - If **backend-only**: perform a **code-only review** — read the spec, read the diff, evaluate whether the implementation matches. Set `screenshots` to an empty array and set `visual_validation: skipped` in the Step Summary.
+  - Post each screenshot as a comment on the sub-issue via `gh issue comment <issue-number> --body "![screenshot](url)"` if a sub-issue number is available from the spec/issue context.
+- Check current git branch using `git branch` for informational context only — do NOT use the branch name to determine which issue or spec to review against
 - Run `git diff origin/main` to see all changes made in current branch. Continue even if there are no changes related to the spec.
 - Read the spec (file or fetched issue body) to understand requirements
-- IMPORTANT: If the work can be validated by UI validation then (if not skip the section):
-  - Use the playwright mcp server commands to validate the work.
-  - Look for corresponding e2e test files in ./claude/commands/e2e/test_*.md that mirror the feature name
-  - Use e2e test files only as navigation guides for screenshot locations, not for other purposes
-  - IMPORTANT: To be clear, we're not testing. We know the functionality works. We're reviewing the implementation against the spec to make sure it matches what was requested.
-  - IMPORTANT: Take screen shots along the way to showcase the new functionality and any issues you find
-    - Capture visual proof of working features through targeted screenshots
-    - Navigate to the application and capture screenshots of only the critical paths based on the spec
+- IMPORTANT: If the work includes frontend changes that can be visually validated:
+  - Use `firecrawl_scrape` with `formats: ["screenshot"]` to capture pages. Use the external URL (from Setup section).
+  - Look for corresponding e2e test files in ./claude/commands/e2e/test_*.md that mirror the feature name — use only as navigation guides for screenshot locations.
+  - IMPORTANT: We're not testing — we're reviewing the implementation against the spec.
+  - IMPORTANT: Take screenshots along the way to showcase the new functionality and any issues you find
+    - Capture visual proof of working features through targeted Firecrawl screenshots
+    - Scrape the application pages at the critical paths based on the spec
     - Compare implemented changes with spec requirements to verify correctness
     - Do not take screenshots of the entire process, only the critical points.
     - IMPORTANT: Aim for `1-5` screenshots to showcase that the new functionality works as specified.
     - If there is a review issue, take a screenshot of the issue and add it to the `review_issues` array. Describe the issue, resolution, and severity.
     - Number your screenshots in the order they are taken like `01_<descriptive name>.png`, `02_<descriptive name>.png`, etc.
-    - IMPORTANT: Be absolutely sure to take a screen shot of the critical point of the new functionality
+    - IMPORTANT: Be absolutely sure to take a screenshot of the critical point of the new functionality
     - IMPORTANT: Copy all screenshots to the provided `review_image_dir`
     - IMPORTANT: Store the screenshots in the `review_image_dir` and be sure to use full absolute paths.
     - Focus only on critical functionality paths - avoid unnecessary screenshots
@@ -87,3 +89,14 @@ IMPORTANT: Read and **Execute** `.claude/commands/prepare_app.md` now to prepare
         ...
     ]
 }
+
+## Step Summary
+
+IMPORTANT: You MUST end your output with this exact block. Fill in each field with a single line.
+
+## Step Summary
+- status: pass | fail
+- action: <one line describing what you did>
+- decision: <one line -- key choice and why>
+- blockers: <one line, or "none">
+- files_changed: <comma-separated list, or "none">

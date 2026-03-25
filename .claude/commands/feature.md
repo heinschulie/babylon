@@ -16,6 +16,7 @@ issue_json: $3
 - Use the `Plan Format` below to create the plan. 
 - Research the codebase to understand existing patterns, architecture, and conventions before planning the feature.
 - IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to implement the feature successfully.
+- IMPORTANT: Include the current conversation ID in the plan's Metadata section as `conversation_id`. This allows humans or agents to trace back to the conversation that spawned the plan.
 - Use your reasoning model: THINK HARD about the feature requirements, design, and implementation approach.
 - Follow existing patterns and conventions in the codebase. Don't reinvent the wheel.
 - Design for extensibility and maintainability.
@@ -52,6 +53,7 @@ Ignore all other files in the codebase.
 issue_number: `{issue_number}`
 adw_id: `{adw_id}`
 issue_json: `{issue_json}`
+conversation_id: `{conversation_id}`
 
 ## Feature Description
 <describe the feature in detail, including its purpose and value to users>

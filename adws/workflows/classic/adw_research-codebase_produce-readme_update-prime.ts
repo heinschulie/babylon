@@ -31,16 +31,18 @@ import { join, isAbsolute } from "path";
 import { runResearchCodebaseStep, runProduceReadmeStep, runUpdatePrimeStep, formatUsage, sumUsage, type StepUsage } from "../../src/agent-sdk";
 import { createLogger, taggedLogger, writeWorkflowStatus, type TaggedLogger } from "../../src/logger";
 import {
+  discoverApps,
+  slugify,
+  findMostRecentMd,
+  extractMdPath,
+} from "../../src/research-utils";
+import {
   createStepBanner,
   createDefaultStepUsage,
   createCommentStep,
   createFinalStatusComment,
   getAdwEnv,
   fmtDuration,
-  discoverApps,
-  slugify,
-  findMostRecentMd,
-  extractMdPath,
 } from "../../src/utils";
 
 const STEP_README = "produce-readme";

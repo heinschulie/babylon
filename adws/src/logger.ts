@@ -1,5 +1,5 @@
 import { join } from "path";
-import { appendFileSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "fs";
 import { getProjectRoot } from "./utils";
 import type { StepUsage } from "./agent-sdk";
 
@@ -10,11 +10,33 @@ export interface Logger {
   warn: (msg: string) => void;
 }
 
+/** Structured summary extracted from agent output. */
+export interface StepSummary {
+  status: "pass" | "fail";
+  action: string;
+  decision: string;
+  blockers: string;
+  files_changed: string;
+  visual_validation?: "passed" | "failed" | "skipped";
+}
+
+/** Screenshot artifact reference stored in step status.json. */
+export interface Screenshot {
+  name: string;
+  url: string;
+  path: string;
+  github_comment_id?: number;
+}
+
 /** Per-agent status entry written to step-level status.json. */
 export interface AgentStatus {
   status: "pass" | "fail";
   duration_ms?: number;
   usage?: StepUsage;
+  summary?: StepSummary;
+  post_sha?: string;
+  visual_validation?: "passed" | "failed" | "skipped";
+  screenshots?: Screenshot[];
 }
 
 /** Top-level workflow status written to logDir/status.json. */
@@ -32,25 +54,33 @@ export interface WorkflowStatus {
 /** Extended logger returned by taggedLogger — adds finalize() for status + rename. */
 export interface TaggedLogger extends Logger {
   /** Call when the agent is done. Writes status.json and renames log on error. */
-  finalize: (ok: boolean, usage?: StepUsage) => void;
+  finalize: (ok: boolean, usage?: StepUsage, summary?: StepSummary, extras?: StepStatusExtras) => void;
 }
+
+/** ANSI escape codes. */
+const ANSI = {
+  RESET: "\x1b[0m",
+  CYAN: "\x1b[36m",
+  YELLOW: "\x1b[33m",
+  MAGENTA: "\x1b[35m",
+  GREEN: "\x1b[32m",
+  BLUE: "\x1b[34m",
+  BRIGHT_RED: "\x1b[91m",
+  BRIGHT_CYAN: "\x1b[96m",
+  BRIGHT_YELLOW: "\x1b[93m",
+  BRIGHT_MAGENTA: "\x1b[95m",
+  BRIGHT_GREEN: "\x1b[92m",
+  BRIGHT_BLUE: "\x1b[94m",
+  RED: "\x1b[31m",
+};
 
 /** ANSI colors readable on both light and dark terminals. */
 const TAG_COLORS = [
-  "\x1b[36m",  // cyan
-  "\x1b[33m",  // yellow
-  "\x1b[35m",  // magenta
-  "\x1b[32m",  // green
-  "\x1b[34m",  // blue
-  "\x1b[91m",  // bright red
-  "\x1b[96m",  // bright cyan
-  "\x1b[93m",  // bright yellow
-  "\x1b[95m",  // bright magenta
-  "\x1b[92m",  // bright green
-  "\x1b[94m",  // bright blue
-  "\x1b[31m",  // red
+  ANSI.CYAN, ANSI.YELLOW, ANSI.MAGENTA, ANSI.GREEN, ANSI.BLUE,
+  ANSI.BRIGHT_RED, ANSI.BRIGHT_CYAN, ANSI.BRIGHT_YELLOW,
+  ANSI.BRIGHT_MAGENTA, ANSI.BRIGHT_GREEN, ANSI.BRIGHT_BLUE, ANSI.RED,
 ];
-const RESET = "\x1b[0m";
+
 let colorIndex = 0;
 
 function stripAnsi(s: string): string {
@@ -85,6 +115,54 @@ function safeReadJson<T>(file: string): T | null {
   }
 }
 
+/** Handle renaming log file to .error.log on failure. */
+function handleLogFileRename(logFile: string, ok: boolean): void {
+  if (ok) return;
+
+  const errorFile = logFile.replace(/\.log$/, ".error.log");
+  try {
+    renameSync(logFile, errorFile);
+  } catch {
+    // ignore rename failures
+  }
+}
+
+/** Extra fields that can be attached to a step status entry. */
+export interface StepStatusExtras {
+  postSha?: string;
+  visual_validation?: "passed" | "failed" | "skipped";
+  screenshots?: Screenshot[];
+}
+
+/** Write agent status entry for this step. */
+function writeAgentStatus(
+  logDir: string,
+  step: string,
+  tag: string,
+  ok: boolean,
+  startTime: number,
+  usage?: StepUsage,
+  summary?: StepSummary,
+  extras?: StepStatusExtras,
+): void {
+  const stepDir = join(logDir, "steps", step);
+  const statusFile = join(stepDir, "status.json");
+  const existing = safeReadJson<Record<string, AgentStatus>>(statusFile) ?? {};
+
+  const entry: AgentStatus = {
+    status: ok ? "pass" : "fail",
+    duration_ms: Date.now() - startTime,
+  };
+  if (usage) entry.usage = usage;
+  if (summary) entry.summary = summary;
+  if (extras?.postSha) entry.post_sha = extras.postSha;
+  if (extras?.visual_validation) entry.visual_validation = extras.visual_validation;
+  if (extras?.screenshots?.length) entry.screenshots = extras.screenshots;
+
+  existing[tag] = entry;
+  safeWriteJson(statusFile, existing);
+}
+
 /**
  * Create a tagged logger that:
  * - Prefixes every console line with a colored [tag]
@@ -95,14 +173,14 @@ function safeReadJson<T>(file: string): T | null {
 export function taggedLogger(parent: Logger, tag: string, opts?: { logDir?: string; step?: string }): TaggedLogger {
   const color = TAG_COLORS[colorIndex % TAG_COLORS.length];
   colorIndex++;
-  const colorTag = `${color}[${tag}]${RESET}`;
+  const colorTag = `${color}[${tag}]${ANSI.RESET}`;
   const plainTag = `[${tag}]`;
   const startTime = Date.now();
 
   // Per-agent file logging
   let agentLogFile: string | null = null;
   if (opts?.logDir && opts?.step) {
-    const stepDir = join(opts.logDir, opts.step);
+    const stepDir = join(opts.logDir, "steps", opts.step);
     mkdirSync(stepDir, { recursive: true });
     agentLogFile = join(stepDir, `${tag}.log`);
   }
@@ -129,31 +207,11 @@ export function taggedLogger(parent: Logger, tag: string, opts?: { logDir?: stri
       parent.warn(`${colorTag} ${msg}`);
       appendAgent("WARN", msg);
     },
-    finalize(ok: boolean, usage?: StepUsage) {
+    finalize(ok: boolean, usage?: StepUsage, summary?: StepSummary, extras?: StepStatusExtras) {
       if (!agentLogFile || !opts?.logDir || !opts?.step) return;
-      const stepDir = join(opts.logDir, opts.step);
 
-      // Rename to .error.log on failure
-      if (!ok) {
-        const errorFile = agentLogFile.replace(/\.log$/, ".error.log");
-        try {
-          renameSync(agentLogFile, errorFile);
-          agentLogFile = errorFile;
-        } catch {
-          // ignore
-        }
-      }
-
-      // Write/update status.json for this step
-      const statusFile = join(stepDir, "status.json");
-      const existing = safeReadJson<Record<string, AgentStatus>>(statusFile) ?? {};
-      const entry: AgentStatus = {
-        status: ok ? "pass" : "fail",
-        duration_ms: Date.now() - startTime,
-      };
-      if (usage) entry.usage = usage;
-      existing[tag] = entry;
-      safeWriteJson(statusFile, existing);
+      handleLogFileRename(agentLogFile, ok);
+      writeAgentStatus(opts.logDir, opts.step, tag, ok, startTime, usage, summary, extras);
     },
   };
 
@@ -174,15 +232,18 @@ export function writeWorkflowStatus(
     totals: StepUsage;
   },
 ): void {
-  // Collect step statuses from subdirectories
+  // Collect step statuses from steps/ subdirectory
   const steps: Record<string, Record<string, AgentStatus>> = {};
+  const stepsDir = join(logDir, "steps");
   try {
-    for (const entry of readdirSync(logDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const stepStatusFile = join(logDir, entry.name, "status.json");
-      const stepStatus = safeReadJson<Record<string, AgentStatus>>(stepStatusFile);
-      if (stepStatus) {
-        steps[entry.name] = stepStatus;
+    if (existsSync(stepsDir)) {
+      for (const entry of readdirSync(stepsDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const stepStatusFile = join(stepsDir, entry.name, "status.json");
+        const stepStatus = safeReadJson<Record<string, AgentStatus>>(stepStatusFile);
+        if (stepStatus) {
+          steps[entry.name] = stepStatus;
+        }
       }
     }
   } catch {
@@ -207,12 +268,16 @@ export function writeWorkflowStatus(
  * Create a dual-output logger (console + file).
  * Returns the logger and the logDir path for use by taggedLogger.
  */
-export function createLogger(adwId: string, triggerType: string): Logger & { logDir: string } {
+export function createLogger(adwId: string, triggerType: string, issueNumber?: number): Logger & { logDir: string; nextStep: (name: string, stepIssueNumber?: number) => string } {
   const projectRoot = getProjectRoot();
-  const logDir = join(projectRoot, "agents", adwId, triggerType);
+  const folderName = issueNumber
+    ? `${issueNumber}_${triggerType}_${adwId}`
+    : `${triggerType}_${adwId}`;
+  const logDir = join(projectRoot, "temp", "builds", folderName);
   mkdirSync(logDir, { recursive: true });
 
   const logFile = join(logDir, "execution.log");
+  let stepCounter = 0;
 
   function appendLog(level: string, msg: string): void {
     safeAppend(logFile, `${timestamp()} - ${level} - ${stripAnsi(msg)}\n`);
@@ -220,6 +285,13 @@ export function createLogger(adwId: string, triggerType: string): Logger & { log
 
   const logger = {
     logDir,
+    nextStep(name: string, stepIssueNumber?: number): string {
+      stepCounter++;
+      const counter = String(stepCounter).padStart(2, "0");
+      return stepIssueNumber
+        ? `${stepIssueNumber}_${counter}_${name}`
+        : `${counter}_${name}`;
+    },
     info(msg: string) {
       console.log(msg);
       appendLog("INFO", msg);

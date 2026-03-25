@@ -24,6 +24,7 @@ TOPIC: $ARGUMENTS
 - Track which branches of the decision tree have been resolved and which remain open.
 - Challenge assumptions — if something seems under-specified or risky, call it out.
 - Once all branches are resolved, summarize the shared understanding reached.
+- IMPORTANT: Once this prompt has been run, absolutely **NEVER** start implementing or actively editing code without EXPLICIT instructions from the user to do so.
 
 ## Workflow
 
@@ -40,6 +41,7 @@ TOPIC: $ARGUMENTS
 ## Report
 
 Summarize the shared understanding as a structured decision log:
+
 - List each decision branch and the resolution reached
 - Note any open items or follow-ups that remain
 - Highlight any risks or trade-offs that were explicitly accepted

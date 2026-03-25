@@ -10,6 +10,7 @@ node_modules
 
 # Logs
 /agents
+/temp/builds
 
 # OS
 .DS_Store

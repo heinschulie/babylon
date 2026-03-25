@@ -243,9 +243,9 @@ async function runWorkflow(adwId: string, issueNumber?: string, skipE2e = false)
 		logger.info(`Model: ${models.default}`);
 
 		// Ensure state exists
-		let state = ADWState.load(adwId, logger);
+		let state = ADWState.load(adwId, logger, logger.logDir);
 		if (!state) {
-			state = new ADWState(adwId);
+			state = new ADWState(adwId, logger.logDir);
 			if (issueNumber) state.update({ issue_number: issueNumber });
 			await state.save(WORKFLOW_NAME);
 		}

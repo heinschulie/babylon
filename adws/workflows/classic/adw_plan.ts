@@ -52,8 +52,8 @@ async function runWorkflow(adwId: string, issueNumber: string): Promise<boolean>
   const commentFinalStatus = createFinalStatusComment(issueNumber);
 
   // Ensure ADW state
-  const resolvedAdwId = await ensureAdwId(issueNumber, adwId, logger);
-  const state = ADWState.load(resolvedAdwId, logger) ?? new ADWState(resolvedAdwId);
+  const resolvedAdwId = await ensureAdwId(issueNumber, adwId, logger, logger.logDir);
+  const state = ADWState.load(resolvedAdwId, logger, logger.logDir) ?? new ADWState(resolvedAdwId, logger.logDir);
   if (!state.get("adw_id")) {
     state.update({ adw_id: resolvedAdwId, issue_number: issueNumber });
   }

@@ -7,11 +7,9 @@
  * Usage: bun run adws/triggers/webhook.ts
  */
 
-import { makeAdwId, getSafeSubprocessEnv } from "../src/utils";
+import { makeAdwId, EnvironmentManager } from "../src/utils";
 import { makeIssueComment, ADW_BOT_IDENTIFIER } from "../src/github";
 import { extractAdwInfo, AVAILABLE_ADW_WORKFLOWS } from "../src/workflow-ops";
-import { ADWState } from "../src/state";
-import { createLogger } from "../src/logger";
 import { resolve, dirname } from "path";
 
 const PORT = parseInt(process.env.PORT ?? "8001", 10);
@@ -77,6 +75,12 @@ async function handleWebhook(req: Request): Promise<Response> {
 
       if (commentBody.includes(ADW_BOT_IDENTIFIER)) {
         // Ignore bot comments
+      } else if (commentBody.includes("--ralph")) {
+        workflow = "adw_ralph";
+        triggerReason = "Comment with --ralph keyword";
+      } else if (commentBody.includes("--document")) {
+        workflow = "adw_document_ralph";
+        triggerReason = "Comment with --document keyword";
       } else if (commentBody.toLowerCase().includes("adw_")) {
         const tempId = makeAdwId();
         const result = await extractAdwInfo(commentBody, tempId);
@@ -112,37 +116,8 @@ async function handleWebhook(req: Request): Promise<Response> {
     if (workflow) {
       const adwId = providedAdwId ?? makeAdwId();
 
-      // Create/update state
-      if (providedAdwId) {
-        const state = ADWState.load(providedAdwId);
-        if (state) {
-          state.update({
-            issue_number: String(issueNumber),
-            model_set: modelSet as "base" | "heavy",
-          });
-          await state.save("webhook_trigger");
-        } else {
-          const newState = new ADWState(providedAdwId);
-          newState.update({
-            adw_id: providedAdwId,
-            issue_number: String(issueNumber),
-            model_set: modelSet as "base" | "heavy",
-          });
-          await newState.save("webhook_trigger");
-        }
-      } else {
-        const state = new ADWState(adwId);
-        state.update({
-          adw_id: adwId,
-          issue_number: String(issueNumber),
-          model_set: modelSet as "base" | "heavy",
-        });
-        await state.save("webhook_trigger");
-      }
-
-      const logger = createLogger(adwId, "webhook_trigger");
-      logger.info(
-        `Detected workflow: ${workflow} from content: ${contentToCheck.slice(0, 100)}...`
+      console.log(
+        `Detected ${workflow} for issue #${issueNumber} (adw: ${adwId}) from: ${contentToCheck.slice(0, 100)}...`
       );
 
       // Post notification comment
@@ -157,7 +132,7 @@ async function handleWebhook(req: Request): Promise<Response> {
             `Logs: \`agents/${adwId}/${workflow}/\``
         );
       } catch (e) {
-        logger.warn(`Failed to post issue comment: ${e}`);
+        console.warn(`Failed to post issue comment: ${e}`);
       }
 
       // Launch TS workflow in background
@@ -166,6 +141,8 @@ async function handleWebhook(req: Request): Promise<Response> {
 
       // Map workflow commands to TS workflow files
       const WORKFLOW_SCRIPT_MAP: Record<string, string> = {
+        adw_ralph: "workflows/adw_ralph.ts",
+        adw_document_ralph: "workflows/adw_document_ralph.ts",
         adw_plan_iso: "workflows/adw_plan.ts",
         adw_patch_iso: "workflows/adw_patch.ts",
         adw_build_iso: "workflows/adw_build.ts",
@@ -202,6 +179,8 @@ async function handleWebhook(req: Request): Promise<Response> {
       const cmd = ["bun", "run", triggerScript, "--adw-id", adwId];
       // Workflows that accept --issue in their parseArgs
       const ISSUE_AWARE_WORKFLOWS = [
+        "adw_ralph",
+        "adw_document_ralph",
         "adw_plan_iso",
         "adw_test_iso",
         "adw_review_iso",
@@ -224,7 +203,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       Bun.spawn(cmd, {
         cwd: repoRoot,
         env: {
-          ...getSafeSubprocessEnv(),
+          ...EnvironmentManager.getSafeSubprocessEnv(),
           ADW_PROMPT: prompt,
           ADW_WORKING_DIR: repoRoot,
         },
@@ -239,7 +218,7 @@ async function handleWebhook(req: Request): Promise<Response> {
         workflow,
         message: `ADW ${workflow} triggered for issue #${issueNumber}`,
         reason: triggerReason,
-        logs: `agents/${adwId}/${workflow}/`,
+        logs: `temp/builds/${issueNumber ? `${issueNumber}_` : ""}${workflow}_${adwId}/`,
       });
     }
 

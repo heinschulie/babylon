@@ -38,7 +38,7 @@ async function runWorkflow(
   issueNumberStr: string
 ): Promise<boolean> {
   const startTime = Date.now();
-  const logger = createLogger(adwId, "document-ralph");
+  const logger = createLogger(adwId, "document-ralph", parentIssueNumber);
   logger.info(`Starting ADW Document Ralph — ADW ID: ${adwId}, Issue: #${parentIssueNumber}`);
 
   const { workingDir, models } = getAdwEnv();
@@ -71,7 +71,7 @@ async function runWorkflow(
     }
 
     // ─── Determine feature branch ─────────────────────────────────────
-    let state = ADWState.load(adwId, logger);
+    let state = ADWState.load(adwId, logger, logger.logDir);
     const branchName = state?.get("branch_name") as string | undefined
       ?? await getCurrentBranch(workingDir);
 
@@ -110,11 +110,14 @@ async function runWorkflow(
     // ─── Run /document step ───────────────────────────────────────────
     await commentStep("Generating documentation from completed sub-issues...");
 
+    const docStepName = logger.nextStep("document");
     const docResult = await runDocumentStep(adwId, {
       model: models.default,
       cwd: workingDir,
       logger,
       specPath: contextPath,
+      logDir: logger.logDir,
+      stepName: docStepName,
     });
 
     const docUsage = docResult.usage ?? createDefaultStepUsage();
