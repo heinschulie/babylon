@@ -1,0 +1,758 @@
+---
+# Database Expert Knowledge — Babylon
+# Last validated: 2026-03-25 (v3 — fix entitlements source dupe, add summarizePushSubscriptionForLog)
+# Source of truth: convex/schema.ts
+
+overview:
+  platform: Convex (serverless DB + functions)
+  schema_file: convex/schema.ts
+  auth_pattern: "getAuthUserId(ctx) from convex/lib/auth.ts — every public query/mutation authenticates first"
+  id_format: "Convex document IDs — typed as v.id('tableName')"
+  timestamp_pattern: "Date.now() epoch millis for all timestamp fields"
+  language_codes: "BCP 47 (e.g. xh-ZA) primary; ISO 639-1 (e.g. xh) secondary"
+  function_types: "query (read), mutation (write), internalQuery/internalMutation (server-only), action/internalAction (Node.js runtime for external APIs)"
+
+tables:
+  sessions:
+    purpose: "Learning sessions — one per day per user (legacy container for phrases)"
+    fields:
+      - userId: string
+      - date: string  # ISO YYYY-MM-DD
+      - targetLanguage: string  # display name
+      - targetLanguageCode: string?  # BCP 47
+      - targetLanguageIso639_1: string?  # ISO 639-1
+      - createdAt: number
+    indexes:
+      - by_user: [userId]
+      - by_user_date: [userId, date]
+    key_file: convex/sessions.ts
+    notes: "Idempotent create — returns existing if same user+date. Cascade deletes phrases on remove."
+
+  phrases:
+    purpose: "Learner phrase library — may or may not belong to a session"
+    fields:
+      - sessionId: id('sessions')?  # legacy, optional for new phrases
+      - userId: string
+      - english: string
+      - translation: string
+      - languageCode: string?  # BCP 47
+      - categoryKey: string?
+      - categoryLabel: string?
+      - createdAt: number
+      - difficulty: string?
+      - grammarTags: string[]?
+      - phoneticTags: string[]?
+      - domainTags: string[]?
+      - referenceAudioUrl: string?
+      - phonetic: string?
+      - translationStatus: string?  # pending | ready | failed
+    indexes:
+      - by_session: [sessionId]
+      - by_user: [userId]
+      - by_user_category: [userId, categoryKey]
+    key_file: convex/phrases.ts
+    notes: |
+      Two creation paths: create (in-session) and createDirect (standalone).
+      createDirect auto-translates via Claude if no translation provided.
+      Category inferred via inferPhraseCategory from lib/phraseCategories.ts.
+      On create, schedules push notifications if user has pushSubscription.
+
+  userPhrases:
+    purpose: "Per-user phrase learning state (FSRS spaced repetition)"
+    fields:
+      - userId: string
+      - phraseId: id('phrases')
+      - fsrsState: any?
+      - lastReviewedAt: number?
+      - nextReviewAt: number?
+    indexes:
+      - by_user: [userId]
+      - by_user_phrase: [userId, phraseId]
+      - by_next_review: [userId, nextReviewAt]
+
+  audioAssets:
+    purpose: "Audio files stored in Convex object storage"
+    fields:
+      - userId: string
+      - phraseId: id('phrases')?
+      - attemptId: id('attempts')?
+      - storageKey: string  # Convex storage ID
+      - contentType: string  # must be audio/*
+      - durationMs: number?
+      - createdAt: number
+    indexes:
+      - by_user: [userId]
+      - by_phrase: [phraseId]
+      - by_attempt: [attemptId]
+    key_file: convex/audioAssets.ts
+    notes: |
+      Validates: storageKey shape, audio/* MIME, max 25MB, max 15min duration.
+      Verifiers can create audio assets for attempts they have an active claim on.
+
+  attempts:
+    purpose: "User audio recording attempts against a phrase"
+    fields:
+      - userId: string
+      - phraseId: id('phrases')
+      - practiceSessionId: id('practiceSessions')?
+      - audioAssetId: id('audioAssets')?
+      - deviceId: string?
+      - offlineId: string?
+      - durationMs: number?
+      - status: string  # queued | processing | feedback_ready | failed
+      - aiProcessingStatus: string?  # processing | feedback_ready | failed
+      - aiProcessingStartedAt: number?
+      - aiProcessedAt: number?
+      - aiRunId: string?
+      - createdAt: number
+    indexes:
+      - by_user: [userId]
+      - by_phrase: [phraseId]
+      - by_practice_session: [practiceSessionId]
+      - by_user_created: [userId, createdAt]
+    key_file: convex/attempts.ts
+    notes: |
+      Lifecycle: create (queued) → attachAudio (processing) → AI feedback (feedback_ready) or markFailed.
+      attachAudio checks billing (assertRecordingAllowed), consumes recording minutes.
+      Pro tier auto-creates humanReviewRequest with 24h SLA on attachAudio.
+      Practice session aggregate counters updated on create.
+
+  practiceSessions:
+    purpose: "Practice runs grouping a set of attempts"
+    fields:
+      - userId: string
+      - startedAt: number
+      - endedAt: number?
+      - attemptCount: number?
+      - phraseCount: number?
+      - aiScoreCount: number?
+      - aiScoreSumSound: number?
+      - aiScoreSumRhythm: number?
+      - aiScoreSumPhrase: number?
+      - createdAt: number
+    indexes:
+      - by_user_started: [userId, startedAt]
+      - by_user_created: [userId, createdAt]
+    key_file: convex/practiceSessions.ts
+    notes: |
+      Aggregate score fields (aiScoreCount, aiScoreSum*) support fast avg calculation.
+      Legacy sessions without aggregates fallback to recomputing from attempts.
+      end() notifies verifiers of new work via notificationsNode.
+      getStreak counts consecutive days with ended practice sessions.
+
+  verifierProfiles:
+    purpose: "Verifier profile snapshot and activation state"
+    fields:
+      - userId: string
+      - firstName: string
+      - profileImageUrl: string?
+      - active: boolean
+      - createdAt: number
+      - updatedAt: number
+    indexes:
+      - by_user: [userId]
+      - by_active: [active]
+    key_file: convex/verifierAccess.ts
+
+  verifierLanguageMemberships:
+    purpose: "Which BCP 47 languages a verifier can review"
+    fields:
+      - userId: string
+      - languageCode: string  # BCP 47
+      - active: boolean
+      - createdAt: number
+      - updatedAt: number
+    indexes:
+      - by_user: [userId]
+      - by_language_active: [languageCode, active]
+      - by_user_language: [userId, languageCode]
+    key_file: convex/verifierAccess.ts
+
+  humanReviewRequests:
+    purpose: "Queue item for human review lifecycle"
+    fields:
+      - attemptId: id('attempts')
+      - phraseId: id('phrases')
+      - learnerUserId: string
+      - languageCode: string  # BCP 47
+      - phase: string  # initial | dispute
+      - status: string  # pending | claimed | completed | dispute_resolved | escalated
+      - priorityAt: number
+      - slaDueAt: number
+      - claimedByVerifierUserId: string?
+      - claimedAt: number?
+      - claimDeadlineAt: number?
+      - initialReviewId: id('humanReviews')?
+      - disputeReviewCount: number?
+      - disputeAgreementCount: number?
+      - flaggedAt: number?
+      - flaggedByLearnerUserId: string?
+      - resolvedAt: number?
+      - escalatedAt: number?
+      - escalatedReason: string?
+      - feedbackSeenAt: number?
+      - createdAt: number
+      - updatedAt: number
+    indexes:
+      - by_attempt: [attemptId]
+      - by_status_priority: [status, priorityAt]
+      - by_language_status_priority: [languageCode, status, priorityAt]
+      - by_status_claim_deadline: [status, claimDeadlineAt]
+      - by_status_sla: [status, slaDueAt]
+      - by_claimed_status: [claimedByVerifierUserId, status]
+      - by_learner_created: [learnerUserId, createdAt]
+    key_file: convex/humanReviews.ts
+    notes: |
+      Created by attempts.attachAudio for pro-tier users.
+      Claim timeout: 5 min. SLA: 24h. Escalated if SLA exceeded.
+      Dispute flow: learner flags → new dispute reviews → agreement check.
+
+  humanReviews:
+    purpose: "Submitted verifier reviews (initial + dispute rounds)"
+    fields:
+      - requestId: id('humanReviewRequests')
+      - attemptId: id('attempts')
+      - learnerUserId: string
+      - verifierUserId: string
+      - reviewKind: string  # initial | dispute
+      - sequence: number  # initial=1, dispute=2..3
+      - soundAccuracy: number  # 1-5
+      - rhythmIntonation: number  # 1-5
+      - phraseAccuracy: number  # 1-5
+      - aiAnalysisCorrect: boolean?
+      - exemplarAudioAssetId: id('audioAssets')
+      - verifierFirstName: string
+      - verifierProfileImageUrl: string?
+      - agreesWithOriginal: boolean?
+      - createdAt: number
+    indexes:
+      - by_request_created: [requestId, createdAt]
+      - by_attempt: [attemptId]
+      - by_verifier_created: [verifierUserId, createdAt]
+    key_file: convex/humanReviews.ts
+
+  humanReviewFlags:
+    purpose: "Learner-generated flags against completed reviews"
+    fields:
+      - requestId: id('humanReviewRequests')
+      - attemptId: id('attempts')
+      - learnerUserId: string
+      - reason: string?
+      - status: string  # open | resolved | escalated
+      - createdAt: number
+      - resolvedAt: number?
+      - resolvedByVerifierUserId: string?
+    indexes:
+      - by_request: [requestId]
+      - by_attempt: [attemptId]
+      - by_status_created: [status, createdAt]
+
+  aiFeedback:
+    purpose: "AI-generated feedback for pronunciation attempts"
+    fields:
+      - attemptId: id('attempts')
+      - transcript: string?
+      - confidence: number?
+      - errorTags: string[]?
+      - soundAccuracy: number?  # 1-5
+      - rhythmIntonation: number?  # 1-5
+      - phraseAccuracy: number?  # 1-5
+      - feedbackText: string?
+      - ttsAudioUrl: string?
+      - createdAt: number
+    indexes:
+      - by_attempt: [attemptId]
+    key_file: convex/aiFeedback.ts
+    notes: "create() also patches attempt status to feedback_ready."
+
+  aiCalibration:
+    purpose: "Per-phrase AI vs human score calibration tracking"
+    fields:
+      - phraseId: id('phrases')
+      - comparisonCount: number
+      - sumDeltaSoundAccuracy: number
+      - sumDeltaRhythmIntonation: number
+      - sumDeltaPhraseAccuracy: number
+      - sumAbsDeltaSoundAccuracy: number
+      - sumAbsDeltaRhythmIntonation: number
+      - sumAbsDeltaPhraseAccuracy: number
+      - lastUpdatedAt: number
+    indexes:
+      - by_phrase: [phraseId]
+    key_file: convex/aiCalibration.ts
+    notes: "Running sums for mean bias and mean absolute error. Updated by humanReviews on review completion."
+
+  userPreferences:
+    purpose: "User notification preferences, locale, skin, profile image"
+    fields:
+      - userId: string
+      - quietHoursStart: number  # 0-23
+      - quietHoursEnd: number  # 0-23
+      - notificationsPerPhrase: number
+      - pushSubscription: string?  # JSON PushSubscription
+      - timeZone: string?  # IANA timezone
+      - uiLocale: string?  # en | xh
+      - uiSkin: string?  # default | mono
+      - profileImageStorageId: string?  # Convex storage ID
+    indexes:
+      - by_user: [userId]
+    key_file: convex/preferences.ts
+    notes: "Defaults: quietHours 22-8, 3 notifications, Africa/Johannesburg timezone."
+
+  billingSubscriptions:
+    purpose: "Provider-side subscription state (PayFast)"
+    fields:
+      - userId: string
+      - provider: string  # payfast
+      - plan: string  # free | ai | pro
+      - status: string  # pending | active | past_due | canceled
+      - payfastReference: string?
+      - providerPaymentId: string?
+      - providerSubscriptionToken: string?
+      - lastPaymentAt: number?
+      - currentPeriodEnd: number?
+      - createdAt: number
+      - updatedAt: number
+    indexes:
+      - by_user: [userId]
+      - by_provider_reference: [provider, payfastReference]
+      - by_provider_payment: [provider, providerPaymentId]
+    key_file: convex/billingSubscriptions.ts
+    notes: |
+      Status transitions: pending → active → past_due/canceled. canceled is terminal.
+      State machine enforced in setStatus with canTransitionStatus guard.
+
+  entitlements:
+    purpose: "Effective entitlements — authoritative for feature gating"
+    fields:
+      - userId: string
+      - tier: string  # free | ai | pro
+      - status: string  # active | past_due | canceled
+      - source: string  # webhook | admin | seed | dev_toggle
+      - updatedAt: number
+    indexes:
+      - by_user: [userId]
+    key_file: convex/billing.ts
+    notes: |
+      Separated from billingSubscriptions for clean gating logic.
+      getEntitlement() returns {tier: 'free', status: 'active'} if no record exists.
+      Webhook updates blocked from restoring access after cancellation.
+
+  usageDaily:
+    purpose: "Daily recording usage tracking (local midnight reset)"
+    fields:
+      - userId: string
+      - dateKey: string  # YYYY-MM-DD in user's timezone
+      - minutesRecorded: number
+      - updatedAt: number
+    indexes:
+      - by_user: [userId]
+      - by_user_date: [userId, dateKey]
+    key_file: convex/lib/billing.ts
+    notes: "AI tier: 10 min/day. Pro tier: 15 min/day. assertRecordingAllowed checks this."
+
+  billingEvents:
+    purpose: "Raw billing webhook events for audit/debug"
+    fields:
+      - userId: string?
+      - provider: string
+      - providerEventId: string?
+      - providerPaymentId: string?
+      - eventType: string?
+      - payload: any
+      - receivedAt: number
+    indexes:
+      - by_provider_event: [provider, providerEventId]
+      - by_provider_payment: [provider, providerPaymentId]
+    key_file: convex/billingEvents.ts
+    notes: "Deduplication by providerEventId."
+
+  scheduledNotifications:
+    purpose: "Push notifications for spaced repetition"
+    fields:
+      - phraseId: id('phrases')
+      - userId: string
+      - scheduledFor: number
+      - sent: boolean
+    indexes:
+      - by_phrase: [phraseId]
+      - by_user_scheduled: [userId, scheduledFor]
+      - by_sent: [sent]
+    key_file: convex/notifications.ts
+    notes: "Created on phrase creation + daily cron reschedule. Sent via web push (notificationsNode)."
+
+  testTable:
+    purpose: "Test table for emoji functionality (dev/test only)"
+    fields:
+      - emoji: string
+      - sentence: string
+      - createdAt: number
+    key_file: convex/testEmojiMutation.ts
+
+key_operations:
+  # Format: file → exported function name (type) — what it does
+  sessions:
+    file: convex/sessions.ts
+    functions:
+      get: "query — get session by ID, ownership-checked"
+      list: "query — all sessions for current user, desc order"
+      getByDate: "query — session by user+date, returns unique or null"
+      create: "mutation — idempotent: returns existing ID if same user+date, else inserts"
+      remove: "mutation — cascade deletes all phrases in session, then session"
+
+  phrases:
+    file: convex/phrases.ts
+    functions:
+      get: "query — phrase by ID, ownership-checked"
+      listBySession: "query — phrases for a session with session metadata"
+      listAllByUser: "query — all user phrases with legacy session backfill + category inference"
+      listGroupedByCategory: "query — phrases grouped by category using PHRASE_CATEGORIES"
+      create: "mutation — in-session phrase, infers category, schedules notifications"
+      createDirect: "mutation — standalone phrase, auto-translates if no translation, schedules notifications"
+      update: "mutation — partial update, re-infers category on text change"
+      remove: "mutation — delete phrase, ownership-checked"
+      recategorizeAll: "internalMutation — bulk re-categorize all phrases (run via CLI)"
+
+  attempts:
+    file: convex/attempts.ts
+    functions:
+      create: "mutation — insert queued attempt, billing-gated, updates practice session aggregates"
+      attachAudio: "mutation — link audio asset, consume daily minutes, pro tier auto-creates humanReviewRequest"
+      listByPhrase: "query — attempts for phrase with full result enrichment (audio, AI feedback, human review)"
+      listByPracticeSession: "query — attempts for practice session, desc, with enrichment"
+      listByPracticeSessionAsc: "query — same as above but asc order"
+      markFailed: "mutation — set attempt status to failed"
+    internal_helpers:
+      buildAttemptResult: "enriches attempt with phrase text, audio URL, AI feedback, human review summary"
+      buildAttemptResults: "batch version with shared caches for performance"
+      updatePracticeSessionAttemptAggregates: "increments practice session counters (fast path + legacy fallback)"
+
+  practiceSessions:
+    file: convex/practiceSessions.ts
+    functions:
+      start: "mutation — create new practice session with zeroed aggregates"
+      end: "mutation — set endedAt, idempotent, notifies verifiers of new work"
+      list: "query — paginated list (default 25, max 100), enriched with avg scores"
+      get: "query — single session with attempt/phrase counts"
+      getStreak: "query — consecutive days with ended practice sessions, timezone-aware"
+
+  aiFeedback:
+    file: convex/aiFeedback.ts
+    functions:
+      create: "mutation — insert feedback, patches attempt status to feedback_ready"
+      getByAttempt: "query — feedback for attempt, ownership-checked"
+
+  aiCalibration:
+    file: convex/aiCalibration.ts
+    functions:
+      recordComparison: "internalMutation — upsert running delta sums for AI vs human scores"
+      listAll: "query — all calibration rows with computed mean bias and mean absolute error"
+
+  humanReviews:
+    file: convex/humanReviews.ts
+    functions:
+      claimNext: "mutation — verifier claims next pending request for their language"
+      releaseClaim: "mutation — verifier releases a claimed request"
+      submitReview: "mutation — submit scores + exemplar audio, handles dispute agreement logic, updates AI calibration"
+      flagAttemptReview: "mutation — learner flags a completed review, transitions to dispute phase"
+      getCurrentClaim: "query — verifier's currently claimed request"
+      getQueueSignal: "query — count of pending requests for verifier's languages"
+      getAttemptHumanReview: "query — full review status for an attempt (learner-facing)"
+      getUnseenFeedback: "query — learner's reviews not yet marked as seen"
+      markFeedbackSeen: "mutation — mark review feedback as seen"
+      listEscalated: "query — all escalated review requests"
+      listPendingForLanguage: "query — pending requests for a specific language"
+      queueAttemptForHumanReview: "internalMutation — programmatic review request creation"
+      releaseClaimIfExpired: "internalMutation — reclaim timed-out claims"
+      escalateIfSlaExceeded: "internalMutation — escalate if 24h SLA passed"
+
+  audioAssets:
+    file: convex/audioAssets.ts
+    functions:
+      create: "mutation — register uploaded audio, validates MIME/size/duration, verifier claim auth"
+      listByPhrase: "query — audio assets for a phrase, ownership-filtered"
+
+  audioUploads:
+    file: convex/audioUploads.ts
+    functions:
+      generateUploadUrl: "mutation — Convex storage upload URL, billing-gated"
+      generateUploadUrlForVerifier: "mutation — upload URL for active verifiers (no billing check)"
+
+  preferences:
+    file: convex/preferences.ts
+    functions:
+      get: "query — user preferences with defaults if no record"
+      getProfileImageUrl: "query — resolved storage URL for profile image"
+      generateProfileImageUploadUrl: "mutation — upload URL for profile images (no billing check)"
+      upsert: "mutation — create or patch preferences, partial update"
+
+  verifierAccess:
+    file: convex/verifierAccess.ts
+    functions:
+      upsertMyProfile: "mutation — create or update verifier profile, always sets active=true"
+      setMyLanguageActive: "mutation — toggle verifier language membership"
+      getMyVerifierState: "query — verifier profile + language memberships"
+      listSupportedLanguages: "query — all supported languages (no auth required)"
+      getMyStats: "query — total and today review counts for verifier"
+
+  billing:
+    file: convex/billing.ts
+    functions:
+      getStatus: "query — tier, status, daily usage, limit, dev toggle availability"
+      createPayfastCheckout: "mutation — creates pending subscription + PayFast form fields with signature"
+      setMyTierForDev: "mutation — dev toggle to change tier (local dev + allowlisted users)"
+      setEntitlement: "internalMutation — upsert entitlement, webhook transition guards"
+
+  billingSubscriptions:
+    file: convex/billingSubscriptions.ts
+    functions:
+      getForWebhook: "internalQuery — subscription by ID"
+      getByPayfastReference: "internalQuery — subscription by PayFast reference"
+      setStatus: "internalMutation — status transition with state machine guard (canTransitionStatus)"
+
+  billingEvents:
+    file: convex/billingEvents.ts
+    functions:
+      insert: "internalMutation — deduplicated webhook event insert"
+
+  billingNode:
+    file: convex/billingNode.ts
+    functions:
+      payfastWebhook: "httpAction — validates PayFast ITN, updates subscription + entitlement"
+
+  notifications:
+    file: convex/notifications.ts
+    functions:
+      scheduleForPhrase: "internalMutation — schedule N notifications for a new phrase"
+      rescheduleDaily: "internalMutation — daily cron: reschedule for least-practiced phrases per user"
+      markSent: "internalMutation — mark notification as sent"
+      getPhraseById: "internalQuery — phrase lookup for notification actions"
+      getPreferencesByUserId: "internalQuery — preferences lookup for notification actions"
+      getNotificationById: "internalQuery — notification lookup"
+      getSessionReviewInfo: "internalQuery — pending review count for practice session"
+      getVerifierPushSubscriptions: "internalQuery — push-enabled verifier userIds for a language"
+      getCurrentUserId: "internalQuery — auth helper for actions"
+
+  notificationsNode:
+    file: convex/notificationsNode.ts
+    functions:
+      send: "internalAction — send web push notification for a scheduled notification"
+      notifyVerifiersNewWork: "internalAction — push notify verifiers when practice session ends"
+      sendPushToUser: "internalAction — generic push to a user"
+      sendTest: "action — send test push notification"
+
+  aiPipeline:
+    file: convex/aiPipeline.ts
+    functions:
+      processAttempt: "action (Node) — Whisper transcription → Claude scoring → writes aiFeedback"
+
+  testEmojiMutation:
+    file: convex/testEmojiMutation.ts
+    functions:
+      submitEmoji: "mutation — insert emoji+mapped sentence into testTable, validates allowed emojis"
+
+  aiPipelineData:
+    file: convex/aiPipelineData.ts
+    functions:
+      getAttemptById: "internalQuery — attempt lookup for pipeline"
+      getAudioAssetByAttempt: "internalQuery — audio asset lookup for pipeline"
+      insertAiFeedback: "internalMutation — insert feedback + patch attempt + update session aggregates"
+      patchAttemptStatus: "internalMutation — update attempt AI processing fields"
+
+  translatePhrase:
+    file: convex/translatePhrase.ts
+    functions:
+      translateAndPhoneticize: "internalAction (Node) — Claude API translation + phonetic generation"
+
+  translatePhraseData:
+    file: convex/translatePhraseData.ts
+    functions:
+      patchTranslation: "internalMutation — update phrase with translation, phonetic, status"
+
+  translateNode:
+    file: convex/translateNode.ts
+    functions:
+      verifyTranslation: "action (Node) — Google Translate API spell-check, compares user translation via Levenshtein similarity (70% threshold)"
+      getSuggestion: "action (Node) — Google Translate API suggestion for an English phrase"
+
+  unsplash:
+    file: convex/unsplash.ts
+    functions:
+      getRandomPhoto: "action — fetch random Unsplash photo by query, rate-limited (30/min), returns URLs + attribution"
+
+lib_helpers:
+  billing:
+    file: convex/lib/billing.ts
+    exports:
+      BILLING_PLANS: "plan config — ai: R150/10min, pro: R500/15min"
+      getPlanFromTier: "returns plan config or null for free"
+      getUserTimeZone: "reads userPreferences for timezone, defaults Africa/Johannesburg"
+      getDateKeyForTimeZone: "YYYY-MM-DD formatted for a timezone"
+      getEntitlement: "reads entitlements table, defaults to free/active"
+      getDailyUsage: "reads usageDaily for user+date"
+      minutesFromMs: "converts ms to minutes (3 decimal places)"
+      assertRecordingAllowed: "throws if free tier, inactive, or daily limit exceeded"
+      consumeRecordingMinutes: "upserts usageDaily record"
+
+  languages:
+    file: convex/lib/languages.ts
+    exports:
+      SUPPORTED_LANGUAGES: "readonly array of supported language configs"
+      normalizeLanguage: "fuzzy match input string to supported language or null"
+      requireSupportedLanguage: "normalizeLanguage that throws on no match"
+
+  phraseCategories:
+    file: convex/lib/phraseCategories.ts
+    exports:
+      PHRASE_CATEGORIES: "readonly array of category definitions"
+      DEFAULT_CATEGORY: "fallback category"
+      inferPhraseCategory: "keyword-based category inference from english+translation text"
+
+  publicActionGuards:
+    file: convex/lib/publicActionGuards.ts
+    exports:
+      enforceLocalRateLimit: "process-local rate limiter for public actions — bucket+subject keyed, not global across instances"
+      requireNonEmptyTrimmed: "trims + validates non-empty string, throws on blank"
+      assertMaxLength: "throws if string exceeds max length"
+
+  fetchWithTimeout:
+    file: convex/lib/fetchWithTimeout.ts
+    exports:
+      fetchWithTimeout: "fetch wrapper with AbortController timeout, optional retry for GET/HEAD, structured error types"
+      FetchTimeoutError: "typed error for timeout failures"
+      FetchNetworkError: "typed error for network failures"
+      classifyExternalFetchError: "categorizes error as timeout | network | aborted | unknown"
+
+  safeErrors:
+    file: convex/lib/safeErrors.ts
+    exports:
+      classifyAppErrorCode: "maps errors to AppErrorCode (timeout, network, auth, quota, validation, upstream_response, internal)"
+      sanitizeTextForLog: "redacts Bearer tokens, API keys, secrets from log strings"
+      sanitizeLogValue: "recursive sanitizer for structured log payloads — redacts sensitive keys"
+      summarizeErrorForLog: "error → safe log-friendly record"
+      toClientSafeError: "maps internal errors to generic client-facing messages"
+      summarizePushSubscriptionForLog: "extracts safe loggable fields from raw JSON push subscription string"
+
+  vocabularySets:
+    file: convex/lib/vocabularySets.ts
+    exports:
+      VOCABULARY_SETS: "static vocabulary sets (colors, numbers, animals, etc.) with English/Xhosa pairs + Unsplash search terms"
+
+crons:
+  reschedule-spaced-repetition:
+    schedule: "daily 06:00 UTC"
+    handler: notifications.rescheduleDaily
+    file: convex/crons.ts
+
+key_data_flows:
+  recording_attempt:
+    description: "Learner records audio for a phrase"
+    steps:
+      - "attempts.create → insert queued attempt, update practice session aggregates"
+      - "audioUploads.generateUploadUrl → Convex storage URL (billing gated)"
+      - "audioAssets.create → register uploaded file with validation"
+      - "attempts.attachAudio → link audio, consume daily minutes, mark processing"
+      - "Pro tier: auto-create humanReviewRequest with 24h SLA"
+
+  ai_feedback:
+    description: "AI pronunciation scoring pipeline"
+    steps:
+      - "aiPipeline.processAttempt (Node action) → Whisper transcription → Claude scoring"
+      - "aiPipelineData.insertAiFeedback → writes aiFeedback record, patches attempt, updates session aggregates"
+
+  human_review:
+    description: "Verifier review and dispute flow"
+    steps:
+      - "humanReviewRequests created on attempt audio attachment (pro tier)"
+      - "Verifier claims request (5 min timeout) via humanReviews.claimNext"
+      - "Verifier submits review via humanReviews.submitReview with scores + exemplar audio"
+      - "On completion, AI calibration updated (ai vs human score deltas)"
+      - "Learner can flag via humanReviews.flagAttemptReview → dispute phase"
+      - "Agreement check: scores within tolerance=1 → resolved"
+      - "SLA escalation via humanReviews.escalateIfSlaExceeded if 24h exceeded"
+
+  billing:
+    description: "Subscription and entitlement management"
+    steps:
+      - "billing.createPayfastCheckout → creates pending billingSubscription + PayFast form"
+      - "PayFast ITN → billingNode.payfastWebhook → billingEvents.insert + billingSubscriptions.setStatus"
+      - "Entitlement update: billing.setEntitlement → entitlements table"
+      - "Feature gating: lib/billing.getEntitlement() reads entitlements table"
+      - "Dev toggle: billing.setMyTierForDev (local dev + allowlisted users)"
+
+  translation:
+    description: "Auto-translation for new phrases"
+    steps:
+      - "phrases.createDirect with no translation → translationStatus: pending"
+      - "translatePhrase.translateAndPhoneticize (Node action) → Claude API"
+      - "translatePhraseData.patchTranslation → updates phrase with translation + phonetic"
+
+billing_tiers:
+  free:
+    daily_minutes: 0
+    features: "Browse phrases, no recording"
+  ai:
+    price_zar: 150
+    daily_minutes: 10
+    features: "Recording + AI feedback"
+  pro:
+    price_zar: 500
+    daily_minutes: 15
+    features: "Recording + AI feedback + human verifier reviews"
+
+best_practices:
+  auth:
+    - "Every public query/mutation must call getAuthUserId(ctx) first — returns userId string"
+    - "Ownership check: always verify doc.userId === userId before returning or modifying"
+    - "Internal functions (internalMutation/internalQuery) skip auth — they are server-only"
+
+  data_integrity:
+    - "Use requireSupportedLanguage() for any language input — normalizes to BCP 47"
+    - "Use inferPhraseCategory() when creating/updating phrases — keeps categoryKey consistent"
+    - "Scores must be integers 1-5 — validated by scoresAreValid() in humanReviews"
+    - "Status fields use string unions, not enums — validate transitions in code (canTransitionStatus, shouldApplyWebhookEntitlementUpdate)"
+
+  patterns:
+    - "Upsert pattern: query by_user index → unique(), then patch or insert"
+    - "Cascade delete: manually query children and delete in loop (no ON DELETE CASCADE in Convex)"
+    - "Idempotent create: check-then-insert with unique index (sessions.create, billingEvents.insert)"
+    - "Legacy backfill: check if aggregate field exists, fallback to recomputing from children (practiceSessions)"
+    - "Node actions (use node) for external API calls — separate from Convex runtime"
+    - "Data split pattern: action file (Node) + data file (mutations/queries) to keep external calls separate from DB writes"
+
+  billing:
+    - "Always check entitlement before recording: assertRecordingAllowed(ctx, userId, additionalMinutes)"
+    - "Consume minutes AFTER validation: consumeRecordingMinutes(ctx, userId, dateKey, minutes)"
+    - "Dev toggle: setMyTierForDev is gated by canUseDevBillingToggle — safe in local dev, requires allowlist elsewhere"
+    - "Webhook entitlement updates: canceled is terminal — never restore access after cancellation"
+
+http_routing:
+  file: convex/http.ts
+  routes:
+    - "Better Auth routes (auth component, CORS enabled)"
+    - "POST /webhooks/payfast → billingNode.payfastWebhook"
+
+testing:
+  framework: "Vitest + convex-test"
+  test_files:
+    - convex/sessions.test.ts
+    - convex/phrases.test.ts
+    - convex/attempts.test.ts
+    - convex/audioAssets.test.ts
+    - convex/notifications.test.ts
+    - convex/humanReviewFlags.test.ts
+    - convex/billingDevToggle.test.ts
+    - convex/billingWebhooks.test.ts
+    - convex/payfast.test.ts
+    - convex/fetchWithTimeout.test.ts
+    - convex/aiPipeline.test.ts
+    - convex/testEmojiMutation.test.ts
+  notes: "convex-test provides in-memory Convex runtime. Node actions (use node) cannot be tested directly — use data-layer mocks."
+
+known_issues:
+  - "pickLatestAiFeedback helper is duplicated in attempts.ts and practiceSessions.ts"
+  - "humanReviews.ts has inline updateAiCalibration that duplicates aiCalibration.recordComparison"
+  - "userPhrases table (FSRS) defined in schema but has no implementation file — not yet wired up"
+  - "Practice session aggregate fields are optional (legacy compat) — every reader must handle missing aggregates"
+  - "audioAssets.create skips storage metadata validation in test environment (convex-test limitation)"
+  - "rescheduleDaily cron fetches all userPreferences + all phrases per user — may need pagination at scale"

@@ -294,5 +294,12 @@ export default defineSchema({
 	})
 		.index('by_phrase', ['phraseId'])
 		.index('by_user_scheduled', ['userId', 'scheduledFor'])
-		.index('by_sent', ['sent'])
+		.index('by_sent', ['sent']),
+
+	// Test table for emoji functionality
+	testTable: defineTable({
+		emoji: v.string(),
+		sentence: v.string(),
+		createdAt: v.number()
+	})
 });

@@ -1,13 +1,13 @@
 ---
-date: 2026-03-21T00:00:00+02:00
+date: 2026-03-25T00:00:00+02:00
 researcher: Claude
-git_commit: 452e5a1
-branch: al
+git_commit: 4a209d8
+branch: hein/feature/issue-61
 repository: babylon
-topic: 'Verifier App — Full Architecture & Codebase Research'
+topic: 'Verifier app — full architecture and codebase research'
 tags: [research, codebase, verifier, human-review, convex, sveltekit]
 status: complete
-last_updated: 2026-03-21
+last_updated: 2026-03-25
 last_updated_by: Claude
 ---
 
@@ -15,183 +15,180 @@ last_updated_by: Claude
 
 ## Research Question
 
-What is the verifier app — its structure, backend, UI, auth, and how it fits into the broader Babylon system?
+Comprehensive research of the verifier app — structure, backend, UI, shared dependencies, and workflows.
 
 ## Summary
 
-The verifier app (`apps/verifier/`) is a standalone SvelteKit 2 application for human reviewers who score learner audio attempts. Verifiers claim pending review items from a queue, score them on 3 dimensions (1-5 scale), optionally validate AI analysis, and can record exemplar audio. The app shares auth (BetterAuth), UI components (`@babylon/ui`), and backend (Convex) with the learner web app but runs as a separate deployment on Railway. Authorization is data-driven — any authenticated user becomes a verifier by creating a profile and activating for a language, with no explicit role field.
+The verifier is a standalone SvelteKit 2 app (`apps/verifier/`) for human reviewers who score learner pronunciation attempts. It shares a Convex backend, auth system, and UI library with the main web app but deploys independently via Node adapter. The core workflow: learners submit audio → system queues for human review → verifiers claim items (5-min deadline) → score on 3 dimensions + record exemplar audio → learners can dispute → 2 more verifiers arbitrate. Currently hardcoded to isiXhosa (`xh-ZA`) only.
 
 ## Detailed Findings
 
 ### App Structure & Routes
 
+6 pages + 1 API route:
+
+| Route | Purpose |
+|---|---|
+| `/` | Guide page — verification approach, scoring dimensions, FAB to claim work |
+| `/login` | Email/password login via Better Auth |
+| `/register` | Account creation |
+| `/work` | Queue listing — pending reviews with phrase metadata |
+| `/work/[id]` | Claim detail — audio playback, 3-dimension scoring (1-5), AI analysis review, exemplar recording, 5-min timer |
+| `/settings` | Profile activation, stats, language team, push notifications, locale/skin prefs |
+| `/api/auth/[...all]` | Better Auth catch-all handler |
+
+Config: Node adapter (not Netlify adapter), Paraglide i18n (cookie strategy), Tailwind CSS 4, CSP headers.
+
+### Convex Backend — Schema
+
+5 verification tables in `convex/schema.ts`:
+
+- **`verifierProfiles`** (L102-112) — userId, firstName, profileImageUrl, active
+- **`verifierLanguageMemberships`** (L114-124) — userId, languageCode (BCP 47), active
+- **`humanReviewRequests`** (L129-159) — Queue lifecycle; fields: attemptId, phraseId, learnerUserId, languageCode, phase (initial|dispute), status (pending|claimed|completed|dispute_resolved|escalated), priority, SLA tracking, claim metadata. 6 compound indexes.
+- **`humanReviews`** (L162-181) — Submitted reviews; 3 scores (soundAccuracy, rhythmIntonation, phraseAccuracy), aiAnalysisCorrect, exemplar audio ref, agreesWithOriginal (disputes)
+- **`humanReviewFlags`** (L184-196) — Learner dispute flags; reason, status (open|resolved|escalated)
+- **`aiCalibration`** (L213-223) — AI vs human score drift per phrase
+
+### Convex Backend — Functions
+
+**`convex/verifierAccess.ts`** (135 lines):
+- `upsertMyProfile` — mutation; set firstName + profileImageUrl
+- `setMyLanguageActive` — mutation; activate language team membership
+- `getMyVerifierState` — query; profile + active languages
+- `listSupportedLanguages` — query; BCP 47 codes
+- `getMyStats` — query; totalReviews + todayReviews
+
+**`convex/humanReviews.ts`** (994 lines) — the core workflow engine:
+
+| Function | Type | Purpose |
+|---|---|---|
+| `queueAttemptForHumanReview` | internal mutation | Creates pending request + schedules SLA escalation |
+| `claimNext` | mutation | Verifier claims next pending item; 5-min deadline; dispute rotation (blocks original reviewer) |
+| `releaseClaim` | mutation | Release claim back to pending |
+| `submitReview` | mutation | Submit 3 scores + exemplar; handles initial vs dispute phase |
+| `flagAttemptReview` | mutation (learner) | Creates dispute flag; transitions request to dispute phase |
+| `getCurrentClaim` | query | Active claim for verifier |
+| `getQueueSignal` | query | Pending count for language |
+| `listPendingForLanguage` | query | Up to 50 pending items with phrase metadata |
+| `getAttemptHumanReview` | query (learner) | Full review state incl. median scores from all reviews |
+| `getUnseenFeedback` | query (learner) | First unseen completed request |
+| `listEscalated` | query | All escalated requests |
+
+Helpers: `scoresAreValid()` (1-5 range), `agreesWithOriginal()` (±1 tolerance), `medianOf()`, `updateAiCalibration()`, `reclaimExpiredClaims()`, `escalateExpiredSla()`.
+
+**Trigger:** `convex/attempts.ts` L315-354 — `attachAudio` creates humanReviewRequest when learner has Pro entitlement.
+
+### State Machine
+
 ```
-apps/verifier/
-├── src/
-│   ├── app.html, app.css, app.d.ts
-│   ├── hooks.server.ts          — Security headers, i18n, auth token extraction
-│   ├── lib/
-│   │   ├── server/auth.ts       — BetterAuth instance
-│   │   └── paraglide/           — Generated i18n runtime
-│   └── routes/
-│       ├── +layout.svelte       — Root: Convex client, auth, Header, locale/skin sync
-│       ├── +page.svelte         — Home: verification guide + FAB (auto-claim)
-│       ├── login/+page.svelte   — Email/password login
-│       ├── register/+page.svelte — Registration
-│       ├── settings/+page.svelte — Profile, language activation, notifications, stats
-│       ├── work/+page.svelte    — Pending review queue (per language)
-│       ├── work/[id]/+page.svelte — Core scoring interface
-│       └── api/auth/[...all]/+server.ts — BetterAuth catch-all
-├── messages/
-│   ├── en.json                  — 107 keys
-│   └── xh.json                  — isiXhosa translations
-├── static/                      — PWA icons, manifest, service worker, logo
-├── package.json, svelte.config.js, vite.config.ts
-└── railway.toml                 — Deployment config
+                    ┌─────────────────────────────────────┐
+                    │          INITIAL PHASE               │
+                    │                                      │
+  attachAudio() ──►│ pending ──► claimed ──► completed    │
+                    │   ▲           │                      │
+                    │   └───────────┘ (release/expire)     │
+                    └──────────────────────┬──────────────-┘
+                                           │ learner flags
+                    ┌──────────────────────▼──────────────-┐
+                    │          DISPUTE PHASE                │
+                    │                                       │
+                    │ pending ──► claimed ──► completed x2  │
+                    │   ▲           │            │          │
+                    │   └───────────┘            ▼          │
+                    │              ┌─────────────────┐      │
+                    │              │ 2+ agree → resolved    │
+                    │              │ <2 agree → escalated   │
+                    │              └─────────────────┘      │
+                    └──────────────────────────────────────-┘
+
+  Any pending/claimed past 24h SLA → escalated
 ```
 
-### Core Workflow: Scoring Interface (`work/[id]/+page.svelte`)
+### Auth Integration
 
-- Displays phrase (English + target language) and plays learner audio
-- **3 scoring dimensions** (1-5 buttons each): Sound Accuracy, Rhythm & Intonation, Phrase Accuracy
-- **AI validation**: If AI analysis exists, shows transcript + scores + yes/no correctness buttons
-- **Dispute context**: Shows original verifier's name + scores when `phase=dispute`
-- **Exemplar recorder**: MediaRecorder → Blob → presigned URL upload → AudioAsset creation
-- **Countdown timer**: mm:ss to 5-minute claim deadline
-- **Actions**: Release claim (back to queue) or Submit review (auto-claims next)
+- **Server hooks** (`src/hooks.server.ts`): security headers → i18n middleware → Better Auth token extraction
+- **Server auth** (`src/lib/server/auth.ts`): minimal Better Auth instance; trusts localhost dev ports + `VERIFIER_SITE_URL`
+- **Layout** (`+layout.svelte`): `setupConvex()` + `createSvelteAuthClient()` + preference syncing
+- **Stores** (`packages/shared/src/stores/auth.ts`): `session`, `isAuthenticated`, `isLoading`, `user` — all derived from `authClient.useSession()`
+- **Route guards**: `$effect` in each page redirects to `/login` if not authenticated
+- **Auth config** (`convex/auth.ts`): trusts both main app and verifier origins
 
-### Backend: Convex Schema (5 verifier tables)
+### Shared Package Dependencies
 
-| Table | File:Line | Purpose |
-|-------|-----------|---------|
-| `verifierProfiles` | `schema.ts:102-112` | userId, firstName, profileImageUrl, active flag |
-| `verifierLanguageMemberships` | `schema.ts:114-124` | userId × languageCode with active flag |
-| `humanReviewRequests` | `schema.ts:129-159` | Review queue items: status, phase, SLA, claim tracking |
-| `humanReviews` | `schema.ts:162-181` | Submitted scores: 3 dimensions, AI correctness, exemplar audio |
-| `humanReviewFlags` | `schema.ts:184-196` | Learner dispute records |
+From `packages/shared/`:
+- `./auth-client` — BetterAuth client with Convex plugin
+- `./stores/auth` — reactive auth stores
+- `./convex` — ConvexClient init
+- `./notifications` — Web Push (VAPID, service worker registration)
+- `./utils` — `cn()` for CSS class merging
 
-### Backend: Request Lifecycle State Machine
+From `packages/ui/`:
+- Button, Card (Root/Header/Title/Description/Content/Footer), Input, Label, Header, DropdownMenu
 
-```
-pending
-  ├── Claimed → claimed (5min deadline)
-  │   ├── Claim expires → pending (released)
-  │   ├── Verifier submits → completed
-  │   └── SLA exceeded (24h) → escalated
-  ├── SLA exceeded → escalated
-  └── Learner flags → phase='dispute', status='pending'
-      ├── 1st dispute review → still pending (need 2)
-      ├── 2nd dispute review → dispute_resolved (if scores agree ±1)
-      │                      OR escalated (3-way disagreement)
-      └── SLA exceeded → escalated
-```
+### i18n
 
-### Backend: Key Convex Functions
+Two message sources merged by Paraglide:
+1. `packages/shared/messages/{en,xh}.json` — nav, auth, buttons
+2. `apps/verifier/messages/{en,xh}.json` — 108 keys; verifier guide, scoring, claim UI, settings, work queue, time helpers
 
-**`convex/humanReviews.ts` (961 lines)**
+Xhosa translations mostly complete; push notification keys still `[TODO]` prefixed.
 
-| Line | Function | Type | Purpose |
-|------|----------|------|---------|
-| 224 | `queueAttemptForHumanReview` | internalMutation | Creates request (called from attempts.ts) |
-| 271 | `releaseClaimIfExpired` | internalMutation | 5-min claim timeout (scheduler) |
-| 294 | `escalateIfSlaExceeded` | internalMutation | 24h SLA timeout (scheduler) |
-| 317 | `claimNext` | mutation | Claims next pending review for language |
-| 402 | `releaseClaim` | mutation | Verifier releases claim early |
-| 425 | `submitReview` | mutation | Submits scores + optional exemplar |
-| 673 | `flagAttemptReview` | mutation | Learner disputes a review |
-| 745 | `getCurrentClaim` | query | Active claim for verifier |
-| 768 | `getQueueSignal` | query | Pending count for language |
-| 790 | `getAttemptHumanReview` | query | Learner views review results |
-| 863 | `getUnseenFeedback` | query | Learner's unseen completed reviews |
-| 932 | `listEscalated` | query | Support views escalated cases |
-| 963 | `listPendingForLanguage` | query | Queue listing (50 items) |
+### Audio Recording & Upload
 
-**`convex/verifierAccess.ts` (135 lines)**
-
-| Line | Function | Type | Purpose |
-|------|----------|------|---------|
-| 6 | `upsertMyProfile` | mutation | Create/update verifier profile |
-| 40 | `setMyLanguageActive` | mutation | Toggle language membership |
-| 73 | `getMyVerifierState` | query | Profile + language memberships |
-| 102 | `listSupportedLanguages` | query | Available languages |
-| 113 | `getMyStats` | query | Total + today review counts |
-
-### Auth & Authorization
-
-- **Auth system**: Shared BetterAuth (email/password) via `@babylon/shared`
-- **Token flow**: BetterAuth cookie → `hooks.server.ts` extracts via `getToken()` → `event.locals.token` → Convex client
-- **No explicit role field** — verifier status is data-driven:
-  - `verifierProfiles` record exists + `active=true` → is a verifier
-  - `verifierLanguageMemberships` record with `active=true` → can review that language
-- **Backend enforcement**: `assertVerifierLanguageAccess()` (`humanReviews.ts:78-91`) guards all review mutations/queries
-- **Frontend guards**: `$isAuthenticated` store for route protection; `canReview` derived from language membership data
-
-### Shared Dependencies
-
-| Package | What's Used |
-|---------|-------------|
-| `@babylon/ui` | Header, Button, Card, Input, Label (shadcn-svelte) |
-| `@babylon/shared` | `authClient`, `CONVEX_URL`, `isAuthenticated`/`isLoading` stores, `requestNotificationPermission` |
-| `@babylon/convex` | `api` object, `Id<>` types |
-| `convex-svelte` | `useQuery`, `useConvexClient` |
+MediaRecorder API with MIME fallbacks (`audio/webm`, `audio/mp4`, `audio/ogg`). Upload flow:
+1. `generateUploadUrlForVerifier` → signed URL
+2. POST blob to URL
+3. `audioAssets.create` → register asset
+4. `submitReview` with `exemplarAudioAssetId`
 
 ### Deployment
 
-- **Platform**: Railway (not Netlify like web app)
-- **Config**: `railway.toml` — RAILPACK builder, `bun run build:verifier`, `node apps/verifier/build/index.js`
-- **Adapter**: `@sveltejs/adapter-node`
-- **CSP**: Allows `wss:` (Convex WebSocket), `blob:`/`data:` (audio), HTTPS images
-
-### AI Calibration Integration
-
-When a verifier submits a review, `updateAiCalibration()` (`humanReviews.ts:37-76`) compares AI scores vs human scores per phrase, tracking cumulative deltas in `aiCalibration` table (`schema.ts:212-223`). This measures AI-vs-human drift over time.
-
-### Data Flow: Learner Attempt → Verifier Review
-
-1. Learner uploads audio (`attempts.ts:316-352`)
-2. If Pro tier + active entitlement → creates `humanReviewRequest` (status=pending, SLA=24h)
-3. Scheduler sets 24h escalation timeout
-4. Verifier calls `claimNext()` → status=claimed, 5-min deadline set
-5. Verifier submits scores → status=completed, push notification sent to learner
-6. If learner disputes → phase=dispute, status=pending, needs 2 dispute reviews
-7. Dispute resolved by agreement (±1 tolerance) or escalated on disagreement
+- Adapter: `@sveltejs/adapter-node`
+- Turbo scripts: `dev:verifier`, `build:verifier`, `preview:verifier`
+- Allowed host: `verifier.schulie.com`
+- Env dir: workspace root (shares `.env` with monorepo)
+- Independent Netlify deployment (own `.netlify/` directory)
 
 ## Code References
 
-- `convex/schema.ts:102-196` — All 5 verifier-related table definitions
-- `convex/humanReviews.ts:1-961` — Full review workflow (queue, claim, submit, dispute, escalation)
-- `convex/humanReviews.ts:78-91` — `assertVerifierLanguageAccess()` authorization guard
-- `convex/humanReviews.ts:37-76` — `updateAiCalibration()` AI-vs-human comparison
-- `convex/verifierAccess.ts:1-135` — Profile & language membership management
-- `convex/attempts.ts:316-352` — Pro tier gate + review request creation
-- `apps/verifier/src/hooks.server.ts` — Security headers, i18n middleware, auth token extraction
-- `apps/verifier/src/lib/server/auth.ts` — BetterAuth instance config
-- `apps/verifier/src/routes/+layout.svelte` — Root layout: Convex, auth, locale/skin sync
-- `apps/verifier/src/routes/work/[id]/+page.svelte` — Core scoring interface
-- `apps/verifier/src/routes/work/+page.svelte` — Queue listing
-- `apps/verifier/src/routes/settings/+page.svelte` — Profile, language activation, stats
-- `apps/verifier/messages/en.json` — 107 i18n keys
-- `apps/verifier/railway.toml` — Railway deployment config
+- `convex/schema.ts:102-223` — All verification-related tables
+- `convex/humanReviews.ts:1-994` — Full review workflow engine
+- `convex/verifierAccess.ts:1-135` — Verifier profile & language management
+- `convex/attempts.ts:315-354` — Review queue trigger on audio attachment
+- `convex/auth.ts:21-23,51,65,77,108-109` — Verifier origin trust
+- `apps/verifier/src/routes/+layout.svelte:1-72` — Root layout, Convex + auth + prefs
+- `apps/verifier/src/routes/+page.svelte:1-124` — Guide/home page
+- `apps/verifier/src/routes/work/+page.svelte:1-142` — Queue listing
+- `apps/verifier/src/routes/work/[id]/+page.svelte:1-392` — Core review UI
+- `apps/verifier/src/routes/settings/+page.svelte:1-236` — Profile & preferences
+- `apps/verifier/src/hooks.server.ts:1-48` — Security + i18n + auth middleware
+- `apps/verifier/src/lib/server/auth.ts:1-27` — Server-side Better Auth config
+- `packages/shared/src/stores/auth.ts:1-25` — Auth stores
+- `packages/shared/src/notifications.ts:1-59` — Push notification utilities
+- `packages/ui/src/components/header/Header.svelte:1-109` — Shared header component
 
 ## Architecture Documentation
 
 **Patterns:**
-- Implicit role model — no `role` field, authorization via table membership
-- Claim-based work queue with 5-min deadlines + scheduler-based auto-release
-- SLA enforcement via 24h scheduled escalation
-- Dispute resolution: 2 agreeing dispute reviewers (±1 score tolerance) or escalate
-- AI calibration as side-effect of human review submission
-- Cookie-based locale persistence synced to Convex preferences on load
-- PWA-ready with service worker, manifest, push notifications
+- Convex-first — no REST/GraphQL; all data through Convex queries/mutations
+- Claim-based work queue with time-boxed claims (5 min) and SLA escalation (24h)
+- Dispute resolution requires 2 independent reviews with ±1 score tolerance for agreement
+- AI calibration tracking as a feedback loop between AI and human scores
+- Component state via Svelte 5 runes (`$state`, `$derived`, `$effect`); no external state management
+- Auth stores shared across apps via workspace package
+- i18n via Paraglide with merged shared + app-specific message files
+- Push notifications for learner feedback delivery
 
 **Conventions:**
-- All state via Svelte 5 runes ($state, $derived, $effect)
-- All backend via Convex (no REST/GraphQL)
-- All user-facing strings via Paraglide messages
-- shadcn-svelte components from shared `@babylon/ui` package
+- All routes use `$effect`-based auth guards (redirect to `/login`)
+- CSS uses shared `recall.css` stylesheet + BEM-like class names (`page-shell`, `practice-session__header`)
+- Language hardcoded to `xh-ZA` in multiple places (guide page FAB, settings language filter)
+- Exemplar recording required before review submission
 
 ## Open Questions
 
-- No tests found in `apps/verifier/` — are verifier-specific tests planned or do they live elsewhere?
-- `listEscalated` query exists but no admin/support UI found — where are escalated cases handled?
-- Language hardcoded to `xh-ZA` in several frontend components — is multi-language verifier support planned?
+- Why Node adapter if deploying to Netlify? Netlify adapter exists.
+- Routes `/billing`, `/practice`, `/session`, `/reveal` found in route dir — what are these? Active or stale?
+- Escalated reviews have no resolution UI — handled manually?
+- Only 1 language supported (`xh-ZA`) — what's the plan for multi-language?

@@ -1,13 +1,13 @@
 ---
-date: 2026-03-21T00:00:00+02:00
+date: 2026-03-25T00:00:00+02:00
 researcher: Claude
-git_commit: 452e5a1
-branch: al
+git_commit: 4a209d8
+branch: hein/feature/issue-61
 repository: babylon
 topic: 'billing'
-tags: [research, codebase, billing, payfast, subscriptions, entitlements]
+tags: [research, codebase, billing, payfast, entitlements, subscriptions]
 status: complete
-last_updated: 2026-03-21
+last_updated: 2026-03-25
 last_updated_by: Claude
 ---
 
@@ -15,165 +15,190 @@ last_updated_by: Claude
 
 ## Research Question
 
-How does billing work in the Babylon codebase?
+How does billing work across the Babylon codebase?
 
 ## Summary
 
-Babylon uses a **fully custom PayFast integration** (South African payment provider) with a three-tier model: Free (R0/mo, 0 min/day), AI (R150/mo, 10 min/day), Pro (R500/mo, 15 min/day). The architecture uses a dual-table pattern — `billingSubscriptions` tracks PayFast provider state while `entitlements` serves as the authoritative feature gate. Daily usage is tracked per-user in their local timezone. Webhooks drive state transitions with deduplication and audit logging. No third-party billing SDKs are used (Stripe, Paddle, etc.) — only `spark-md5` for PayFast signature hashing.
+Babylon uses **PayFast** (South African payment provider) as its sole payment processor. The system implements a three-tier model (free/ai/pro) with webhook-driven subscription state management, daily usage metering in the user's timezone, deduplication, and audit logging. A dual-table pattern separates provider state (`billingSubscriptions`) from authoritative feature gating (`entitlements`).
 
 ## Detailed Findings
 
 ### Plan Configuration
 
-Defined in `convex/lib/billing.ts:5-20`:
+**`convex/lib/billing.ts`**
 
-| Tier | Price | Daily Minutes |
-|------|-------|---------------|
+| Plan | Price | Daily Recording Limit |
+|------|-------|-----------------------|
 | Free | R0/mo | 0 min/day |
 | AI | R150/mo | 10 min/day |
 | Pro | R500/mo | 15 min/day |
 
-Type: `Tier = 'free' | 'ai' | 'pro'`
-
 ### Database Schema
 
-Four billing-related tables in `convex/schema.ts`:
+**`convex/schema.ts`**
 
-**billingSubscriptions** (lines 239-254) — PayFast provider state
-- Fields: userId, provider, plan, status (pending|active|past_due|canceled), payfastReference, providerPaymentId, providerSubscriptionToken, lastPaymentAt, currentPeriodEnd
-- Indexes: by_user, by_provider_reference, by_provider_payment
+Four billing tables:
 
-**entitlements** (lines 257-263) — Authoritative feature gating
-- Fields: userId, tier (free|ai|pro), status (active|past_due|canceled), source (webhook|admin|seed), updatedAt
-- Index: by_user
+- **`billingSubscriptions`** (lines 239–254) — Provider-side subscription state. Fields: `userId`, `provider` (`payfast`), `plan` (`free|ai|pro`), `status` (`pending|active|past_due|canceled`), `payfastReference`, `providerPaymentId`, `providerSubscriptionToken`, `lastPaymentAt`, `currentPeriodEnd`. Indexes: `by_user`, `by_provider_reference`, `by_provider_payment`.
 
-**usageDaily** (lines 266-273) — Per-day recording minute tracking
-- Fields: userId, dateKey (YYYY-MM-DD in user's timezone), minutesRecorded, updatedAt
-- Indexes: by_user, by_user_date
+- **`entitlements`** (lines 257–263) — Authoritative access tier for feature gating. Single row per user. Fields: `userId`, `tier` (`free|ai|pro`), `status` (`active|past_due|canceled`), `source` (`webhook|admin|seed`), `updatedAt`. Index: `by_user`.
 
-**billingEvents** (lines 276-286) — Raw webhook audit log
-- Fields: userId (optional), provider, providerEventId, providerPaymentId, eventType, payload, receivedAt
-- Indexes: by_provider_event, by_provider_payment
+- **`usageDaily`** (lines 266–273) — Per-user daily recording usage tracked in user's local timezone. Fields: `userId`, `dateKey` (YYYY-MM-DD), `minutesRecorded`, `updatedAt`. Indexes: `by_user`, `by_user_date`.
+
+- **`billingEvents`** (lines 276–286) — Raw webhook payloads for audit/debug. Fields: `provider`, `providerEventId`, `providerPaymentId`, `userId` (optional), `eventType`, `payload`, `receivedAt`. Indexes: `by_provider_event`, `by_provider_payment`.
 
 ### Public API
 
-`convex/billing.ts` exposes:
+**`convex/billing.ts`**
 
-- **`getStatus`** (query, line ~126) — Returns tier, status, minutesUsed, minutesLimit, dateKey, devToggleEnabled
-- **`createPayfastCheckout`** (mutation, line ~146) — Builds PayFast form fields with MD5 signature, creates pending subscription
-- **`setMyTierForDev`** (mutation, line ~202) — Dev-only tier override, gated by `BILLING_DEV_TOGGLE` env var + allowlist
-- **`setEntitlement`** (internal mutation, line ~257) — Applies tier/status changes from webhooks; blocks out-of-order transitions
+| Function | Type | Lines | Purpose |
+|----------|------|-------|---------|
+| `getStatus` | Query | 126–144 | Returns tier, status, minutesUsed, minutesLimit, dateKey, devToggleEnabled |
+| `createPayfastCheckout` | Mutation | 146–200 | Builds signed PayFast checkout form fields, creates pending subscription |
+| `setMyTierForDev` | Mutation | 202–255 | Dev-only tier override (gated by environment) |
+| `setEntitlement` | Internal Mutation | 257–301 | Upserts entitlement from webhook; enforces state machine |
 
 ### Billing Utilities
 
-`convex/lib/billing.ts` exports:
-- `getEntitlement()` — Fetch user's current tier+status; defaults to 'free'
-- `getDailyUsage()` — Minutes used today
-- `getUserTimeZone()` — From userPreferences; defaults to Africa/Johannesburg
-- `getDateKeyForTimeZone()` — YYYY-MM-DD in user's timezone
-- `assertRecordingAllowed()` — Pre-flight check: tier + daily minute limit
-- `consumeRecordingMinutes()` — Atomically deduct minutes from daily usage
-- `minutesFromMs()` — Convert ms to decimal minutes (3 decimals)
+**`convex/lib/billing.ts`**
+
+- `getEntitlement()` — Fetch user's tier+status (defaults to free)
+- `getDailyUsage()` — Minutes used in current day (user's timezone)
+- `getUserTimeZone()` — From `userPreferences`; defaults to `Africa/Johannesburg`
+- `getDateKeyForTimeZone()` — Format YYYY-MM-DD in user's timezone
+- `assertRecordingAllowed()` — Pre-flight: valid tier + within daily limit
+- `consumeRecordingMinutes()` — Atomically deduct from daily quota
+- `getPlanFromTier()` — Lookup plan details by tier
 
 ### PayFast Integration
 
-**Crypto utilities** (`convex/lib/payfast.ts`):
-- `buildPayfastSignature()` — MD5 hash via spark-md5
-- `buildPayfastCanonicalString()` — Ordered param=value string for signing
-- `normalizePayfastPassphrase()` — Handles blank passphrases
+**`convex/lib/payfast.ts`** — Cryptography & parsing:
+- `buildPayfastSignature()` — MD5 hash of canonical param string (spark-md5)
+- `buildPayfastCanonicalString()` — Ordered `param=value&...` string
+- `normalizePayfastPassphrase()` — Trim/handle blank passphrases
 - `parseFormBody()` — URL-decode webhook form data
 
-**Webhook handler** (`convex/billingNode.ts:48-257`):
-1. Validates merchant ID and MD5 signature
-2. Calls PayFast validation endpoint (4s timeout)
-3. Deduplicates by signature hash
-4. Looks up subscription by merchant reference
-5. Validates amount matches plan price
-6. Handles payment statuses:
-   - `COMPLETE` → subscription active, entitlement active
-   - `FAILED` → subscription past_due, entitlement past_due
-   - `CANCELLED` → subscription canceled, entitlement free/canceled
-7. Comprehensive logging with sanitization
+**`convex/billingNode.ts`** (lines 48–257) — HTTP action `payfastWebhook` at `POST /webhooks/payfast`:
 
-**HTTP route** (`convex/http.ts:10-14`): `POST /webhooks/payfast`
+Validation pipeline:
+1. Parse form body
+2. Validate merchant ID matches config
+3. Verify MD5 signature
+4. Call PayFast validation endpoint (4s timeout)
+5. Deduplicate by signature hash
+6. Lookup subscription by `payfastReference`
+7. Validate plan + user + amount
 
-**Subscription state machine** (`convex/billingSubscriptions.ts:57-117`):
-- `setStatus()` enforces terminal canceled state
-- Prevents regression to pending
-- Allows metadata-only updates on duplicate status
+State transitions on payment status:
+- `COMPLETE` → subscription active, entitlement active
+- `FAILED` → subscription past_due, entitlement past_due
+- `CANCELLED` → subscription canceled, entitlement free+canceled
+
+### Subscription State Machine
+
+**`convex/billingSubscriptions.ts`**
+
+`setStatus()` (lines 57–117) enforces:
+- Canceled is terminal (no transitions out)
+- No regression to pending
+- Allows metadata updates on duplicate status (for payment ID updates)
+
+### Dev Toggle Hardening
+
+**`convex/billing.ts`** (lines 76–124)
+
+`canUseDevBillingToggle()`:
+- Test env: always enabled
+- Local dev (localhost + non-prod): enabled by default
+- Non-local: requires `BILLING_DEV_TOGGLE=true` + allowlist
+- Production: additionally requires `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION=true`
 
 ### Frontend UI
 
-**Settings page** (`apps/web/src/routes/settings/+page.svelte:370-452`):
-- Subscription management card showing tier, status, daily minutes used/limit
+**Settings page** — `apps/web/src/routes/settings/+page.svelte` (lines 370–452):
+- Subscription card: current tier, status, daily minutes used/limit
 - Upgrade buttons for AI (R150/mo) and Pro (R500/mo)
-- `startCheckout()` function (lines 155-182) builds hidden form and submits to PayFast
-- Dev tier switcher (lines 405-449) gated by environment
+- `startCheckout()` builds hidden form, submits directly to PayFast
+- Dev tier switcher (gated by `devToggleEnabled`)
 
-**Payment callbacks:**
+**Library page** — `apps/web/src/routes/library/+page.svelte` (line 16):
+- Queries `billing.getStatus` for `minutesRemaining` derived value
+
+**Callback pages:**
 - `apps/web/src/routes/billing/return/+page.svelte` — Success confirmation
 - `apps/web/src/routes/billing/cancel/+page.svelte` — Cancellation page
-
-**Verifier app** has no billing UI.
+- Duplicated in `apps/verifier/src/routes/billing/` (same pages)
 
 ### i18n
 
-All billing strings are fully translated in English and isiXhosa:
-- `apps/web/messages/en.json` (lines 55-73, 66-73, 142-151)
-- `apps/web/messages/xh.json` (same line ranges)
-
-Key message keys: `settings_sub_title`, `settings_sub_tier`, `settings_sub_status`, `settings_sub_minutes`, `settings_sub_upgrade_ai`, `settings_sub_upgrade_pro`, `billing_complete`, `billing_canceled`
+**`apps/web/messages/en.json`** + **`xh.json`** (lines 55–73, 142–151):
+- Subscription keys: `settings_sub_title`, `settings_sub_tier`, `settings_sub_status`, `settings_sub_minutes`, `settings_sub_upgrade_ai`, `settings_sub_upgrade_pro`
+- Dev keys: `settings_dev_title`, `settings_dev_desc`, `settings_dev_free/ai/pro`
+- Billing pages: `billing_complete`, `billing_canceled` (+ descriptions)
 
 ### Environment Variables
 
-PayFast config (see `.env.example` lines 28-43):
-- `PAYFAST_SANDBOX`, `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`
-- `PAYFAST_RETURN_URL`, `PAYFAST_CANCEL_URL`, `PAYFAST_NOTIFY_URL`
-- `PAYFAST_ENABLE_RECURRING` (default: true), `PAYFAST_MINIMAL_CHECKOUT`
+**`.env.example`** (lines 35–50):
 
-Dev toggle:
-- `BILLING_DEV_TOGGLE`, `BILLING_DEV_TOGGLE_ALLOWLIST`, `BILLING_DEV_TOGGLE_ADMIN_ALLOWLIST`, `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION`
+| Variable | Purpose |
+|----------|---------|
+| `PAYFAST_MERCHANT_ID` | Merchant account ID (sandbox: `10000100`) |
+| `PAYFAST_MERCHANT_KEY` | Auth key (sandbox: `46f0cd694581a`) |
+| `PAYFAST_PASSPHRASE` | Webhook signature passphrase |
+| `PAYFAST_SANDBOX` | Sandbox mode flag |
+| `PAYFAST_RETURN_URL` | Checkout success redirect |
+| `PAYFAST_CANCEL_URL` | Checkout cancel redirect |
+| `PAYFAST_NOTIFY_URL` | Webhook endpoint (Convex HTTP) |
+| `PAYFAST_ENABLE_RECURRING` | Recurring subscription mode |
+| `BILLING_DEV_TOGGLE` | Enable dev tier switching |
+| `BILLING_DEV_TOGGLE_ALLOWLIST` | User IDs for non-local dev toggle |
+| `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION` | Explicitly allow in production |
+
+### Dependencies
+
+**`apps/web/package.json`**:
+- `spark-md5@3.0.2` — MD5 hashing for PayFast signatures
+- `@types/spark-md5@3.0.5`
+
+No Stripe, Paddle, or other payment SDKs.
 
 ### Tests
 
-- `convex/billingWebhooks.test.ts` — Deduplication, state transitions, out-of-order resilience, terminal state enforcement
-- `convex/billingDevToggle.test.ts` — Dev toggle safety across environments
-- `convex/payfast.test.ts` — Signature generation validation
+- `convex/billingWebhooks.test.ts` — Event dedup, state transitions, out-of-order safety, canceled-is-terminal
+- `convex/billingDevToggle.test.ts` — Environment gating (local, production default-off, production with allowlist)
+- `convex/payfast.test.ts` — Signature gen, passphrase handling, form body parsing
 
 ### Documentation
 
-- `docs/billing.md` — 157-line architecture doc covering schema, plans, API, webhooks, crypto, frontend, i18n, env vars, and tests
+- `docs/billing.md` (157 lines) — Architecture doc covering all of the above
 
 ## Code References
 
-- `convex/schema.ts:239-286` — Four billing tables
-- `convex/billing.ts` — Public billing API (getStatus, createPayfastCheckout, setMyTierForDev, setEntitlement)
-- `convex/billingNode.ts:48-257` — PayFast webhook handler
+- `convex/schema.ts:239-286` — Billing table definitions
+- `convex/billing.ts:126-301` — Public API + entitlement mutation
+- `convex/lib/billing.ts` — Plan config + billing utilities
+- `convex/lib/payfast.ts` — PayFast crypto + parsing
+- `convex/billingNode.ts:48-257` — Webhook handler
 - `convex/billingSubscriptions.ts:57-117` — Subscription state machine
-- `convex/billingEvents.ts:4-33` — Event audit log + dedup
-- `convex/lib/billing.ts:5-130` — Plan config + utilities
-- `convex/lib/payfast.ts` — Signature + form parsing
-- `convex/http.ts:10-14` — Webhook route registration
-- `apps/web/src/routes/settings/+page.svelte:155-452` — Billing UI
-- `apps/web/src/routes/billing/return/+page.svelte` — Payment success page
-- `apps/web/src/routes/billing/cancel/+page.svelte` — Payment cancel page
-- `apps/web/messages/en.json:55-73,142-151` — Billing i18n (English)
-- `apps/web/messages/xh.json:55-73,142-151` — Billing i18n (Xhosa)
-- `.env.example:28-43` — PayFast env vars
-- `docs/billing.md` — Architecture documentation
+- `convex/billingEvents.ts:4-33` — Event dedup + audit insert
+- `convex/http.ts` — HTTP route registration
+- `apps/web/src/routes/settings/+page.svelte:370-452` — Billing UI
+- `apps/web/src/routes/library/+page.svelte:16` — Usage query
+- `apps/web/src/routes/billing/return/+page.svelte` — Success page
+- `apps/web/src/routes/billing/cancel/+page.svelte` — Cancel page
+- `.env.example:35-50` — PayFast env vars
 
 ## Architecture Documentation
 
-**Dual-table pattern**: `billingSubscriptions` stores raw PayFast provider state; `entitlements` is the authoritative gate for feature access. This decouples payment processor concerns from application logic.
+Key patterns:
 
-**Webhook-driven state machine**: All tier changes flow through PayFast webhooks → `billingNode.ts` → internal mutations. The frontend never directly sets entitlements (except dev toggle).
-
-**Daily usage tracking**: Per-user, per-day in user's local timezone (defaults to Africa/Johannesburg). `assertRecordingAllowed()` + `consumeRecordingMinutes()` enforce tier limits atomically.
-
-**Checkout flow**: Frontend builds a hidden form with signed fields and submits directly to PayFast (no server-side redirect). PayFast redirects back to `/billing/return` or `/billing/cancel`.
-
-**Deduplication**: `billingEvents` deduplicates by `providerEventId`; webhook handler also deduplicates by signature hash.
+1. **Dual-table pattern** — `billingSubscriptions` (provider state) vs `entitlements` (authoritative feature gate). Webhooks update both; application code reads only `entitlements`.
+2. **Webhook-driven state machine** — All tier changes flow through PayFast webhooks. No client-side tier mutations in production.
+3. **Deduplication** — `billingEvents.providerEventId` + signature hashes prevent duplicate processing.
+4. **Out-of-order safety** — State machine blocks invalid transitions; canceled is terminal to prevent webhook replay attacks.
+5. **Timezone-aware daily metering** — Usage resets at midnight in user's local timezone (`Africa/Johannesburg` default).
+6. **Hardened dev toggle** — Multi-layer gating (env check → allowlist → production opt-in) for testing without payment.
 
 ## Open Questions
 
-None — billing system is well-documented and comprehensively tested.
+None — the billing system is well-documented in `docs/billing.md` and the codebase is consistent with that doc.

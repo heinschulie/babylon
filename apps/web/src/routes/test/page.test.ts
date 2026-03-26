@@ -54,30 +54,13 @@ describe('/test route', () => {
 		expect(content).not.toContain("import { Button } from '@babylon/ui/button'");
 	});
 
-	it('should NOT import Dialog components from @babylon/ui/dialog', () => {
-		expect(content).not.toContain("import * as Dialog from '@babylon/ui/dialog'");
-	});
 
-	it('should NOT have any Button markup', () => {
+	it('should NOT have any shadcn Button component markup', () => {
 		expect(content).not.toContain('<Button');
-		expect(content).not.toContain('<button');
 	});
 
-	it('should NOT have any Dialog markup', () => {
-		expect(content).not.toContain('<Dialog.Root');
-		expect(content).not.toContain('<Dialog.Trigger');
-		expect(content).not.toContain('<Dialog.Content');
-		expect(content).not.toContain('<Dialog.Title');
-	});
 
-	it('should NOT have a dialogOpen state variable', () => {
-		expect(content).not.toContain('let dialogOpen = $state(false)');
-	});
 
-	it('should NOT have any snippet pattern for Dialog.Trigger', () => {
-		expect(content).not.toContain('{#snippet child({ props })}');
-		expect(content).not.toContain('Open Modal');
-	});
 
 	it('should have an img element below the heading', () => {
 		expect(content).toContain('<img');
@@ -209,5 +192,57 @@ describe('/test route', () => {
 		// Verify that there's a grid closing div between them
 		const gridClosingBetween = content.substring(lastFigurePattern, newImagePattern);
 		expect(gridClosingBetween).toContain('</div>');
+	});
+
+	// New feature tests for emoji dialog
+	describe('emoji button feature', () => {
+		it('should have Test Emoji button above existing content', () => {
+			expect(content).toContain('Test Emoji');
+			expect(content).toContain('<button');
+
+			// Button should appear before the H1 heading
+			const buttonIndex = content.indexOf('Test Emoji');
+			const h1Index = content.indexOf('<h1');
+			expect(buttonIndex).toBeLessThan(h1Index);
+			expect(buttonIndex).toBeGreaterThan(-1);
+		});
+
+		it('should import Dialog components from ui package', () => {
+			expect(content).toContain('Dialog');
+		});
+
+		it('should have dialog state management', () => {
+			expect(content).toContain('dialogOpen');
+		});
+
+		it('should have Dialog.Root component with open state', () => {
+			expect(content).toContain('<Dialog.Root');
+			expect(content).toContain('open={dialogOpen}');
+		});
+
+		it('should contain exactly 3 emoji buttons', () => {
+			expect(content).toContain('😎');
+			expect(content).toContain('💩');
+			expect(content).toContain('🔥');
+
+			// Count emoji button elements (each appears in button text and function call)
+			const coolEmoji = (content.match(/😎/g) || []).length;
+			const poopEmoji = (content.match(/💩/g) || []).length;
+			const fireEmoji = (content.match(/🔥/g) || []).length;
+
+			expect(coolEmoji).toBe(2); // button + function call
+			expect(poopEmoji).toBe(2); // button + function call
+			expect(fireEmoji).toBe(2); // button + function call
+		});
+
+		it('should import Convex client functions', () => {
+			expect(content).toContain('useConvexMutation');
+			expect(content).toContain('api.testEmojiMutation.submitEmoji');
+		});
+
+		it('should have handleEmojiClick function that closes dialog', () => {
+			expect(content).toContain('handleEmojiClick');
+			expect(content).toContain('dialogOpen = false');
+		});
 	});
 });

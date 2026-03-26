@@ -1,213 +1,172 @@
 ---
-date: 2026-03-21T00:00:00+02:00
+date: 2026-03-25T00:00:00+02:00
 researcher: Claude
-git_commit: 452e5a1
-branch: al
+git_commit: 4a209d8
+branch: hein/feature/issue-61
 repository: babylon
-topic: 'apps/web application architecture'
+topic: 'apps/web — full application research'
 tags: [research, codebase, web, sveltekit, convex, auth, i18n]
 status: complete
-last_updated: 2026-03-21
+last_updated: 2026-03-25
 last_updated_by: Claude
 ---
 
-# Research: apps/web Application Architecture
+# Research: apps/web
 
 ## Research Question
 
-Comprehensive research of the `apps/web` application — structure, routing, components, data flow, auth, i18n, styling, and configuration.
+Comprehensive research of the `apps/web` SvelteKit application — structure, routing, components, state, auth, Convex integration, and i18n.
 
 ## Summary
 
-`apps/web` is a Xhosa language learning SPA built with SvelteKit 2 (Svelte 5 runes), Tailwind CSS 4, and Convex as the serverless backend. It features audio-based practice sessions with AI feedback, a phrase library, vocabulary flashcards, theory content, billing, and settings. Auth via BetterAuth + Convex. i18n via Paraglide JS (en/xh, cookie-only strategy). Theming supports dark mode + mono skin variant. Deployed via Node adapter (Netlify).
+`apps/web` is the learner-facing SvelteKit 2 app for Xhosa language acquisition. It has **15 route components** across auth, practice, vocabulary, library, theory, settings, and billing flows. All backend logic goes through **Convex** (47 direct API calls). Auth uses **BetterAuth + Convex** with cookie-based token extraction. i18n uses **Paraglide** with 209+ message keys (en/xh). UI built on **shadcn-svelte** components from `@babylon/ui`. No complex client stores — just 3 BetterAuth-derived stores in `@babylon/shared`.
 
 ## Detailed Findings
 
-### 1. Directory Structure
+### Project Structure
 
 ```
 apps/web/
-├── package.json, svelte.config.js, vite.config.ts, tsconfig.json
-├── vitest.config.ts, eslint.config.js, components.json
-├── project.inlang/settings.json        # Paraglide config
-├── messages/{en,xh}.json               # App-specific i18n (209 keys)
-├── static/                              # PWA assets, manifest, sw.js
-└── src/
-    ├── app.html                         # Shell: dark mode script, fonts, PWA
-    ├── app.css                          # Single import of shared styles
-    ├── app.d.ts                         # App-level type declarations
-    ├── hooks.server.ts                  # Security headers → i18n → auth middleware
-    ├── lib/
-    │   ├── server/auth.ts               # BetterAuth server config
-    │   ├── vocabularySets.ts            # Hardcoded vocab data (colors, numbers)
-    │   ├── paraglide/                   # Generated i18n runtime (gitignored)
-    │   └── index.ts
-    └── routes/                          # All page routes (below)
+├── src/
+│   ├── app.html              — HTML template (dark mode, fonts, PWA)
+│   ├── app.css               — Imports shared styles from packages/shared
+│   ├── app.d.ts              — App.Locals { token?: string }
+│   ├── hooks.server.ts       — Security headers + auth + i18n middleware
+│   ├── routes/               — 15 route components (see below)
+│   └── lib/
+│       ├── index.ts           — Empty barrel
+│       ├── vocabularySets.ts  — 13 vocab categories (colors→places)
+│       ├── server/auth.ts     — BetterAuth server config
+│       └── paraglide/         — Generated i18n (gitignored)
+├── messages/
+│   ├── en.json               — 209 English message keys
+│   └── xh.json               — 209 Xhosa keys (some [TODO])
+├── static/                    — Favicon, manifest, etc.
+├── svelte.config.js           — Node adapter, CSP directives
+├── vite.config.ts             — Paraglide + Tailwind 4 + SvelteKit plugins
+└── package.json               — Svelte 5.45, SvelteKit 2.49, Convex 1.31
 ```
 
-### 2. Routing Map
+### Route Map
 
-| Route | File | Purpose |
-|-------|------|---------|
-| `/` | `+page.svelte` (~800 lines) | Practice hub: phrase queue, audio recording, session history, streak |
-| `/login` | `+page.svelte` | Email/password login form |
-| `/register` | `+page.svelte` | Email/password registration form |
-| `/library` | `+page.svelte` | Phrase library grouped by category, add phrases, billing status |
-| `/vocabulary` | `+page.svelte` | Vocabulary set grid (colors, numbers, etc.) |
-| `/vocabulary/[set]` | `+page.svelte` | Flashcard carousel with Unsplash images |
-| `/theory` | `+page.svelte` | Xhosa linguistics guide (clicks, noun classes, tone) |
-| `/reveal/[id]` | `+page.svelte` | Translation quiz for a single phrase |
-| `/session/[id]` | `+page.svelte` | Legacy session editor/viewer |
-| `/practice` | `+page.ts` | Redirects 301 → `/` |
-| `/practice/session/[id]` | `+page.svelte` | Session review: attempts, audio playback, human feedback |
-| `/settings` | `+page.svelte` | Avatar, locale, skin, notifications, quiet hours, billing tier |
-| `/billing/cancel` | `+page.svelte` | Static cancellation confirmation |
-| `/billing/return` | `+page.svelte` | Static success confirmation |
-| `/api/auth/[...all]` | `+server.ts` | BetterAuth catch-all GET/POST handler |
+| Route | Auth? | Purpose | Convex Queries | Convex Mutations/Actions |
+|-------|-------|---------|----------------|--------------------------|
+| `/` | ✅ | Practice dashboard — session launcher, recording, review | phrases.listAllByUser, practiceSessions.list/get/getStreak, attempts.listByPracticeSessionAsc | practiceSessions.start/end, attempts.create/attachAudio, audioUploads.generateUploadUrl, audioAssets.create, aiPipeline.processAttempt |
+| `/login` | — | Email/password login | — | authClient.signIn.email |
+| `/register` | — | Email/password signup | — | authClient.signUp.email |
+| `/library` | ✅ | Phrase library by category | phrases.listGroupedByCategory, billing.getStatus, humanReviews.getUnseenFeedback | phrases.createDirect |
+| `/settings` | — | Profile, language, skin, notifications, billing | preferences.get, billing.getStatus, preferences.getProfileImageUrl | preferences.upsert (×5), preferences.generateProfileImageUploadUrl, billing.createPayfastCheckout, billing.setMyTierForDev, notificationsNode.sendTest |
+| `/theory` | — | Static educational content (clicks, agglutination, noun classes) | — | — |
+| `/vocabulary` | — | Vocab set grid (13 sets) | — | — |
+| `/vocabulary/[set]` | — | Flashcard with Unsplash images | — | unsplash.getRandomPhoto |
+| `/session/[id]` | — | Legacy phrase management per session | phrases.listBySession | phrases.create/remove, translateNode.verifyTranslation |
+| `/practice/session/[id]` | — | Practice session review — AI + human scores, dual audio | attempts.listByPracticeSessionAsc | humanReviews.markFeedbackSeen |
+| `/reveal/[id]` | — | Single-phrase translation quiz | phrases.get | — |
+| `/billing/cancel` | — | Payment canceled static page | — | — |
+| `/billing/return` | — | Payment complete static page | — | — |
+| `/test` | — | Dev test page (emoji dialog) | — | testEmojiMutation.submitEmoji |
+| `/api/auth/[...all]` | — | BetterAuth catch-all handler (GET/POST) | — | — |
 
-### 3. Component & State Patterns
+### Auth Flow
 
-**No separate component library** — all UI is in route page files, importing shadcn-svelte primitives from `@babylon/ui` (Button, Card, Dialog, Accordion, Input, Label).
+1. **Layout mount** → `setupConvex(CONVEX_URL)` + `createSvelteAuthClient({ authClient, convexUrl })`
+2. **Server hooks** (`hooks.server.ts:33-37`) → `getToken()` extracts JWT from cookies → `event.locals.token`
+3. **Client stores** (`packages/shared/src/stores/auth.ts`) → `session`, `isAuthenticated`, `isLoading`, `user` derived from `authClient.useSession()`
+4. **Protected routes** → `$effect` checks `$isAuthenticated`, redirects to `/login` if false
+5. **API routes** → `/api/auth/[...all]` handles BetterAuth callbacks via `createSvelteKitHandler`
 
-**Svelte 5 runes throughout:**
-- `$state` — all local reactive state (loading flags, form fields, audio state, indices)
-- `$derived` — computed values (isCorrect, currentPhrase, minutesRemaining, activePracticeSessionId)
-- `$effect` — side effects (locale sync, theme sync, auth guards, audio player seeding, scroll-to-feedback)
+### Server Hooks Chain (`hooks.server.ts`)
 
-**No external state management** beyond convex-svelte hooks and shared auth stores.
+Three handlers composed via `sequence()`:
+1. **securityHeadersHandle** (lines 15-31) — nosniff, referrer-policy, permissions-policy (mic=self only), HSTS in prod
+2. **authHandle** (lines 33-37) — Token extraction from cookies
+3. **i18nHandle** (lines 39-45) — Paraglide middleware, replaces `%lang%` in HTML
 
-### 4. Convex Data Flow
+### Convex Integration Patterns
 
-**Client init** (`+layout.svelte`):
-```ts
-setupConvex(CONVEX_URL);
-createSvelteAuthClient({ authClient, convexUrl: CONVEX_URL });
-```
+- **Queries**: `useQuery(api.namespace.op, () => $isAuthenticated ? {} : 'skip')` — skip when unauthed
+- **Mutations**: `const client = useConvexClient(); await client.mutation(api.namespace.op, args)`
+- **Actions**: Same as mutations but `client.action()` — can be fire-and-forget (aiPipeline.processAttempt) or awaited
+- **File uploads**: Generate URL → fetch PUT → create asset record → attach to entity
 
-**Read pattern**: `useQuery(api.module.fn, () => condition ? args : 'skip')`
-**Write pattern**: `const client = useConvexClient(); client.mutation(api.module.fn, args)`
-**Action pattern**: `client.action(api.module.fn, args)` (fire-and-forget for AI)
+### i18n Setup
 
-**Key Convex modules used:**
+- **Strategy**: Cookie-first (`PARAGLIDE_LOCALE`), fallback to base locale (`en`)
+- **Locales**: `en`, `xh` (isiXhosa)
+- **Message files**: `apps/web/messages/{en,xh}.json` (209 keys each)
+- **Usage**: `import * as m from '$lib/paraglide/messages.js'` → `m.nav_library()`
+- **Sync**: Layout reads Convex prefs on load, calls `setLocale()` if mismatched
+- **Incomplete**: Some xh.json entries prefixed `[TODO]` (settings_appearance, theory, vocab sections)
 
-| Module | Queries | Mutations | Actions |
-|--------|---------|-----------|---------|
-| `phrases` | `get`, `listBySession`, `listAllByUser`, `listGroupedByCategory` | `create`, `createDirect`, `remove` | — |
-| `practiceSessions` | `list`, `get`, `getStreak` | `start`, `end` | — |
-| `attempts` | `listByPracticeSessionAsc` | `create`, `attachAudio` | — |
-| `preferences` | `get`, `getProfileImageUrl` | `upsert`, `generateProfileImageUploadUrl` | — |
-| `billing` | `getStatus` | `createPayfastCheckout`, `setMyTierForDev` | — |
-| `humanReviews` | `getUnseenFeedback` | `markFeedbackSeen` | — |
-| `audioUploads` | — | `generateUploadUrl` | — |
-| `audioAssets` | — | `create` | — |
-| `aiPipeline` | — | — | `processAttempt` |
-| `unsplash` | — | — | `getRandomPhoto` |
-| `notificationsNode` | — | — | `sendTest` |
+### UI Components Used (from @babylon/ui)
 
-**Audio submission flow** (practice page, ~lines 272-306):
-1. `attempts.create` → attemptId
-2. `audioUploads.generateUploadUrl` → signed URL
-3. `fetch(url, {POST blob})` → storageId
-4. `audioAssets.create` → audioAssetId
-5. `attempts.attachAudio` → links audio
-6. `aiPipeline.processAttempt` → fire-and-forget AI scoring
+- `Button`, `Card` (Root/Content/Header/Title/Description/Footer), `Input`, `Label`
+- `Dialog` (Root/Content/Title), `Accordion` (Root/Item/Trigger/Content)
+- `Header` (layout-level, receives i18n props)
 
-### 5. Authentication
+### State Management
 
-**Stack**: BetterAuth + `@convex-dev/better-auth` + `@mmailaender/convex-better-auth-svelte`
+Minimal — no complex stores or context:
+- **3 auth stores** in `@babylon/shared/stores/auth.ts` (session-derived)
+- **Component-local** `$state` runes for forms, modals, audio playback
+- **Convex reactive queries** via `useQuery()` handle server state
 
-**Server side** (`hooks.server.ts`):
-- `authHandle` extracts JWT from cookies via `getToken(createAuth, event.cookies)`
-- Sets `event.locals.token`
+### Key Features by Page
 
-**Client side** (`packages/shared/src/auth-client.ts`):
-- `authClient` with `organizationClient()` + `convexClient()` plugins
-- Shared stores: `session`, `isAuthenticated`, `isLoading`, `user` (in `packages/shared/src/stores/auth.ts`)
+**Practice (`/`)** — Core flow: start session → record audio via MediaRecorder → upload to Convex storage → create attempt → fire-and-forget AI processing. Queue modes: once/shuffle/repeat. Review shows AI scores (sound/rhythm/phrase) + human verifier feedback with dual audio playback.
 
-**Auth API**: `/api/auth/[...all]` delegates all auth requests to BetterAuth handler.
+**Library (`/library`)** — Phrases grouped by category. Add dialog creates phrases with `createDirect`. Feedback banner links to practice review when unseen human reviews exist. FAB shows remaining tier minutes.
 
-**Protected rendering**: Header + routes check `$isAuthenticated` before rendering content.
+**Settings (`/settings`)** — Avatar upload (Convex storage), locale switching (Paraglide + Convex), skin switching (default/mono via localStorage + DOM), push notifications (service worker + VAPID), quiet hours config, Payfast billing checkout, dev tier override.
 
-### 6. Internationalization
+**Vocabulary (`/vocabulary/[set]`)** — Flashcards from 13 static vocab sets. Loads Unsplash images per term. Reveal-on-demand translation. Fly transition animations.
 
-**Stack**: Paraglide JS v2, cookie-only strategy, no URL prefixes.
+### Shared Package Dependencies
 
-**Locales**: `en` (base), `xh` (isiXhosa)
-
-**Message files**:
-- Shared: `packages/shared/messages/{en,xh}.json` (~43 keys — nav, auth, buttons)
-- Web: `apps/web/messages/{en,xh}.json` (209 keys — practice, library, settings, theory, vocab)
-
-**Flow**:
-1. Server: `paraglideMiddleware` reads `PARAGLIDE_LOCALE` cookie → sets locale
-2. Client layout: `$effect` reads Convex `preferences.uiLocale` → `setLocale()` if mismatched (one-time sync)
-3. Settings page: `switchLanguage()` → `setLocale()` + `preferences.upsert({ uiLocale })` to persist both ways
-
-**Translation status**: English 100% complete. isiXhosa ~90% — vocab and theory sections have `[TODO]` placeholders.
-
-### 7. Styling & Theming
-
-**Centralized styles**: `packages/shared/src/styles/recall.css` (925 lines), imported via `apps/web/src/app.css`.
-
-**Tailwind CSS 4** with `@import 'tailwindcss'` + `tw-animate-css`. `@source` directive scans `packages/ui/src/**/*.{svelte,ts,js}`.
-
-**Theme system** (OkLCh color space):
-- Light mode: warm neutrals, lime green accent (`oklch(0.75 0.25 116)`)
-- Dark mode: inverted palette, `class="dark"` on `:root`
-- Mono skin: grayscale variant via `[data-skin="mono"]`
-- Recording accent: coral/magenta for audio UI
-
-**Persistence**: `localStorage` for theme (dark/light) + skin (default/mono), synced to Convex `userPreferences`.
-
-**Custom CSS classes**: `.page-shell`, `.target-phrase` (container queries), `.practice-session`, `.feedback-banner`, `.practice-fab`, `.vocab-flashcard`, `.streak-display`.
-
-**Fonts**: Bebas Neue (display), Public Sans (body) — Google Fonts preloaded in `app.html`.
-
-### 8. Build & Deployment
-
-- **Adapter**: `@sveltejs/adapter-node`
-- **Build**: `bun run build` → Vite → `build/` directory
-- **Start**: `bun build/index.js`
-- **Turbo**: `dependsOn: ["^build"]` for upstream package builds
-- **CSP**: Configured in `svelte.config.js` with nonce-based scripts, production `upgrade-insecure-requests`
-- **Security headers**: HSTS, nosniff, strict-origin referrer, restrictive permissions-policy (mic: self only)
-- **PWA**: `manifest.json`, `sw.js`, apple-touch-icon, theme-color meta
-
-### 9. Server Hooks Pipeline
-
-`hooks.server.ts` chains 3 handles via `sequence()`:
-1. **securityHeadersHandle** — static security headers + HSTS in prod
-2. **i18nHandle** — Paraglide locale detection + `%lang%` replacement
-3. **authHandle** — BetterAuth token extraction from cookies
+| Import | Source | Purpose |
+|--------|--------|---------|
+| `authClient` | `@babylon/shared/auth-client` | BetterAuth Svelte client with org + convex plugins |
+| `isAuthenticated`, `isLoading`, `user` | `@babylon/shared/stores/auth` | Reactive auth state |
+| `CONVEX_URL` | `@babylon/shared/convex` | Convex endpoint |
+| `requestNotificationPermission` | `@babylon/shared/notifications` | Push subscription via service worker |
+| `cn` | `@babylon/shared` | Tailwind class merging |
+| `api`, `Id` | `@babylon/convex` | Typed Convex API + ID types |
 
 ## Code References
 
-- `apps/web/src/routes/+layout.svelte` — Root layout: Convex init, auth setup, locale/skin sync
-- `apps/web/src/routes/+page.svelte` — Practice hub (~800 lines): recording, queue, sessions, streak
-- `apps/web/src/hooks.server.ts` — Middleware pipeline (security, i18n, auth)
-- `apps/web/src/lib/server/auth.ts` — BetterAuth server config with trusted origins
-- `apps/web/src/lib/vocabularySets.ts` — Hardcoded vocabulary data
-- `apps/web/src/app.html` — HTML shell: dark mode script, PWA, fonts
-- `apps/web/src/app.css` — Single import of shared styles
-- `packages/shared/src/styles/recall.css` — Centralized design system (925 lines)
-- `packages/shared/src/auth-client.ts` — BetterAuth client with plugins
-- `packages/shared/src/stores/auth.ts` — Auth stores (session, isAuthenticated, user)
-- `packages/convex/src/index.ts` — Re-exports api, DataModel, Doc, Id types
+- `apps/web/src/hooks.server.ts:15-47` — Server hook chain (security + auth + i18n)
+- `apps/web/src/routes/+layout.svelte:16-21` — Convex + auth client setup
+- `apps/web/src/routes/+page.svelte:239-306` — Practice session lifecycle (start → record → upload → AI)
+- `apps/web/src/routes/settings/+page.svelte:25-32` — Avatar upload flow pattern
+- `apps/web/src/routes/library/+page.svelte:15-17` — Multi-query page pattern
+- `apps/web/src/lib/vocabularySets.ts:1-279` — 13 vocabulary sets (VocabularyItem/VocabularySet types)
+- `apps/web/src/lib/server/auth.ts:1-27` — BetterAuth server factory
+- `apps/web/messages/en.json:1-209` — All 209 i18n message keys
+- `packages/shared/src/stores/auth.ts:9-24` — Auth store derivations
+- `packages/shared/src/auth-client.ts:1-7` — BetterAuth client with plugins
+- `packages/shared/src/convex.ts:1-12` — Convex client singleton
+- `packages/shared/src/notifications.ts:18-46` — Push notification subscription
 
 ## Architecture Documentation
 
-**Patterns observed:**
-- **Convex-first**: Zero REST/GraphQL — all backend through Convex queries, mutations, actions
-- **Route-centric components**: No lib/components directory; all UI in page files with shadcn-svelte primitives
-- **Fire-and-forget async**: AI processing (`aiPipeline.processAttempt`) runs after submission without blocking UI
-- **Conditional queries**: `useQuery(api.x, () => condition ? {} : 'skip')` prevents queries when unauthenticated
-- **Bidirectional preference sync**: Cookie ↔ Convex for locale/skin, with one-time layout sync on auth
-- **Centralized styling**: Single CSS file in `packages/shared` serves both web and verifier apps
-- **OkLCh theming**: Modern perceptual color space for consistent palette across light/dark/mono variants
+**Patterns:**
+- SvelteKit routes as thin view layer — no server load functions except auth token extraction
+- Convex handles all data fetching reactively via `useQuery()` with auth-gated skip
+- File upload follows: generate URL → PUT blob → create record → attach pattern
+- i18n strictly enforced — all user-facing strings via Paraglide message functions
+- `@babylon/ui` components are translation-agnostic (props-only, no i18n imports)
+- Dark mode / skin switching via localStorage + DOM `data-skin` attribute
+- Security-first: CSP, HSTS, restrictive permissions policy, nosniff headers
+
+**Conventions:**
+- Svelte 5 runes everywhere (`$state`, `$derived`, `$effect`, `$props`)
+- No legacy `let` reactivity
+- `useConvexClient()` for mutations/actions, `useQuery()` for reactive reads
+- Auth guard pattern: `$effect` → check `$isAuthenticated` + `!$isLoading` → `goto('/login')`
 
 ## Open Questions
 
-- How does the service worker (`sw.js`) handle caching/offline?
-- What triggers practice session notifications (push subscription flow)?
-- How does FSRS spaced-repetition (`userPhrases` table) integrate with the practice queue?
-- What's the full billing/PayFast checkout flow beyond the settings page?
+- Several routes (session/[id], practice/session/[id], reveal/[id], vocabulary/*) lack explicit auth guards — intentional public access or missing?
+- xh.json has `[TODO]` prefixed entries — scope of untranslated content?
+- `/test` route — should it be removed or gated behind dev flag?
+- `session/[id]` route appears legacy (uses `phrases.create` vs `createDirect`) — still in use?

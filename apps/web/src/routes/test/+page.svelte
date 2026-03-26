@@ -1,4 +1,36 @@
+<script lang="ts">
+	import * as Dialog from '@babylon/ui/dialog';
+	import { useConvexClient } from 'convex-svelte';
+	import { api } from '@babylon/convex';
+
+	let dialogOpen = $state(false);
+
+	const client = useConvexClient();
+
+	async function handleEmojiClick(emoji: string) {
+		try {
+			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji });
+			dialogOpen = false;
+		} catch (error) {
+			console.error('Failed to submit emoji:', error);
+		}
+	}
+</script>
+
 <div class="bg-[#E1261C] min-h-[100vh]">
+	<button onclick={() => dialogOpen = true}>Test Emoji</button>
+
+	<Dialog.Root open={dialogOpen} onOpenChange={(open) => dialogOpen = open}>
+		<Dialog.Content>
+			<Dialog.Title>Choose an Emoji</Dialog.Title>
+			<div class="flex gap-4">
+				<button class="text-4xl" onclick={() => handleEmojiClick('😎')}>😎</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('💩')}>💩</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('🔥')}>🔥</button>
+			</div>
+		</Dialog.Content>
+	</Dialog.Root>
+
 	<h1 class="text-[150px]">christ on a pogostick</h1>
 
 	<!-- Row 1: 3 images -->

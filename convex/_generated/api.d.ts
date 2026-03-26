@@ -38,6 +38,7 @@ import type * as phrases from "../phrases.js";
 import type * as practiceSessions from "../practiceSessions.js";
 import type * as preferences from "../preferences.js";
 import type * as sessions from "../sessions.js";
+import type * as testEmojiMutation from "../testEmojiMutation.js";
 import type * as translateNode from "../translateNode.js";
 import type * as translatePhrase from "../translatePhrase.js";
 import type * as translatePhraseData from "../translatePhraseData.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   practiceSessions: typeof practiceSessions;
   preferences: typeof preferences;
   sessions: typeof sessions;
+  testEmojiMutation: typeof testEmojiMutation;
   translateNode: typeof translateNode;
   translatePhrase: typeof translatePhrase;
   translatePhraseData: typeof translatePhraseData;

@@ -1,6 +1,13 @@
 # apps/web
 
-Xhosa language learning SPA built with SvelteKit 2 (Svelte 5 runes), Tailwind CSS 4, and Convex. Features audio-based practice sessions with AI feedback, a phrase library, vocabulary flashcards, theory content, billing, and settings.
+Learner-facing SvelteKit 2 app for Xhosa language acquisition. Audio-based practice sessions with AI feedback, phrase library, vocabulary flashcards, theory content, billing, and settings.
+
+## Stack
+
+- **SvelteKit 2** (Svelte 5 runes), **Tailwind CSS 4**, **shadcn-svelte** (`@babylon/ui`)
+- **Convex** — all backend logic (47 direct API calls, no REST/GraphQL)
+- **BetterAuth** — cookie-based JWT auth via `@mmailaender/convex-better-auth-svelte`
+- **Paraglide JS** — i18n (en/xh, 209+ message keys)
 
 ## Structure
 
@@ -8,47 +15,51 @@ Xhosa language learning SPA built with SvelteKit 2 (Svelte 5 runes), Tailwind CS
 src/
 ├── app.html              # Shell: dark mode script, fonts, PWA
 ├── app.css               # Imports shared recall.css theme
-├── hooks.server.ts       # sequence(security, i18n, auth)
+├── hooks.server.ts       # sequence(security, auth, i18n)
 ├── lib/
 │   ├── server/auth.ts    # BetterAuth config
-│   ├── vocabularySets.ts # Static vocab categories
+│   ├── vocabularySets.ts # 13 static vocab categories
 │   └── paraglide/        # Generated i18n (gitignored)
-└── routes/               # 13 page routes, flat structure
+└── routes/               # 15 route components, flat structure
+messages/
+├── en.json               # 209 English message keys
+└── xh.json               # 209 Xhosa keys (some [TODO])
 ```
 
-Most component/store code lives in `packages/shared` and `packages/ui`, not here. All UI is in route page files, importing shadcn-svelte primitives from `@babylon/ui`.
+Most component/store code lives in `packages/shared` and `packages/ui`. All UI is in route page files, importing shadcn-svelte primitives from `@babylon/ui`.
 
 ## Routes
 
-| Route | Purpose |
-|-------|---------|
-| `/` | Practice hub — phrase queue, audio recording, session history, streak |
-| `/login` | Email/password login |
-| `/register` | Registration |
-| `/library` | Phrase library grouped by category, billing status |
-| `/theory` | Xhosa linguistics guide (clicks, noun classes, tone) |
-| `/vocabulary` | Vocabulary set grid |
-| `/vocabulary/[set]` | Flashcard carousel with Unsplash images |
-| `/settings` | Avatar, locale, skin, notifications, quiet hours, billing tier |
-| `/practice` | Redirects 301 → `/` |
-| `/practice/session/[id]` | Session review: attempts, audio playback, human feedback |
-| `/session/[id]` | Legacy session editor/viewer |
-| `/reveal/[id]` | Translation quiz |
-| `/billing/return` | PayFast success confirmation |
-| `/billing/cancel` | PayFast cancel confirmation |
-| `/api/auth/[...all]` | BetterAuth catch-all handler |
+| Route | Auth | Purpose |
+|-------|------|---------|
+| `/` | ✅ | Practice hub — phrase queue, audio recording, session history, streak |
+| `/login` | — | Email/password login |
+| `/register` | — | Registration |
+| `/library` | ✅ | Phrase library grouped by category, billing status |
+| `/theory` | — | Xhosa linguistics guide (clicks, noun classes, tone) |
+| `/vocabulary` | — | Vocabulary set grid |
+| `/vocabulary/[set]` | — | Flashcard carousel with Unsplash images |
+| `/settings` | — | Avatar, locale, skin, notifications, quiet hours, billing tier |
+| `/practice/session/[id]` | — | Session review: attempts, audio playback, human feedback |
+| `/session/[id]` | — | Legacy session editor/viewer |
+| `/reveal/[id]` | — | Translation quiz |
+| `/billing/return` | — | PayFast success confirmation |
+| `/billing/cancel` | — | PayFast cancel confirmation |
+| `/api/auth/[...all]` | — | BetterAuth catch-all handler |
 
 Single root layout — no nested layouts.
 
-## Initialization
+## Server Hooks
 
-**Server (per request)** via `hooks.server.ts` — `sequence()` chains:
+Three handlers via `sequence()` in `hooks.server.ts`:
 
 1. **securityHeadersHandle** — HSTS on prod, nosniff, strict-origin referrer, permissions-policy (mic: self)
-2. **i18nHandle** — Paraglide locale from cookie → `%lang%` replacement
-3. **authHandle** — BetterAuth token extraction from cookies → `event.locals.token`
+2. **authHandle** — BetterAuth token extraction from cookies → `event.locals.token`
+3. **i18nHandle** — Paraglide locale from cookie → `%lang%` replacement
 
-**Client (on mount)** via `+layout.svelte`:
+## Client Initialization
+
+Via `+layout.svelte` on mount:
 
 1. `setupConvex(CONVEX_URL)` — Convex client
 2. `createSvelteAuthClient()` — auth registration
@@ -57,7 +68,7 @@ Single root layout — no nested layouts.
 
 ## Data Flow
 
-All data through Convex — no REST/GraphQL.
+All data through Convex.
 
 - **Queries** (`useQuery`): phrases, sessions, attempts, preferences, billing, streaks, human reviews
 - **Mutations** (`useConvexClient().mutation`): create phrases, start/end sessions, upload audio, update preferences
@@ -144,14 +155,6 @@ Paraglide JS v2, cookie-only strategy (`PARAGLIDE_LOCALE`, 400-day max-age), no 
 - **Env directory**: `../..` (monorepo root)
 - **PWA**: `manifest.json`, `sw.js`, apple-touch-icon, theme-color meta, push notifications via web-push
 
-## Settings
-
-1. Profile picture upload
-2. Language switcher (en/xh)
-3. Appearance skin (default/mono)
-4. Push notifications (enable, test, quiet hours, frequency, timezone)
-5. Billing (free/ai/pro tiers, usage stats, checkout)
-
 ## Environment Variables
 
 | Var | Scope |
@@ -162,3 +165,12 @@ Paraglide JS v2, cookie-only strategy (`PARAGLIDE_LOCALE`, 400-day max-age), no 
 | `SITE_URL` | Server |
 | `BETTER_AUTH_SECRET` | Server |
 | `VAPID_PRIVATE_KEY` | Server |
+
+## Development
+
+```sh
+bun run dev      # Dev server
+bun run build    # Production build
+bun run check    # Type checking
+bun run format   # Prettier
+```

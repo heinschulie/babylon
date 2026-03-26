@@ -7,6 +7,13 @@
  * Usage: bun run adws/workflows/adw_ralph.ts --adw-id <id> --issue <parent-issue-number> [--max-iterations <n>]
  */
 
+// Catch stray unhandled rejections (e.g. agent-spawned background processes
+// like `npx convex dev --once` hitting transient network errors) so they
+// don't crash the workflow.
+process.on("unhandledRejection", (reason) => {
+  console.error(`[ralph] unhandled rejection (non-fatal): ${reason}`);
+});
+
 import { parseArgs } from "util";
 import {
   runTddStep,

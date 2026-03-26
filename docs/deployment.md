@@ -1,13 +1,13 @@
 ---
-date: 2026-03-21T12:00:00+02:00
+date: 2026-03-25T12:00:00+02:00
 researcher: Claude
-git_commit: 452e5a1
-branch: al
+git_commit: 4a209d8
+branch: hein/feature/issue-61
 repository: babylon
 topic: 'deployment'
-tags: [research, codebase, deployment, railway, convex, ci-cd]
+tags: [research, codebase, deployment, railway, convex, ci-cd, environment]
 status: complete
-last_updated: 2026-03-21
+last_updated: 2026-03-25
 last_updated_by: Claude
 ---
 
@@ -15,78 +15,149 @@ last_updated_by: Claude
 
 ## Research Question
 
-How is the Babylon monorepo deployed?
+How is the Babylon monorepo deployed? Full audit of deployment configs, build pipeline, env vars, and secrets.
 
 ## Summary
 
-A comprehensive deployment research doc already exists at `docs/deployment.md` (2026-03-20) and remains current. This document summarizes the findings and confirms no drift since that doc was written.
-
-**TL;DR:** Three services — two SvelteKit Node apps on **Railway** (auto-deploy on push to `main`) + serverless backend on **Convex Cloud** (`disciplined-spider-126`). CI via GitHub Actions (no auto-deploy). Convex deploy is manual.
+Three services: two SvelteKit Node apps on **Railway** (auto-deploy on push to `main`) + serverless backend on **Convex Cloud** (`disciplined-spider-126`). CI via GitHub Actions (no auto-deploy). Convex deploy is manual. Prior research at `docs/deployment.md` (2026-03-21) confirmed current — this doc adds deeper env var and build detail.
 
 ## Detailed Findings
 
-### Frontend: Railway
+### Railway (Frontend Hosting)
 
-Both apps use `@sveltejs/adapter-node` and deploy via Railway RAILPACK builder.
+Both apps deploy via Railway RAILPACK builder with identical configs:
 
-- `apps/web/railway.toml` — Build: `bun run build:web`, Start: `node apps/web/build/index.js`
-- `apps/verifier/railway.toml` — Build: `bun run build:verifier`, Start: `node apps/verifier/build/index.js`
-- Health check: `GET /`, 300s timeout, restart ON_FAILURE (max 3)
-- Watch patterns include `packages/**` so shared changes trigger redeploy
+- **apps/web/railway.toml** — Build: `bun run build:web`, Start: `node apps/web/build/index.js`
+- **apps/verifier/railway.toml** — Build: `bun run build:verifier`, Start: `node apps/verifier/build/index.js`
+- Health check: `GET /`, 300s timeout
+- Restart: `ON_FAILURE`, max 3 retries
+- Watch patterns: `apps/{web,verifier}/**` + `packages/**` (shared changes trigger redeploy)
 
-### Backend: Convex Cloud
+### Convex Cloud (Backend)
 
-- Deployment: `disciplined-spider-126.convex.cloud`
-- Manual deploy: `bun run convex:deploy`
-- HTTP routes: `/api/auth/*` (Better Auth), `/webhooks/payfast`
-- Cron: Daily 06:00 UTC — notification rescheduling
-- Auth: Better Auth with email/password, env-validated via `requireEnv()` in `convex/auth.ts`
+- Deployment ID: `disciplined-spider-126`
+- API: `https://disciplined-spider-126.convex.cloud`
+- HTTP site: `https://disciplined-spider-126.convex.site`
+- Routes: `/api/auth/*` (Better Auth), `/webhooks/payfast`
+- Cron: daily 06:00 UTC notification rescheduling
+- Manual deploy: `bun run convex:deploy` / `bunx convex deploy`
+- Config: `convex.json` → `convex/` functions dir
+- Component: `@convex-dev/better-auth` integrated via `convex.config.ts`
 
 ### CI/CD: GitHub Actions
 
-- `.github/workflows/ci.yml` — PR + push to `main`
-- Matrix: web + verifier in parallel
-- Steps: checkout → `bun install --frozen-lockfile` → typecheck → test → build
-- No auto-deploy of Railway or Convex from CI
+- `.github/workflows/ci.yml` — triggers on PR + push to `main`
+- Matrix: `@babylon/web` + `@babylon/verifier` in parallel
+- Steps: checkout → Bun 1.3.9 → `bun install --frozen-lockfile` → typecheck → test → build
+- Placeholder env vars for CI (lines 12-17): `PUBLIC_CONVEX_URL`, `SITE_URL`, `BETTER_AUTH_SECRET`
+- **No auto-deploy** of Railway or Convex from CI
 
-### Build Orchestration: Turbo + Bun
+### Build Pipeline
 
-- `turbo.json` — 8 tasks with `^build` dependency graph
-- Root `package.json` — orchestration scripts for dev, build, deploy, check
-- `justfile` — local CLI recipes wrapping Turbo commands
+**Adapter:** `@sveltejs/adapter-node` v5.0.0 (both apps)
+- Output: `build/` dir with `index.js` (Node HTTP server) + `handler.js`
+- Stale `.netlify/` dirs remain from previous Netlify hosting
+
+**Turbo:** `turbo.json` — 8 tasks, `^build` dependency graph
+- Build outputs: `build/**`, `.svelte-kit/**`, `dist/**`
+
+**Vite:** v7.2.6 with plugins: paraglide (i18n), Tailwind CSS 4, SvelteKit
+- `envDir: workspaceRoot` → reads `.env` from monorepo root
+- Allowed hosts: `dev.schulie.com` (web), `verifier.schulie.com` (verifier)
+
+**Scripts (root package.json):**
+- `bun run build` — full Turbo build
+- `bun run build:web` / `bun run build:verifier` — filtered builds
+- `bun run convex:deploy` — production Convex push
 
 ### Environment Variables
 
-All `.env` files live at monorepo root. Apps reference via `envDir: workspaceRoot` in Vite config.
+All `.env` files at monorepo root. Apps access via `envDir: '../..'` in svelte.config.js + vite.config.ts.
 
-**Public (3):** `PUBLIC_CONVEX_URL`, `PUBLIC_CONVEX_SITE_URL`, `VITE_VAPID_PUBLIC_KEY`
+#### Access Patterns by Runtime
 
-**Required private (10):** `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_RETURN_URL`, `PAYFAST_CANCEL_URL`, `PAYFAST_NOTIFY_URL`, `VAPID_PRIVATE_KEY`
+| Runtime | Import Pattern | Example |
+|---------|----------------|---------|
+| Browser | `import.meta.env.VITE_*` | `VITE_VAPID_PUBLIC_KEY` |
+| SvelteKit server | `$env/static/public`, `$env/dynamic/private` | `PUBLIC_CONVEX_URL`, `SITE_URL` |
+| Convex actions | `process.env.*` | API keys, merchant IDs, secrets |
+| ADW workflows (Bun) | `process.env.*` | `R2_*`, `CONVEX_ANTHROPIC_API_KEY` |
 
-**Optional private (11):** `VERIFIER_SITE_URL`, `GOOGLE_TRANSLATE_API_KEY`, `PAYFAST_PASSPHRASE`, `PAYFAST_SANDBOX`, `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_ALLOW_LOCALHOST_ORIGINS`, `AUTH_ALLOW_UNVERIFIED_EMAILS_PROD`, `BILLING_DEV_TOGGLE`, `BILLING_DEV_TOGGLE_ALLOWLIST`, `BILLING_DEV_TOGGLE_ADMIN_ALLOWLIST`, `PAYFAST_MINIMAL_CHECKOUT`
+#### Public (3)
 
-### Legacy
+| Variable | Purpose |
+|----------|---------|
+| `PUBLIC_CONVEX_URL` | Convex API endpoint (browser) |
+| `PUBLIC_CONVEX_SITE_URL` | Convex HTTP routes (auth) |
+| `VITE_VAPID_PUBLIC_KEY` | Web push VAPID public key |
 
-Stale `.netlify/` dirs in both apps from previous Netlify deployment. No `netlify.toml` — was UI-configured.
+#### Required Private (10)
+
+| Variable | Purpose |
+|----------|---------|
+| `SITE_URL` | BetterAuth baseURL |
+| `BETTER_AUTH_SECRET` | Session encryption (32-byte hex) |
+| `CONVEX_ANTHROPIC_API_KEY` | Claude feedback + translation |
+| `OPENAI_API_KEY` | Whisper transcription |
+| `VAPID_PRIVATE_KEY` | Web push signing |
+| `PAYFAST_MERCHANT_ID` | PayFast account |
+| `PAYFAST_MERCHANT_KEY` | PayFast API key |
+| `PAYFAST_RETURN_URL` | Post-payment redirect |
+| `PAYFAST_CANCEL_URL` | Payment cancel redirect |
+| `PAYFAST_NOTIFY_URL` | Webhook endpoint (must be public) |
+
+#### Optional Private (11+)
+
+| Variable | Purpose |
+|----------|---------|
+| `VERIFIER_SITE_URL` | Cross-origin auth for verifier |
+| `GOOGLE_TRANSLATE_API_KEY` | Translation verification (degrades gracefully) |
+| `UNSPLASH_ACCESS_KEY` | Random photo lookup (degrades) |
+| `PAYFAST_PASSPHRASE` | Webhook signature |
+| `PAYFAST_SANDBOX` | Sandbox/live toggle |
+| `PAYFAST_ENABLE_RECURRING` | Subscription mode |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | Override email verify in prod |
+| `AUTH_ALLOW_LOCALHOST_ORIGINS` | Allow localhost in prod |
+| `AUTH_EXTRA_TRUSTED_ORIGINS` | Comma-separated extra origins |
+| `BILLING_DEV_TOGGLE` | Dev tier switching |
+| `R2_*` (5 vars) | Cloudflare R2 storage for ADW workflows |
+
+#### Env Validation
+
+- `packages/shared/src/convex.ts:6-8` — throws if `PUBLIC_CONVEX_URL` missing
+- `convex/auth.ts:60-85` — `readAuthEnv()`: `requireEnv()` + `parseBooleanEnv()` + `parseCommaSeparatedEnv()`
+- `convex/billing.ts:155-160` — `requireEnv()` for PayFast creds
+- `convex/notificationsNode.ts:49-51` — both VAPID keys required
+- `adws/src/r2-uploader.ts:25-28` — all R2 creds required together; degrades if any missing
+
+### Dev Tooling
+
+- **Cloudflare Tunnel:** `cloudflared tunnel run babylon-dev` → `dev.schulie.com`
+- **justfile:** Local CLI recipes wrapping Turbo + Convex commands
+- **Codegen check:** `scripts/check-convex-generated.sh` — CI fails if `convex/_generated/` stale
 
 ## Code References
 
-- `apps/web/railway.toml` — Railway config (web)
-- `apps/verifier/railway.toml` — Railway config (verifier)
-- `apps/web/svelte.config.js:1,34` — adapter-node
-- `apps/verifier/svelte.config.js:1,34` — adapter-node
-- `apps/web/vite.config.ts:11` — envDir
-- `convex.json` — Convex functions dir
-- `convex/http.ts` — HTTP routes
+- `apps/web/railway.toml` — Railway deploy config (web)
+- `apps/verifier/railway.toml` — Railway deploy config (verifier)
+- `apps/web/svelte.config.js:1,34` — adapter-node, env dir
+- `apps/verifier/svelte.config.js:1,34` — adapter-node, env dir
+- `apps/web/vite.config.ts:11,22` — envDir, allowedHosts
+- `convex.json` — Convex functions directory
+- `convex/convex.config.ts:1-7` — Better Auth component integration
+- `convex/http.ts` — HTTP routes (auth, webhooks)
 - `convex/auth.ts:60-163` — Auth env validation
-- `convex/billing.ts:24-124` — Billing env handling
+- `convex/billing.ts:24-160` — Billing env handling
+- `convex/aiPipeline.ts:140,233` — OpenAI/Anthropic key usage
+- `convex/notificationsNode.ts:49-51` — VAPID key usage
 - `convex/crons.ts` — Scheduled jobs
 - `.github/workflows/ci.yml` — CI pipeline
 - `turbo.json` — Build orchestration
-- `.env.example` — Env var template
+- `.env.example:1-51` — Env var template
 - `package.json:10-32` — Root scripts
 - `justfile` — Local dev recipes
-- `docs/deployment.md` — Prior comprehensive research
+- `packages/shared/src/convex.ts:2,6-8` — Convex client init + validation
+- `scripts/check-convex-generated.sh` — Codegen freshness check
 
 ## Architecture Documentation
 
@@ -120,6 +191,7 @@ GitHub Actions (CI: typecheck + test + build)
 ## Open Questions
 
 - Railway project/service IDs not in codebase — dashboard-configured?
-- Convex env vars: `npx convex env set` or dashboard?
-- Should stale `.netlify/` dirs be cleaned up?
+- Convex env vars set via `npx convex env set` or dashboard?
+- Stale `.netlify/` dirs — cleanup needed?
 - Staging/preview environment exists?
+- `UNSPLASH_ACCESS_KEY` referenced in code but missing from `.env.example`

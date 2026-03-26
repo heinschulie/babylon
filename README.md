@@ -8,9 +8,10 @@ Language-learning platform for practising isiXhosa pronunciation. Learners recor
 apps/web/           → Learner SvelteKit app (practice, library, vocabulary, billing)
 apps/verifier/      → Verifier SvelteKit app (review queue, scoring, disputes)
 packages/shared/    → Auth client, stores, styles, notifications, provider interfaces
-packages/ui/        → shadcn-svelte components (bits-ui + tailwind-variants)
+packages/ui/        → shadcn-svelte components (bits-ui)
 packages/convex/    → Type re-exports from convex/_generated/
-convex/             → Serverless backend: 19 tables, ~65 functions, 1 daily cron
+convex/             → Serverless backend: 20 tables, ~65 functions, 1 daily cron
+adws/               → Agentic dev workflow tooling (Bun-native)
 ```
 
 **Build order (Turbo DAG):**
@@ -23,7 +24,7 @@ convex/             → Serverless backend: 19 tables, ~65 functions, 1 daily cr
 
 ## Backend (Convex)
 
-19 tables across 7 domains:
+20 tables across 7 domains:
 
 - **Learning** — `sessions`, `phrases`, `userPhrases` (FSRS), `practiceSessions`, `attempts`, `audioAssets`
 - **AI Pipeline** — `aiFeedback`, `aiCalibration`. Attempt → Whisper transcription (45s) → Claude scoring (35s) → scores (sound/rhythm/phrase, 1–5). Race-protected via `aiRunId` claim.
@@ -43,9 +44,7 @@ convex/             → Serverless backend: 19 tables, ~65 functions, 1 daily cr
 
 **External services:** Anthropic Claude, OpenAI Whisper, Google Translate, PayFast, Web Push (VAPID), Unsplash
 
-**Utilities (`convex/lib/`):** auth (dual fallback), billing (entitlements, usage tracking, timezone-aware reset), payfast (MD5 signatures via spark-md5), languages (9 supported), phraseCategories (16 keyword-matched), vocabularySets, fetchWithTimeout (retries, abort, error classification), safeErrors (secret redaction, 8 error categories), publicActionGuards (rate limiting)
-
-**Tests:** 11 test files using Vitest + convex-test. Pattern: `convexTest(schema, modules)` fresh in-memory DB per test. Covers: sessions, phrases, attempts, AI pipeline, audio assets, notifications, human review flags, PayFast signatures, billing webhooks, billing dev toggle, fetchWithTimeout.
+**Utilities (`convex/lib/`):** auth (dual fallback), billing (entitlements, usage tracking, timezone-aware reset), payfast (MD5 signatures via spark-md5), languages (9 supported), phraseCategories (17 keyword-matched), vocabularySets (15 sets), fetchWithTimeout (retries, abort, error classification), safeErrors (secret redaction, error categories), publicActionGuards (bucket-based rate limiting)
 
 ## Auth
 
@@ -53,19 +52,19 @@ convex/             → Serverless backend: 19 tables, ~65 functions, 1 daily cr
 
 **Flow:** Browser → `/api/auth/*` (SvelteKit catch-all) → Convex HTTP action → session cookie → `hooks.server.ts` extracts token via `getToken()` → `event.locals.token` → Convex functions enforce via `getAuthUserId(ctx)` (dual fallback: native identity for tests, Better Auth for production).
 
-**Guards:** Client-side only via `$effect` + `$isAuthenticated` → redirect to `/login`. All domain tables have `userId` + `by_user` index for ownership scoping. Verifiers additionally require active language membership (`assertVerifierLanguageAccess`).
+**Guards:** Client-side only via `$effect` + `$isAuthenticated` → redirect to `/login`. All domain tables have `userId` + `by_user` index for ownership scoping. Verifiers additionally require active language membership.
 
 ## Frontends
 
 Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@sveltejs/adapter-node`. Identical config: svelte.config.js, vite.config.ts, hooks.server.ts, tsconfig.json. Differences are purely in routes and UI.
 
-**Web app** (13 routes): Practice dashboard with audio recording (Web Audio API) + queue modes, phrase library with auto-translation + category grouping, vocabulary flashcards (Unsplash images), translation self-test, theory pages (clicks, noun classes, tone), settings (profile, locale, skin, notifications, billing), PayFast checkout flows. PWA-enabled.
+**Web app** (15 routes): Practice dashboard with audio recording (MediaRecorder API) + queue modes, phrase library with auto-translation + category grouping, vocabulary flashcards (13 sets, Unsplash images), translation self-test, theory pages (clicks, noun classes, agglutination), settings (profile, locale, skin, notifications, billing), PayFast checkout flows. PWA-enabled.
 
-**Verifier app** (7 routes): Verification guide, queue-based work assignment with FAB, 3-dimension scoring (Sound Accuracy / Rhythm & Intonation / Phrase Accuracy, 1–5), AI analysis audit, MediaRecorder exemplar recording, countdown timer for 5-min claim deadline, auto-claim-next on submit, language team management, verifier stats. Authorization is data-driven — no role field, verifier status from `verifierProfiles` + `verifierLanguageMemberships` tables.
+**Verifier app** (8 routes): Verification guide, queue-based work assignment with FAB, 3-dimension scoring (Sound Accuracy / Rhythm & Intonation / Phrase Accuracy, 1–5), AI analysis audit, MediaRecorder exemplar recording, countdown timer for 5-min claim deadline, auto-claim-next on submit, language team management, verifier stats. Currently hardcoded to isiXhosa (`xh-ZA`).
 
-**Shared styling:** OKLCh color system with semantic tokens, light/dark mode + `[data-skin="mono"]` grayscale variant. Fonts: Bebas Neue (display) + Public Sans (body). All styles in `packages/shared/src/styles/recall.css` (925 lines). Theme IIFE in `app.html` prevents flash.
+**Shared styling:** OKLCh color system with semantic tokens, light/dark mode + `[data-skin="mono"]` grayscale variant. Fonts: Bebas Neue (display) + Public Sans (body). All styles in `packages/shared/src/styles/recall.css`. Theme IIFE in `app.html` prevents flash.
 
-**i18n:** Paraglide JS, cookie-only locale (`PARAGLIDE_LOCALE`, no URL prefixes). 3-tier messages: shared (~43 keys), web (~209 keys), verifier (~107 keys). Layout syncs Convex `userPreferences.uiLocale` on mount. Locales: `en`, `xh`.
+**i18n:** Paraglide JS, cookie-only locale (`PARAGLIDE_LOCALE`, no URL prefixes). 3-tier messages: shared (~43 keys), web (~209 keys), verifier (~108 keys). Layout syncs Convex `userPreferences.uiLocale` on mount. Locales: `en`, `xh`.
 
 **UI components** (`packages/ui`): Button, Card, Dialog, Input, Label, Accordion, Alert, DropdownMenu, Header. No i18n — translated strings passed as props.
 
@@ -73,16 +72,26 @@ Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@svel
 
 Four runtime environments:
 
-1. **Bun** (v1.2.2) — package manager, script runner, workspace orchestrator. Bun-specific APIs used in ADW workflows and Claude hooks (`Bun.serve()`, `Bun.spawn()`, `Bun.file()`).
+1. **Bun** (v1.2.2, engine-strict) — package manager, script runner, workspace orchestrator. Bun APIs used in ADW workflows (`Bun.serve()`, `Bun.spawn()`, `Bun.file()`).
 2. **Node.js** — SvelteKit production server via `adapter-node`. Started with `node apps/*/build/index.js`.
 3. **Convex** — V8 isolates (queries/mutations, deterministic) + Node.js (`'use node'` actions for external APIs).
 4. **Browser** — Service worker (push notifications, notification click handling), PWA manifest.
 
-Runtime detection fallback (`typeof globalThis.Bun`) bridges Bun/Node differences in shared code.
-
 Env vars shared across apps via `envDir: '../..'` in Vite config. Public vars: `PUBLIC_`/`VITE_` prefix. Private: `$env/dynamic/private` or `process.env`.
 
-**Server hooks chain** (both apps): Security headers (HSTS, CSP, nosniff) → Paraglide i18n middleware → Auth token extraction.
+**Server hooks chain** (both apps): Security headers (HSTS, CSP, nosniff, permissions-policy) → Paraglide i18n middleware → Auth token extraction.
+
+**TypeScript:** Strict mode everywhere. SvelteKit apps extend `.svelte-kit/tsconfig.json` (bundler resolution). Convex uses ESNext target/module with `isolatedModules`. ADW uses `bun-types`.
+
+## Testing
+
+**Vitest** v4.0.17 as sole test runner (~21 test files, ~1,622 lines).
+
+- **Convex backend** (12 files) — `convex-test` v0.0.41 for in-memory function testing. Fresh DB per test via `convexTest(schema, modules)`. Identity simulation via `t.withIdentity()`. Covers: sessions, phrases, attempts, AI pipeline, audio assets, notifications, human review flags, PayFast signatures, billing webhooks, billing dev toggle, fetchWithTimeout.
+- **Frontend** (2 files) — Auth store tests with mocked BetterAuth client, test route validation.
+- **ADW** (7 files) — Integration tests, API-key-gated with `describe.skipIf`.
+- **Dual environments:** `edge-runtime` for Convex functions, `jsdom` for browser/Svelte tests.
+- **CI:** GitHub Actions matrix (web + verifier) — typecheck → test → build.
 
 ## Getting Started
 
@@ -124,7 +133,7 @@ bun run convex:check-generated  # verify codegen is current
 - **Frontend:** Railway (RAILPACK builder, Node adapter). Both apps produce `build/index.js`. Health checks on `/` (300s timeout, max 3 restarts). Auto-deploy from `main`. Watch patterns include `packages/**` so shared changes trigger redeploy. Config in `apps/*/railway.toml`.
 - **Backend:** Convex Cloud (`disciplined-spider-126`). Manual deploy via `bun run convex:deploy`. HTTP routes for auth (CORS) + PayFast webhook. Daily cron at 06:00 UTC.
 - **CI:** GitHub Actions — PR/push to `main` → Bun 1.3.9 → `bun install --frozen-lockfile` → typecheck → test → build (matrix: web, verifier). Validation only, no automated deploy.
-- **Pre-deploy checks:** `scripts/check-convex-generated.sh`, `scripts/check-lockfile-sync.sh`, `.githooks/pre-push`
+- **Dev tunneling:** Cloudflare Tunnel (`cloudflared tunnel run babylon-dev`) → `dev.schulie.com` (web), `verifier.schulie.com` (verifier).
 
 ## Environment Variables
 
@@ -135,7 +144,7 @@ bun run convex:check-generated  # verify codegen is current
 | `PUBLIC_CONVEX_URL` | Convex client endpoint |
 | `PUBLIC_CONVEX_SITE_URL` | Auth routes + webhooks |
 | `SITE_URL` | Better Auth base URL (HTTPS in prod) |
-| `BETTER_AUTH_SECRET` | Token signing |
+| `BETTER_AUTH_SECRET` | Token signing (32-byte hex) |
 
 **AI & Services:**
 
@@ -152,7 +161,7 @@ bun run convex:check-generated  # verify codegen is current
 | `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` | Merchant credentials |
 | `PAYFAST_PASSPHRASE` | Webhook signature (optional) |
 | `PAYFAST_RETURN_URL` / `PAYFAST_CANCEL_URL` / `PAYFAST_NOTIFY_URL` | Redirect + webhook URLs |
-| `PAYFAST_SANDBOX` | Sandbox mode (default: false) |
+| `PAYFAST_SANDBOX` / `PAYFAST_ENABLE_RECURRING` | Sandbox mode + subscription toggle |
 
 **Optional:**
 
@@ -160,10 +169,10 @@ bun run convex:check-generated  # verify codegen is current
 |----------|---------|
 | `VERIFIER_SITE_URL` | Verifier app origin (cross-origin auth) |
 | `GOOGLE_TRANSLATE_API_KEY` | Translation verification (degrades gracefully) |
-| `BILLING_DEV_TOGGLE` | Dev tier switching |
-| `BILLING_DEV_TOGGLE_ALLOWLIST` | Comma-separated user IDs for dev toggle |
+| `UNSPLASH_ACCESS_KEY` | Vocabulary flashcard images (degrades) |
+| `BILLING_DEV_TOGGLE` / `BILLING_DEV_TOGGLE_ALLOWLIST` | Dev tier switching + user allowlist |
 
-**Feature flags:** `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_ALLOW_LOCALHOST_ORIGINS`, `AUTH_ALLOW_UNVERIFIED_EMAILS_PROD`, `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION`
+**Feature flags:** `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_ALLOW_LOCALHOST_ORIGINS`, `AUTH_ALLOW_UNVERIFIED_EMAILS_PROD`, `AUTH_EXTRA_TRUSTED_ORIGINS`, `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION`
 
 ## Tech Stack
 

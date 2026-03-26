@@ -2,7 +2,7 @@
 
 Serverless backend for Babylon — a language-learning platform with AI pronunciation feedback, human verifier reviews, spaced-repetition notifications, and PayFast billing. Pure Convex architecture: no REST/GraphQL.
 
-## Schema (19 Tables)
+## Schema (20 Tables)
 
 | Table | Purpose |
 |-------|---------|
@@ -25,6 +25,7 @@ Serverless backend for Babylon — a language-learning platform with AI pronunci
 | `usageDaily` | Daily recording minutes (resets at user's local midnight) |
 | `billingEvents` | Webhook audit log |
 | `scheduledNotifications` | Push notification queue |
+| `testTable` | Test table (emoji) |
 
 ### Entity Relationships
 
@@ -42,8 +43,6 @@ sessions ──1:N──► phrases ──1:N──► attempts ──1:1──�
 phrases ──1:N──► scheduledNotifications
 ```
 
-40+ indexes across all tables.
-
 ## Subsystems
 
 ### Auth
@@ -53,6 +52,7 @@ phrases ──1:N──► scheduledNotifications
 - Organization plugin
 - Dual trusted origins (learner app + verifier app)
 - `lib/auth.ts` — `getAuthUserId()` tries Convex native identity first (tests), falls back to Better Auth session
+- HTTPS-only trusted origins in prod; localhost conditionally allowed in dev
 
 ### Billing & Entitlements
 
@@ -64,11 +64,13 @@ phrases ──1:N──► scheduledNotifications
 
 Safety: MD5 signature validation, PayFast server validation, event deduplication, state machine (canceled is terminal).
 
+Payment states: pending → active / past_due / canceled.
+
 Files: `billing.ts`, `billingNode.ts`, `billingSubscriptions.ts`, `billingEvents.ts`, `lib/billing.ts`, `lib/payfast.ts`
 
 ### AI Pipeline
 
-attempt created → `processAttempt` action → **Whisper** transcription (45s timeout) → **Claude Sonnet 4** feedback (35s timeout) → scores stored
+attempt created → `processAttempt` action → **Whisper** transcription (45s timeout) → **Claude** feedback (35s timeout) → scores stored
 
 - Race protection via `aiRunId` + 5-min staleness check
 - Claude grades soundAccuracy, rhythmIntonation, phraseAccuracy (1-5) + coaching text
@@ -78,8 +80,9 @@ attempt created → `processAttempt` action → **Whisper** transcription (45s t
 ### Phrases & Translation
 
 - CRUD: `phrases.ts` — create (in session or direct), update, remove, list
-- Auto-categorization: 16 categories via keyword matching (`lib/phraseCategories.ts`)
-- Auto-translation: Claude Sonnet 4 translates + generates phonetic guide (`translatePhrase.ts`)
+- Auto-categorization: 17 categories via keyword matching (`lib/phraseCategories.ts`)
+- Auto-translation: Claude translates English → isiXhosa + phonetic breakdown (`translatePhrase.ts`)
+- Google Translate: verify user translations, get suggestions (`translateNode.ts`)
 - 15 Xhosa/English vocabulary sets (`lib/vocabularySets.ts`)
 
 ### Practice Sessions & Attempts
@@ -88,7 +91,7 @@ attempt created → `processAttempt` action → **Whisper** transcription (45s t
 - `practiceSessions.end()` → triggers verifier notifications
 - `practiceSessions.getStreak()` → timezone-aware consecutive day count
 - `attempts.create()` → status `queued`, billing check
-- `attempts.attachAudio()` → status `processing`, auto-creates human review for Pro users (24h SLA)
+- `attempts.attachAudio()` → status `processing`, consume minutes, auto-creates human review for Pro users (24h SLA)
 
 ### Human Review System
 
@@ -108,10 +111,15 @@ attempt created → `processAttempt` action → **Whisper** transcription (45s t
 - Verifier alerts: broadcast "new work" push when learner ends session
 - Quiet hours: default 22:00-08:00, user-configurable
 
+### Preferences & Profiles
+
+- `preferences.ts` — user prefs CRUD (push subscription, locale, skin, quiet hours)
+- `verifierAccess.ts` — verifier profile management, language membership toggles, stats
+
 ## Structure
 
 ```
-schema.ts                 # 19-table schema
+schema.ts                 # 20-table schema
 auth.ts / auth.config.ts  # BetterAuth setup
 http.ts                   # HTTP router (auth + webhook)
 crons.ts                  # Daily notification cron
@@ -130,7 +138,7 @@ aiPipeline.ts             # Whisper + Claude processing
 aiFeedback.ts             # AI feedback storage
 aiCalibration.ts          # AI vs human drift tracking
 aiPipelineData.ts         # Internal AI data helpers
-humanReviews.ts           # Full review workflow (~961 lines)
+humanReviews.ts           # Full review workflow
 verifierAccess.ts         # Verifier profiles + languages
 
 # Billing
@@ -153,7 +161,7 @@ lib/auth.ts               # getAuthUserId() dual-strategy
 lib/billing.ts            # Entitlement checks, usage tracking, plan defs
 lib/payfast.ts            # PayFast signature building
 lib/languages.ts          # 9 supported languages
-lib/phraseCategories.ts   # 16 phrase categories
+lib/phraseCategories.ts   # 17 phrase categories
 lib/vocabularySets.ts     # 15 Xhosa/English vocabulary sets
 lib/publicActionGuards.ts # Rate limiting + input validation
 lib/fetchWithTimeout.ts   # HTTP client with timeout/retry
@@ -173,9 +181,21 @@ lib/safeErrors.ts         # Error classification + secret redaction
 |----------|---------|
 | Daily 06:00 UTC | `notifications.rescheduleDaily` |
 
+## External Services
+
+| Service | Timeout | Rate Limit |
+|---------|---------|------------|
+| Claude (scoring) | 35s | — |
+| Whisper (STT) | 45s | — |
+| Claude (translate) | 20s | — |
+| Google Translate | 8s | 30/60s/user |
+| Unsplash | 8s | 30/60s/user |
+| PayFast validate | 4s | — |
+| Web Push | — | — |
+
 ## Conventions
 
-- Public functions call `getAuthUserId(ctx)` as first line
+- Public functions call `getAuthUserId(ctx)` as first line (except `verifierAccess.listSupportedLanguages`)
 - `*Node.ts` suffix for files needing Node APIs (web-push, crypto)
 - `*Data.ts` suffix for internal data helpers
 - Test files colocated with source (`*.test.ts`)
@@ -190,10 +210,21 @@ lib/safeErrors.ts         # Error classification + secret redaction
 - **Node.js actions** (`'use node'`) for external APIs (OpenAI, Anthropic, Google Translate, web-push, PayFast)
 - **Internal functions** for cross-module communication
 - **Scheduler** (`ctx.scheduler.runAfter`) for async work
-- **State machines** for billing subscriptions (`pending → active → past_due → canceled`) and review requests
+- **State machines** for attempts (`queued→processing→feedback_ready|failed`), subscriptions (`pending→active|past_due|canceled`), reviews (`pending→claimed→completed|escalated`)
 - **Delta aggregation** for practice session scores
+- **Webhook safety**: event deduplication, signature verification, out-of-order tolerant transitions
+- **Error handling**: classify → sanitize sensitive data → log safely → return client-safe message
 - **Graceful degradation** when API keys missing
-- **Security**: token redaction, rate limiting, signature validation, entitlement gating
+
+## Frontend Integration
+
+- **Client**: `packages/shared/src/convex.ts` creates singleton `ConvexClient`
+- **Queries**: `useQuery(api.module.function, args)` — reactive, auto-updates. Skip: `() => condition ? args : 'skip'`
+- **Mutations**: `await client.mutation(api.module.function, {...})` in event handlers
+- **Actions**: `client.action(api.module.function, {...})` — fire-and-forget for AI processing
+- **File uploads**: `mutation(generateUploadUrl)` → `fetch(POST, url, blob)` → extract storageId → `mutation(attachAudio, {storageId})`
+- **Auth stores**: `session`, `isAuthenticated`, `isLoading`, `user` — route guards + conditional query skipping
+- **Server-side**: `hooks.server.ts` extracts token from cookies via `getToken(createAuth, event.cookies)`
 
 ## Environment Variables
 
@@ -207,4 +238,4 @@ lib/safeErrors.ts         # Error classification + secret redaction
 
 ## Testing
 
-11 test files using Vitest + convex-test. `convexTest(schema, modules)` creates fresh in-memory DB per test. `t.withIdentity()` for auth. Coverage: CRUD, multi-user isolation, billing state machines, idempotency, cascade deletes, fetch timeouts, PayFast signatures, notifications, dev toggles.
+Test files using Vitest + convex-test. `convexTest(schema, modules)` creates fresh in-memory DB per test. `t.withIdentity()` for auth. Coverage: CRUD, multi-user isolation, billing state machines, idempotency, cascade deletes, fetch timeouts, PayFast signatures, notifications, dev toggles.
