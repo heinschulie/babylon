@@ -245,4 +245,35 @@ describe('/test route', () => {
 			expect(content).toContain('dialogOpen = false');
 		});
 	});
+
+	// New feature tests for sentiment timeline
+	describe('sentiment timeline feature', () => {
+		it('should have timeline section markup', () => {
+			expect(content).toContain('Sentiment Timeline');
+		});
+
+		it('should have mood badge elements with correct colors', () => {
+			expect(content).toContain('bg-blue-100 text-blue-800');   // chill badge
+			expect(content).toContain('bg-red-100 text-red-800');     // angry badge
+			expect(content).toContain('bg-orange-100 text-orange-800'); // happy badge
+		});
+
+		it('should have mood summary section markup', () => {
+			expect(content).toContain('chill ·');
+			expect(content).toContain('angry ·');
+			expect(content).toContain('happy');
+		});
+
+		it('should have loading state markup', () => {
+			expect(content).toContain('Loading');
+		});
+
+		it('should have empty state markup', () => {
+			expect(content).toContain('No emoji submissions yet');
+		});
+
+		it('should pass userId to submitEmoji mutation', () => {
+			expect(content).toContain('userId: "test-user"');
+		});
+	});
 });

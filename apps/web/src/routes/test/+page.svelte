@@ -1,15 +1,31 @@
 <script lang="ts">
 	import * as Dialog from '@babylon/ui/dialog';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexMutation, useQuery } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 
 	let dialogOpen = $state(false);
 
-	const client = useConvexClient();
+	const submitEmoji = useConvexMutation(api.testEmojiMutation.submitEmoji);
+	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+
+	// $derived computations for mood analysis
+	const moodCounts = $derived(() => {
+		if (!recentEmojis.value) return { chill: 0, angry: 0, happy: 0 };
+
+		return recentEmojis.value.reduce((acc, entry) => {
+			acc[entry.mood as 'chill' | 'angry' | 'happy']++;
+			return acc;
+		}, { chill: 0, angry: 0, happy: 0 });
+	});
+
+	const moodSummary = $derived(() => {
+		const counts = moodCounts();
+		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
+	});
 
 	async function handleEmojiClick(emoji: string) {
 		try {
-			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji });
+			await submitEmoji({ emoji, userId: "test-user" });
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -30,6 +46,29 @@
 			</div>
 		</Dialog.Content>
 	</Dialog.Root>
+
+	<!-- Sentiment Timeline section -->
+	<section>
+		<h2>Sentiment Timeline</h2>
+		{#if recentEmojis.isLoading}
+			<div>Loading...</div>
+		{:else if !recentEmojis.value || recentEmojis.value.length === 0}
+			<div>No emoji submissions yet</div>
+		{:else}
+			<div>{moodSummary()}</div>
+			<div>
+				{#if moodCounts().chill > 0}
+					<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">chill ({moodCounts().chill})</span>
+				{/if}
+				{#if moodCounts().angry > 0}
+					<span class="bg-red-100 text-red-800 px-2 py-1 rounded mr-2">angry ({moodCounts().angry})</span>
+				{/if}
+				{#if moodCounts().happy > 0}
+					<span class="bg-orange-100 text-orange-800 px-2 py-1 rounded mr-2">happy ({moodCounts().happy})</span>
+				{/if}
+			</div>
+		{/if}
+	</section>
 
 	<h1 class="text-[150px]">christ on a pogostick</h1>
 
