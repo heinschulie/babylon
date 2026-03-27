@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
 
 const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
 	'😎': { sentence: 'The cat wore sunglasses to the job interview', mood: 'chill' },
@@ -8,6 +8,7 @@ const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
 };
 
 const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
+const MAX_RECENT_ENTRIES = 20;
 
 export const submitEmoji = mutation({
 	args: {
@@ -26,5 +27,16 @@ export const submitEmoji = mutation({
 			userId,
 			createdAt: Date.now(),
 		});
+	},
+});
+
+export const listRecentEmojis = query({
+	args: {},
+	handler: async (ctx) => {
+		return ctx.db
+			.query('testTable')
+			.withIndex('by_createdAt')
+			.order('desc')
+			.take(MAX_RECENT_ENTRIES);
 	},
 });
