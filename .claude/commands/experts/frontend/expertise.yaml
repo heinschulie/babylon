@@ -1,0 +1,273 @@
+---
+# Frontend Expert Knowledge — Babylon
+# Last validated: 2026-03-27 (v2 — first full self-improve pass)
+# Source of truth: apps/web, apps/verifier, packages/ui, packages/shared
+
+file_patterns:
+  - "apps/web/**"
+  - "apps/verifier/**"
+  - "packages/ui/**"
+  - "packages/shared/**"
+
+domain_tags:
+  - svelte
+  - sveltekit
+  - components
+  - routing
+  - layout
+  - tailwind
+  - shadcn
+  - i18n
+  - paraglide
+  - stores
+  - runes
+  - ui
+  - frontend
+
+overview:
+  platform: "SvelteKit 2 (Svelte 5) + Tailwind CSS 4 + shadcn-svelte (bits-ui)"
+  apps:
+    - apps/web — learner app (phrases, practice, vocabulary, theory, billing)
+    - apps/verifier — verifier app (review queue, claim/score/submit, onboarding)
+  packages:
+    - packages/ui — shadcn-svelte components (no i18n — pass strings as props)
+    - packages/shared — auth client, stores, styles, utils, providers, notifications
+  key_patterns:
+    - "Svelte 5 runes ($state, $derived, $effect, $props) — no legacy let reactivity"
+    - "shadcn-svelte for all UI — check existing components before creating new"
+    - "Paraglide JS for i18n — cookie-only locale, no URL prefixes"
+    - "Convex-first data layer — no REST/GraphQL, all via useQuery/client.mutation"
+    - "No +page.server.ts or +layout.server.ts — all data fetched client-side via Convex"
+
+# ─── ROUTING ──────────────────────────────────────────────────────────
+
+routing:
+  web:
+    root_layout: apps/web/src/routes/+layout.svelte
+    root_layout_does:
+      - "setupConvex(PUBLIC_CONVEX_URL)"
+      - "createSvelteAuthClient({ authClient, convexUrl })"
+      - "Syncs locale+skin from api.preferences.get on mount"
+      - "Renders Header with nav links (practice, library, theory, settings)"
+    routes:
+      /: {page: +page.svelte, purpose: "Home/dashboard — phrase groups by category + billing + feedback count", auth: required, convex: [api.phrases.listGroupedByCategory, api.billing.getStatus, api.humanReviews.getUnseenFeedback]}
+      /login: {page: +page.svelte, purpose: "Email/password login", auth: none, convex: none}
+      /register: {page: +page.svelte, purpose: "Email/password registration", auth: none, convex: none}
+      /library: {page: +page.svelte, purpose: "Phrase library (same layout as /)", auth: required, convex: [api.phrases.listGroupedByCategory, api.billing.getStatus, api.humanReviews.getUnseenFeedback]}
+      /practice: {page: +page.ts, purpose: "Redirect 301 to /", auth: none}
+      /practice/session/[id]: {page: +page.svelte, purpose: "Practice session review — attempts list + mark feedback seen", auth: required, convex: [api.attempts.listByPracticeSessionAsc, api.humanReviews.markFeedbackSeen]}
+      /session/[id]: {page: +page.svelte, purpose: "Session detail — phrases in session + add new", auth: required, convex: [api.phrases.listBySession]}
+      /reveal/[id]: {page: +page.svelte, purpose: "Phrase reveal — attempt translation before answer", auth: required, convex: [api.phrases.get]}
+      /theory: {page: +page.svelte, purpose: "Static education content (clicks, agglutination, noun classes)", auth: none, convex: none}
+      /vocabulary: {page: +page.svelte, purpose: "Vocabulary sets index (local VOCABULARY_SETS constant)", auth: none, convex: none}
+      /vocabulary/[set]: {page: +page.svelte, purpose: "Flashcard viewer with image fetch", auth: none, convex: "client only"}
+      /settings: {page: +page.svelte, purpose: "Prefs — locale, theme/skin, notifications, avatar, billing", auth: required, convex: [api.preferences.get, api.billing.getStatus, api.preferences.getProfileImageUrl, api.preferences.generateProfileImageUploadUrl]}
+      /test: {page: +page.svelte, purpose: "Dev test route — emoji mutation dialog", auth: none, convex: [api.testEmojiMutation.submitEmoji]}
+      /billing/cancel: {page: +page.svelte, purpose: "Static cancellation message", auth: none, convex: none}
+      /billing/return: {page: +page.svelte, purpose: "Static success message", auth: none, convex: none}
+
+  verifier:
+    root_layout: apps/verifier/src/routes/+layout.svelte
+    root_layout_does:
+      - "setupConvex + createSvelteAuthClient (same pattern as web)"
+      - "Syncs locale+skin from api.preferences.get"
+      - "Header with verifier nav"
+    routes:
+      /: {page: +page.svelte, purpose: "Landing — guide, scoring rubric, start-reviewing FAB", auth: required, convex: [api.verifierAccess.getMyVerifierState, api.humanReviews.getQueueSignal, api.humanReviews.claimNext]}
+      /login: {page: +page.svelte, purpose: "Login", auth: none, convex: none}
+      /register: {page: +page.svelte, purpose: "Registration", auth: none, convex: none}
+      /settings: {page: +page.svelte, purpose: "Verifier prefs — language team, notifications, profile, stats", auth: required, convex: [api.verifierAccess.getMyVerifierState, api.verifierAccess.listSupportedLanguages, api.verifierAccess.getMyStats, api.preferences.get, api.preferences.upsert, api.verifierAccess.upsertMyProfile, api.verifierAccess.setMyLanguageActive, api.notificationsNode.sendTest]}
+      /work: {page: +page.svelte, purpose: "Pending review queue — list + claim", auth: required, convex: [api.verifierAccess.getMyVerifierState, api.humanReviews.listPendingForLanguage, api.humanReviews.getCurrentClaim, api.humanReviews.getQueueSignal, api.humanReviews.claimNext]}
+      /work/[id]: {page: +page.svelte, purpose: "Active review — score, record exemplar, submit/release", auth: required, convex: [api.humanReviews.getCurrentClaim, api.audioUploads.generateUploadUrlForVerifier, api.audioAssets.create, api.humanReviews.submitReview, api.humanReviews.claimNext, api.humanReviews.releaseClaim]}
+      /api/auth/[...all]: {page: +server.ts, purpose: "Better Auth catch-all handler via createSvelteKitHandler"}
+
+# ─── COMPONENTS ───────────────────────────────────────────────────────
+
+components:
+  packages_ui:
+    location: packages/ui/src/components/
+    barrel: packages/ui/src/index.ts
+    note: "NO i18n — all text via props. Uses bits-ui primitives + tailwind-variants."
+    shadcn_wrappers:
+      - Button: {variants: [default, destructive, outline, secondary, ghost, link], sizes: [default, sm, lg, icon, icon-sm, icon-lg], polymorphic: "renders <a> if href provided"}
+      - Card: {subs: [CardContent, CardDescription, CardFooter, CardHeader, CardTitle, CardAction]}
+      - Input: {note: "Border-bottom only style, bindable value+files, file vs text paths"}
+      - Label: {note: "bits-ui Label wrapper, flex gap text-sm"}
+      - Accordion: {subs: [AccordionContent, AccordionItem, AccordionTrigger], bindable: [value, ref]}
+      - Alert: {variants: [default, destructive], subs: [AlertDescription, AlertTitle]}
+      - Dialog: {subs: [DialogTitle, DialogPortal, DialogFooter, DialogHeader, DialogTrigger, DialogOverlay, DialogContent, DialogDescription, DialogClose], bindable: open}
+      - DropdownMenu: {subs: 17, note: "Root, Sub, CheckboxGroup, Content, Item, etc.", bindable: open}
+    custom:
+      - Header:
+          file: packages/ui/src/components/header/Header.svelte
+          props: "{links?: NavLink[], settingsHref?, settingsLabel?, logoutLabel?, homeAriaLabel?, profileAriaLabel?, theoryHref?, theoryLabel?, avatarUrl?, logoSrc?}"
+          uses: [DropdownMenu, isAuthenticated store, authClient.signOut, resolve()]
+          note: "Responsive nav + user profile dropdown. Only renders when authenticated."
+
+  component_placement_rules:
+    - "packages/ui — headless shadcn wrappers, NO i18n, NO app logic"
+    - "packages/shared — cross-app utilities (auth, stores, styles, notifications)"
+    - "If component needs translated strings → app-level or packages/shared with string props"
+    - "If component is purely visual + reusable → packages/ui"
+    - "Check packages/ui/src/index.ts exports before creating any new component"
+
+# ─── DATA LAYER ───────────────────────────────────────────────────────
+
+data_layer:
+  convex_client:
+    setup: "setupConvex(PUBLIC_CONVEX_URL) in root +layout.svelte"
+    auth: "createSvelteAuthClient({ authClient, convexUrl }) in root +layout.svelte"
+    imports: "import { useQuery, useConvexClient } from 'convex-svelte'; import { api } from '@babylon/convex'"
+
+  query_pattern: |
+    const data = useQuery(api.module.functionName, {});
+    // conditional skip when not authenticated:
+    const prefs = useQuery(api.preferences.get, () => $isAuthenticated ? {} : 'skip');
+
+  mutation_pattern: |
+    const client = useConvexClient();
+    await client.mutation(api.module.functionName, { arg1, arg2 });
+
+  action_pattern: |
+    await client.action(api.translateNode.verifyTranslation, { english, userTranslation });
+
+  file_upload_pattern: |
+    // 1. Get presigned URL via mutation
+    const uploadUrl = await client.mutation(api.preferences.generateProfileImageUploadUrl, {});
+    // 2. Upload blob via fetch
+    const result = await fetch(uploadUrl, { method: 'POST', body: blob, headers: {'Content-Type': mimeType} });
+    // 3. Extract storageId from response
+    const { storageId } = await result.json();
+    // 4. Save reference via mutation
+    await client.mutation(api.preferences.upsert, { profileImageStorageId: storageId });
+
+  auth_stores:
+    file: packages/shared/src/stores/auth.ts
+    exports:
+      - "session — re-exported from authClient.useSession()"
+      - "isAuthenticated — derived: session.data !== null"
+      - "isLoading — derived: session.isPending"
+      - "user — derived: session.data.user ?? null"
+    pattern: "import { isAuthenticated, isLoading, user } from '@babylon/shared/stores/auth'"
+
+  auth_guard_pattern: |
+    $effect(() => { if (!$isLoading && !$isAuthenticated) goto(resolve('/login')); });
+
+# ─── I18N ─────────────────────────────────────────────────────────────
+
+i18n:
+  system: "Paraglide JS — compiles messages to $lib/paraglide/"
+  locales: [en, xh]
+  locale_strategy: "Cookie-only, no URL prefixes"
+  locale_sync: "Root layout reads api.preferences.get, calls setLocale() if mismatched"
+  imports: |
+    import * as m from '$lib/paraglide/messages.js';
+    import { getLocale, setLocale, locales, isLocale } from '$lib/paraglide/runtime.js';
+
+  message_files:
+    shared: {path: "packages/shared/messages/{locale}.json", keys: "nav_*, aria_*, auth_*, btn_*, state_*, error_*"}
+    web: {path: "apps/web/messages/{locale}.json", keys: "library_*, login_*, register_*, settings_*, practice_*, session_*, time_*, reveal_*, billing_*, theory_*, vocab_*, old_session_*"}
+    verifier: {path: "apps/verifier/messages/{locale}.json", keys: "verifier_*, vsettings_*, work_*, claim_*, time_*"}
+
+  adding_new_strings:
+    - "1. Add key to en.json in correct message file"
+    - "2. Add key to xh.json (use English placeholder prefixed with [TODO] if no translation)"
+    - "3. Use m.your_key() in template"
+    - "Shared (nav, auth, buttons, states, errors) → packages/shared/messages/"
+    - "Web-specific → apps/web/messages/"
+    - "Verifier-specific → apps/verifier/messages/"
+    - "packages/ui has NO i18n — pass translated strings as props"
+
+# ─── SHARED PACKAGE ───────────────────────────────────────────────────
+
+shared_package:
+  exports:
+    "@babylon/shared/utils": "cn() (clsx+tailwind-merge), WithoutChild<T>, WithoutChildren<T>, WithoutChildrenOrChild<T>, WithElementRef<T,U>"
+    "@babylon/shared/auth-client": "authClient (Better Auth + organizationClient + convexClient plugins)"
+    "@babylon/shared/convex": "convexClient instance, PUBLIC_CONVEX_URL"
+    "@babylon/shared/stores/auth": "session, isAuthenticated, isLoading, user (derived stores)"
+    "@babylon/shared/notifications": "requestNotificationPermission(), getSubscription(), urlBase64ToUint8Array()"
+    "@babylon/shared/providers": "LlmProvider, SttProvider, TtsProvider interfaces + noop impls"
+    "./styles/*": "recall.css — Tailwind 4 theme (OKLch colors, typography tokens, component utility classes)"
+
+  css_key_classes:
+    - ".target-phrase — styled phrase text (NOT .xhosa-phrase)"
+    - ".page-shell — page wrapper"
+    - ".app-header__* — header layout"
+    - ".practice-* — practice session UI"
+    - ".vocab-* — vocabulary UI"
+    - ".feedback-banner — feedback display"
+    - "data-skin='mono' — monochrome skin variant"
+
+# ─── KEY DATA FLOWS ──────────────────────────────────────────────────
+
+key_data_flows:
+  phrase_practice:
+    - "/ (home) → select phrase group → navigate to /practice/session/[id]"
+    - "Components: +page.svelte (home) → Accordion (groups) → Button (start practice)"
+    - "Convex: api.phrases.listGroupedByCategory → (practice session created server-side) → api.attempts.listByPracticeSessionAsc"
+    - "Post-practice: api.humanReviews.markFeedbackSeen auto-called on session review"
+
+  add_phrase:
+    - "/ or /library → open dialog → enter English → submit"
+    - "Convex: client.mutation(api.phrases.create, { sessionId, english, xhosaTranslation })"
+    - "Optionally verify translation: client.action(api.translateNode.verifyTranslation, { english, userTranslation })"
+
+  verifier_review:
+    - "/work → claim item → /work/[id] → score + record exemplar → submit → auto-claim next"
+    - "Convex chain: api.humanReviews.claimNext → api.humanReviews.getCurrentClaim → api.audioUploads.generateUploadUrlForVerifier → fetch(upload) → api.audioAssets.create → api.humanReviews.submitReview → api.humanReviews.claimNext"
+
+  auth_flow:
+    - "/login → authClient.signIn.email() → redirect to /"
+    - "/register → authClient.signUp.email() → redirect to /"
+    - "Root layout: createSvelteAuthClient() → session store → isAuthenticated derived"
+    - "Auth guard: $effect checks isAuthenticated, redirects to /login"
+
+  avatar_upload:
+    - "/settings → pick file → generateProfileImageUploadUrl → fetch POST blob → upsert storageId"
+
+# ─── BEST PRACTICES ──────────────────────────────────────────────────
+
+best_practices:
+  - "ALL user-facing strings via m.key() — never hardcode English in .svelte"
+  - "Use Svelte 5 runes ($state, $derived, $effect, $props) — no legacy let/$ reactivity"
+  - "Auth guard: $effect with isLoading+isAuthenticated check, redirect to /login"
+  - "Conditional Convex queries: pass () => $isAuthenticated ? {} : 'skip' as 2nd arg"
+  - "CSS class target-phrase for styled phrase text (not xhosa-phrase)"
+  - "Check packages/ui exports before creating any UI component"
+  - "No +page.server.ts or +layout.server.ts — all data via Convex client-side"
+  - "File uploads: mutation for URL → fetch POST blob → mutation to save storageId"
+  - "Use resolve() from $app/paths for all internal navigation hrefs"
+
+# ─── PLATFORM CONSTRAINTS ────────────────────────────────────────────
+
+platform_constraints:
+  svelte5_runes:
+    - "Use $state() not let for reactive state, $derived() not $: for computed"
+    - "$effect() replaces onMount/afterUpdate for side effects — add cleanup via return"
+    - "$props() replaces export let — destructure with defaults"
+    - "No $: reactive statements — use $derived or $effect"
+
+  sveltekit:
+    - "No server-side data loading (+page.server.ts) — Convex handles all data client-side"
+    - "Load functions (+page.ts) only used for redirects (e.g., /practice → /)"
+    - "Use resolve() from $app/paths for href resolution in monorepo"
+
+  shadcn_svelte:
+    - "Components use bits-ui primitives — customize via data attributes not class overrides"
+    - "tailwind-variants for variant styling (Button, Alert)"
+    - "Each component has barrel index.ts with Root + named aliases"
+    - "Bindable props (value, open, ref) use Svelte 5 $bindable()"
+
+  tailwind4:
+    - "Theme via CSS custom properties (--theme-*), not tailwind.config"
+    - "OKLch color format for design tokens"
+    - "Dark mode + data-skin='mono' variant supported"
+
+# ─── KNOWN ISSUES ────────────────────────────────────────────────────
+
+known_issues:
+  - "/ (home) and /library appear to render near-identical content — possible duplication"
+  - "/practice redirects to / — route exists but is unused"
+  - "/test route is a dev-only test page (emoji mutation) — should not ship to production"
+  - "packages/ui Header imports auth stores directly — tight coupling to shared package"

@@ -16,7 +16,7 @@ OUTPUT_DIR: temp/research
 DATE: !`date +%Y-%m-%d`
 GIT_COMMIT: !`git rev-parse --short HEAD`
 BRANCH: !`git branch --show-current`
-REPO: !`basename $(git rev-parse --show-toplevel)`
+REPO: !`git rev-parse --show-toplevel`
 
 ## Instructions
 

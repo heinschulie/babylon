@@ -21,10 +21,13 @@ import {
   runReviewStep,
   runPatchPlanStep,
   runBuildStep,
+  runConsultStep,
   quickPrompt,
   sumUsage,
   type StepUsage,
+  type QueryResult,
 } from "../src/agent-sdk";
+import { recordLearning, inferTagsFromFiles } from "../src/learning-utils";
 import { createLogger, writeWorkflowStatus } from "../src/logger";
 import {
   createCommentStep,
@@ -39,7 +42,7 @@ import {
   closeSubIssue,
   filterUnblockedIssues,
 } from "../src/github";
-import { createBranch, pushBranch, getCurrentBranch, getHeadSha, diffFileCount, commitChanges, checkoutBranch, assertStableBranch } from "../src/git-ops";
+import { createBranch, pushBranch, getCurrentBranch, getHeadSha, diffFileCount, diffFileList, commitChanges, checkoutBranch, assertStableBranch } from "../src/git-ops";
 import { openStep } from "../src/step-recorder";
 import { parseReviewResult, extractScreenshots } from "../src/review-utils";
 
@@ -187,12 +190,53 @@ async function runWorkflow(
 
       await commentStep(`Iteration ${iteration}: Working on #${selectedIssue.number} — ${selectedIssue.title} [${complexity}]`);
 
+      // ─── Expert consultation step (before TDD) ─────────────────────
+      let consultResult: QueryResult | null = null;
+      let consultExpertNames: string[] = [];
+      let consultAdviceSummary = "";
+
+      try {
+        logger.info(`\n--- Expert consult for #${selectedIssue.number} ---`);
+        const branchChangedFiles = await diffFileList(baseBranch, "HEAD", workingDir);
+        const changedFilesStr = branchChangedFiles.length > 0 ? branchChangedFiles.join(",") : undefined;
+        const consultStepName = logger.nextStep("consult", selectedIssue.number);
+        const consultStep = await openStep(logger.logDir, consultStepName, "consult", logger, { cwd: workingDir });
+        consultResult = await runConsultStep(
+          "Given this issue, what constraints, patterns, and invariants must the implementation follow?",
+          {
+            model: models.research,
+            cwd: workingDir,
+            logger: consultStep.log,
+            logDir: logger.logDir,
+            stepName: consultStepName,
+            context: selectedIssue.body,
+            changedFiles: changedFilesStr,
+          }
+        );
+        if (consultResult.usage) {
+          allStepUsages.push({ step: `consult-${selectedIssue.number}`, ok: consultResult.success, usage: consultResult.usage });
+        }
+        await consultStep.close(consultResult.success, consultResult.usage, consultResult.summary);
+
+        if (consultResult.success && consultResult.summary) {
+          consultExpertNames = consultResult.summary.expert_consulted?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
+          consultAdviceSummary = consultResult.summary.expert_advice_summary ?? "";
+        }
+        logger.info(`Expert consult done — experts: [${consultExpertNames.join(", ")}]`);
+      } catch {
+        logger.warn(`Expert consultation failed (non-fatal) — proceeding without`);
+      }
+
       // ─── TDD step ─────────────────────────────────────────────────
+      const tddIssueBody = consultAdviceSummary
+        ? `${selectedIssue.body}\n\n## Expert Guidance\n${consultAdviceSummary}`
+        : selectedIssue.body;
+
       const preTddSha = await getHeadSha(workingDir);
       logger.info(`\n--- TDD step for #${selectedIssue.number} (pre-TDD sha: ${preTddSha.slice(0, 8)}) ---`);
       const tddStepName = logger.nextStep("tdd", selectedIssue.number);
       const tddStep = await openStep(logger.logDir, tddStepName, "tdd", logger, { cwd: workingDir });
-      const tddResult = await runTddStep(selectedIssue.body, {
+      const tddResult = await runTddStep(tddIssueBody, {
         model: issueModel,
         cwd: workingDir,
         logger: tddStep.log,
@@ -208,6 +252,26 @@ async function runWorkflow(
         logger.error(`TDD failed for #${selectedIssue.number}: ${tddResult.error}`);
         await commentStep(`Iteration ${iteration}: TDD failed for #${selectedIssue.number} ❌ — skipping`);
         skippedIssues.push(selectedIssue.number);
+
+        // Record learning from TDD failure
+        try {
+          const tddChangedFiles = await diffFileList(preTddSha, "HEAD", workingDir);
+          const dynamicTags = consultExpertNames.length > 0
+            ? consultExpertNames
+            : inferTagsFromFiles(workingDir, tddChangedFiles);
+          recordLearning(workingDir, {
+            workflow: "adw_ralph",
+            run_id: `ralph-${new Date().toISOString().split("T")[0]}-${adwId.slice(0, 8)}`,
+            tags: dynamicTags.length > 0 ? dynamicTags : ["unknown"],
+            context: `TDD step for issue #${selectedIssue.number}: ${selectedIssue.title}`,
+            expected: consultAdviceSummary
+              ? `TDD succeeds following expert guidance: ${consultAdviceSummary.slice(0, 200)}`
+              : "TDD step completes successfully",
+            actual: `TDD failed: ${(tddResult.error ?? "unknown").slice(0, 200)}`,
+            confidence: "medium",
+          });
+        } catch { /* learning capture is non-blocking */ }
+
         continue;
       }
       logger.info(`TDD completed for #${selectedIssue.number}`);
@@ -354,6 +418,25 @@ async function runWorkflow(
         logger.warn(`#${selectedIssue.number} still has blockers after ${MAX_PATCH_ATTEMPTS} patch attempts — skipping`);
         await commentStep(`Iteration ${iteration}: #${selectedIssue.number} skipped after failed patches ❌`);
         skippedIssues.push(selectedIssue.number);
+
+        // Record learning from review + patch failure
+        try {
+          const reviewChangedFiles = await diffFileList(preTddSha, "HEAD", workingDir);
+          const dynamicTags = consultExpertNames.length > 0
+            ? consultExpertNames
+            : inferTagsFromFiles(workingDir, reviewChangedFiles);
+          recordLearning(workingDir, {
+            workflow: "adw_ralph",
+            run_id: `ralph-${new Date().toISOString().split("T")[0]}-${adwId.slice(0, 8)}`,
+            tags: dynamicTags.length > 0 ? dynamicTags : ["unknown"],
+            context: `Review+patch for issue #${selectedIssue.number}: ${selectedIssue.title}`,
+            expected: consultAdviceSummary
+              ? `Review passes following expert guidance: ${consultAdviceSummary.slice(0, 200)}`
+              : "Review passes or patches resolve blockers",
+            actual: `Failed after ${MAX_PATCH_ATTEMPTS} patch attempts. Review output: ${(reviewResult.result ?? "").slice(0, 200)}`,
+            confidence: "medium",
+          });
+        } catch { /* learning capture is non-blocking */ }
       }
     }
 

@@ -11,6 +11,7 @@ Answer the user's question by analyzing the PostgreSQL database implementation, 
 ## Variables
 
 USER_QUESTION: $1
+CONTEXT: $2
 EXPERTISE_PATH: .claude/commands/experts/database/expertise.yaml
 
 ## Instructions
@@ -19,10 +20,12 @@ EXPERTISE_PATH: .claude/commands/experts/database/expertise.yaml
 - Focus on database schema, Pydantic models, asyncpg operations, and migration patterns
 - If the question requires schema changes, explain the migration steps conceptually without implementing
 - With your expert knowledge, validate the information from `EXPERTISE_PATH` against the codebase before answering your question.
+- If CONTEXT is provided, use it as additional context for answering the question. It may contain issue body, test file content, or changed file paths.
 
 ## Workflow
 
 - Read the `EXPERTISE_PATH` file to understand database architecture and patterns
+- If CONTEXT is non-empty, read and incorporate it before answering
 - Review, validate, and confirm information from `EXPERTISE_PATH` against the codebase
 - Respond based on the `Report` section below.
 

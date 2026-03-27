@@ -80,4 +80,21 @@ export const STEP_COMMANDS: Record<string, StepCommand> = {
     buildArgs: (adwId: string, issueNumber: number, issueBody: string, preTddSha: string) =>
       [adwId, String(issueNumber), issueBody, preTddSha],
   },
+  selfImprove: {
+    command: "/experts:database:self-improve",
+    buildArgs: (checkGitDiff: string, focusArea?: string) => {
+      const args = [checkGitDiff];
+      if (focusArea) args.push(focusArea);
+      return args;
+    },
+  },
+  consult: {
+    command: "/experts:consult",
+    buildArgs: (question: string, context?: string, changedFiles?: string) => {
+      const args = [question];
+      if (context) args.push(context);
+      if (changedFiles) args.push(changedFiles);
+      return args;
+    },
+  },
 };

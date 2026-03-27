@@ -13,6 +13,7 @@ You maintain the Database expert system's expertise accuracy by comparing the ex
 CHECK_GIT_DIFF: $1 default to false if not specified
 FOCUS_AREA: $2 default to empty string
 EXPERTISE_FILE: .claude/commands/experts/database/expertise.yaml
+LEARNINGS_DIR: temp/learnings
 MAX_LINES: 1000
 
 ## Instructions
@@ -59,6 +60,21 @@ MAX_LINES: 1000
    - If CHECK_GIT_DIFF is "true", run `git diff` to identify recent changes to Database-related files
    - If changes detected, note them for targeted validation in step 3
    - If CHECK_GIT_DIFF is "false", skip this step
+
+1b. **Ingest Runtime Learnings (Conditional)**
+   - If FOCUS_AREA is "learnings" OR if `temp/learnings/*.md` files exist (excluding README.md):
+     - Read the expert's `domain_tags` from the EXPERTISE_FILE header
+     - Read all `temp/learnings/*.md` files (not README.md)
+     - Parse YAML entries from each file
+     - Filter entries where `tags` intersect with this expert's `domain_tags`
+     - For each matched entry:
+       - Validate the learning against the actual codebase (read the relevant files)
+       - Apply version-aware conflict resolution:
+         - If learning `platform_context` version matches current version AND conflicts with an ai_doc at same version → **learning wins** (lived experience > docs), flag for review
+         - If learning `platform_context` version is older AND an ai_doc at current version conflicts → **ai_doc wins**, note learning as deprecated
+       - If learning is validated, update the relevant section in expertise.yaml (platform_constraints, best_practices, or known_issues as appropriate)
+     - Record which entry IDs were processed in the report
+   - If no learnings files exist or no tags match, skip this step
 
 2. **Read Current Expertise**
    - Read the entire EXPERTISE_FILE to understand current documented expertise
@@ -126,6 +142,7 @@ Provide a structured report with the following sections:
 - Brief overview of self-improvement execution
 - Whether git diff was checked
 - Focus area (if any)
+- Learnings processed (count, IDs)
 - Total discrepancies found and remedied
 - Final line count vs MAX_LINES
 

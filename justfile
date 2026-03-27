@@ -102,6 +102,10 @@ cldmm:
 docs adw-id="docs-run":
   bun run adws/workflows/adw_research-codebase_produce-readme_update-prime.ts --adw-id {{adw-id}}
 
+# Process runtime learnings through expert triage + self-improve
+learn adw-id="learn-run" *args="":
+  bun run adws/workflows/adw_learn.ts --adw-id {{adw-id}} {{args}}
+
 # Classic SDLC workflow (plan → build → test → review → document)
 sdlc adw-id:
   bun run adws/workflows/classic/adw_sdlc.ts --adw-id {{adw-id}}

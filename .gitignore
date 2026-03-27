@@ -26,5 +26,9 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# AI docs (cached documentation)
+ai_docs/
+!ai_docs/README.md
+
 # Paraglide (generated)
 **/src/lib/paraglide/

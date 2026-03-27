@@ -18,6 +18,8 @@ export interface StepSummary {
   blockers: string;
   files_changed: string;
   visual_validation?: "passed" | "failed" | "skipped";
+  expert_consulted?: string;
+  expert_advice_summary?: string;
 }
 
 /** Screenshot artifact reference stored in step status.json. */

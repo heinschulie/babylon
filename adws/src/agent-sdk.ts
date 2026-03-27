@@ -71,6 +71,8 @@ export function extractStepSummary(text: string): StepSummary | null {
   if (status !== "pass" && status !== "fail") return null;
   const vv = get("visual_validation");
   const visual_validation = vv === "passed" || vv === "failed" || vv === "skipped" ? vv : undefined;
+  const expert_consulted = get("expert_consulted");
+  const expert_advice_summary = get("expert_advice_summary");
   return {
     status,
     action: get("action"),
@@ -78,6 +80,8 @@ export function extractStepSummary(text: string): StepSummary | null {
     blockers: get("blockers"),
     files_changed: get("files_changed"),
     ...(visual_validation && { visual_validation }),
+    ...(expert_consulted && { expert_consulted }),
+    ...(expert_advice_summary && { expert_advice_summary }),
   };
 }
 
@@ -434,6 +438,22 @@ export function runRefactorStep(
   options: RunStepOptions = {}
 ): Promise<QueryResult> {
   return runConfigurableStep("refactorStep", [adwId, issueNumber, issueBody, preTddSha], options);
+}
+
+/** Run a self-improve step — `/experts:database:self-improve <checkGitDiff> [focusArea]`. */
+export function runSelfImproveStep(
+  checkGitDiff: string,
+  options: RunStepOptions & { focusArea?: string } = {}
+): Promise<QueryResult> {
+  return runConfigurableStep("selfImprove", [checkGitDiff, options.focusArea], options);
+}
+
+/** Run an expert consultation step — `/experts:consult <question> [context] [changedFiles]`. */
+export function runConsultStep(
+  question: string,
+  options: RunStepOptions & { context?: string; changedFiles?: string } = {}
+): Promise<QueryResult> {
+  return runConfigurableStep("consult", [question, options.context, options.changedFiles], options);
 }
 
 /** Quick single-turn prompt for extracting info. */

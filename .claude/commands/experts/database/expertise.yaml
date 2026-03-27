@@ -1,7 +1,26 @@
 ---
 # Database Expert Knowledge — Babylon
-# Last validated: 2026-03-25 (v3 — fix entitlements source dupe, add summarizePushSubscriptionForLog)
+# Last validated: 2026-03-26 (v4 — add domain_tags, platform_constraints)
 # Source of truth: convex/schema.ts
+
+file_patterns:
+  - "convex/**"
+  - "packages/convex/**"
+
+domain_tags:
+  - convex
+  - database
+  - schema
+  - queries
+  - mutations
+  - actions
+  - indexes
+  - validators
+  - billing
+  - auth
+  - crons
+  - file-storage
+  - scheduling
 
 overview:
   platform: Convex (serverless DB + functions)
@@ -748,6 +767,91 @@ testing:
     - convex/aiPipeline.test.ts
     - convex/testEmojiMutation.test.ts
   notes: "convex-test provides in-memory Convex runtime. Node actions (use node) cannot be tested directly — use data-layer mocks."
+
+platform_constraints:
+  # Version-tagged rules validated against platform docs + runtime experience
+  # Epistemological hierarchy: lived experience > docs, unless platform version changed
+  query_performance:
+    - rule: "Use .withIndex() over .filter() — filter does full-table scan then post-filters"
+      verify: [ai_docs/convex-reading-data.md, convex/lib/billing.ts]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "_creationTime auto-appended to all indexes — don't add explicitly"
+      verify: [ai_docs/convex-indexes.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "Max 16 fields per index, 32 indexes per table"
+      verify: [ai_docs/convex-indexes.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+  function_boundaries:
+    - rule: "Batch runQuery/runMutation into single internal function from actions — each call is separate transaction"
+      verify: [ai_docs/convex-actions.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "Don't call actions from clients — mutation → ctx.scheduler.runAfter → internal action"
+      verify: [ai_docs/convex-actions.md, convex/attempts.ts]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "runAction only for crossing JS runtimes (Convex → Node)"
+      verify: [ai_docs/convex-actions.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "'use node' files cannot export queries/mutations — only actions"
+      verify: [ai_docs/convex-actions.md, convex/aiPipeline.ts]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+  transaction_semantics:
+    - rule: "Mutations are transactional — all reads consistent, all writes atomic"
+      verify: [ai_docs/convex-mutation-functions.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "Actions are NOT transactional — separate runQuery calls are NOT consistent"
+      verify: [ai_docs/convex-actions.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "Scheduling from mutations is atomic (part of transaction); from actions it is not"
+      verify: [ai_docs/convex-scheduled-functions.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+  auth_scheduling:
+    - rule: "Auth is NOT propagated to scheduled functions — pass userId explicitly"
+      verify: [ai_docs/convex-scheduled-functions.md, convex/attempts.ts]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+  schema_design:
+    - rule: "Flat relational schemas, limit arrays to 5-10 elements"
+      verify: [ai_docs/convex-schemas.md, convex/schema.ts]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+    - rule: "Use staged indexes for large table migrations"
+      verify: [ai_docs/convex-indexes.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+  runtime_limits:
+    - rule: "Action timeout: 10 min. Memory: 512MB Node / 64MB Convex runtime"
+      verify: [ai_docs/convex-actions.md]
+      platform_context: {convex: "latest"}
+      source: ai_docs
+
+  date_now_ambiguity:
+    - rule: "Date.now() in queries — official docs use it in examples; convex-agent-plugins says avoid. Document both, resolve when version-specific evidence emerges."
+      verify: [ai_docs/convex-query-functions.md]
+      platform_context: {convex: "latest"}
+      source: "conflicting: official_docs vs community_repo"
 
 known_issues:
   - "pickLatestAiFeedback helper is duplicated in attempts.ts and practiceSessions.ts"
