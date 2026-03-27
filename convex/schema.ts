@@ -300,6 +300,9 @@ export default defineSchema({
 	testTable: defineTable({
 		emoji: v.string(),
 		sentence: v.string(),
+		mood: v.string(),
+		userId: v.string(),
 		createdAt: v.number()
 	})
+		.index('by_createdAt', ['createdAt'])
 });
