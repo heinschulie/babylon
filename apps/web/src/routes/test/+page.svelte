@@ -1,12 +1,17 @@
 <script lang="ts">
 	import * as Dialog from '@babylon/ui/dialog';
-	import { useConvexClient, useQuery } from 'convex-svelte';
+	import * as Card from '@babylon/ui/card';
+	import { useConvexClient, useQuery, useMutation } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 
 	let dialogOpen = $state(false);
+	let pollQuestion = $state('');
+	let pollOptions = $state(['', '']);
 
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+	const polls = useQuery(api.testPollMutation.listPolls);
+	const createPoll = useMutation(api.testPollMutation.createPoll);
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -55,6 +60,25 @@
 			console.error('Failed to submit emoji:', error);
 		}
 	}
+
+	async function handleCreatePoll() {
+		try {
+			const nonEmptyOptions = pollOptions.filter(opt => opt.trim());
+			await createPoll.mutate({
+				question: pollQuestion,
+				options: nonEmptyOptions
+			});
+			// Reset form
+			pollQuestion = '';
+			pollOptions = ['', ''];
+		} catch (error) {
+			console.error('Failed to create poll:', error);
+		}
+	}
+
+	function addPollOption() {
+		pollOptions = [...pollOptions, ''];
+	}
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
@@ -70,6 +94,73 @@
 			</div>
 		</Dialog.Content>
 	</Dialog.Root>
+
+	<!-- Poll Creation and List section -->
+	<section class="p-4">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Create a Poll</Card.Title>
+			</Card.Header>
+			<Card.Content class="space-y-4">
+				<!-- Question Input -->
+				<div class="space-y-2">
+					<label for="question" class="text-sm font-medium">Question</label>
+					<input
+						id="question"
+						type="text"
+						placeholder="What is your question?"
+						bind:value={pollQuestion}
+						class="w-full px-3 py-2 border border-gray-300 rounded"
+					/>
+				</div>
+
+				<!-- Options List -->
+				<div class="space-y-2">
+					<label for="option-0" class="text-sm font-medium">Options</label>
+					<div class="space-y-2">
+						{#each pollOptions as option, index (index)}
+							<input
+								id={`option-${index}`}
+								type="text"
+								placeholder={`Option ${index + 1}`}
+								bind:value={pollOptions[index]}
+								class="w-full px-3 py-2 border border-gray-300 rounded"
+							/>
+						{/each}
+					</div>
+					<button onclick={addPollOption} class="px-3 py-2 bg-gray-200 rounded text-sm">
+						+ Add Option
+					</button>
+				</div>
+
+				<!-- Submit Button -->
+				<button onclick={handleCreatePoll} class="w-full px-4 py-2 bg-blue-600 text-white rounded">
+					Create Poll
+				</button>
+			</Card.Content>
+		</Card.Root>
+
+		<!-- Poll List -->
+		<div class="mt-6">
+			<h3 class="text-lg font-semibold mb-4">Recent Polls</h3>
+			{#if polls.isLoading}
+				<div>Loading polls...</div>
+			{:else if !polls.data || polls.data.length === 0}
+				<div>No polls yet</div>
+			{:else}
+				<div class="space-y-3">
+					{#each polls.data as poll (poll._id)}
+						<Card.Root class="p-3">
+							<div class="space-y-2">
+								<p class="font-semibold">{poll.question}</p>
+								<p class="text-sm text-gray-600">{poll.options.length} options</p>
+							</div>
+						</Card.Root>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
 
 	<!-- Sentiment Timeline section -->
 	<section>

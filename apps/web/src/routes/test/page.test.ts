@@ -304,4 +304,27 @@ describe('/test route', () => {
 			expect(content).toContain('moodColors[entry.mood as keyof typeof moodColors]'); // Should use mapping to get classes
 		});
 	});
+
+	// New feature tests for poll creation and listing
+	describe('poll creation form feature', () => {
+		it('should render poll creation form with question input', () => {
+			expect(content).toContain('testPollMutation.createPoll');
+			// Form should have a question input
+			expect(content).toMatch(/question/i);
+		});
+
+		it('should render poll creation form with option inputs', () => {
+			// Should have dynamic list of option inputs
+			expect(content).toContain('options');
+			// Should support adding options
+			expect(content).toMatch(/add.*option/i);
+		});
+
+		it('should render poll list with question text and option count', () => {
+			// Should display poll questions
+			expect(content).toContain('listPolls');
+			// Should show option count for each poll
+			expect(content).toMatch(/option/i);
+		});
+	});
 });
