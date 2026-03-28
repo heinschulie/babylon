@@ -188,12 +188,13 @@
 									{#if pollResults.isLoading}
 										<div class="text-sm text-gray-500">Loading results...</div>
 									{:else if pollResults.data}
+									{@const maxCount = Math.max(...pollResults.data.map(r => r.count))}
 										<div class="space-y-2">
 											{#each pollResults.data as result}
 												<div class="flex items-center gap-3">
 													<span class="text-sm w-20 truncate">{result.option}</span>
 													<div class="flex-1 bg-gray-200 h-4 rounded">
-														<div class="bg-blue-500 h-4 rounded" style="width: {result.count > 0 ? (result.count / Math.max(...pollResults.data.map(r => r.count))) * 100 : 2}%"></div>
+														<div class="bg-blue-500 h-4 rounded" style="width: {result.count > 0 ? (result.count / maxCount) * 100 : 2}%"></div>
 													</div>
 													<span class="text-sm text-gray-600 w-8">{result.count}</span>
 												</div>
