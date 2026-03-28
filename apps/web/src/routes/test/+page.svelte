@@ -157,7 +157,7 @@
 							</Card.Header>
 							<Card.Content>
 								<ol class="list-decimal list-inside space-y-1">
-									{#each poll.options as option, index}
+									{#each poll.options as option}
 										<li class="text-sm">{option}</li>
 									{/each}
 								</ol>
