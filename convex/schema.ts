@@ -305,7 +305,8 @@ export default defineSchema({
 		createdAt: v.number(),
 		pollId: v.optional(v.id('testPollTable'))
 	})
-		.index('by_createdAt', ['createdAt']),
+		.index('by_createdAt', ['createdAt'])
+		.index('by_pollId', ['pollId']),
 
 	// Test table for polls
 	testPollTable: defineTable({
