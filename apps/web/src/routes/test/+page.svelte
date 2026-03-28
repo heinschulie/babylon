@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Dialog from '@babylon/ui/dialog';
 	import * as Card from '@babylon/ui/card';
+	import { Button } from '@babylon/ui/button';
 	import { useConvexClient, useQuery, useMutation } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 
@@ -78,6 +79,18 @@
 
 	function addPollOption() {
 		pollOptions = [...pollOptions, ''];
+	}
+
+	async function handleVoteClick(pollId: string, option: string) {
+		try {
+			await client.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option,
+				userId: "test-user"
+			});
+		} catch (error) {
+			console.error('Failed to cast vote:', error);
+		}
 	}
 </script>
 
@@ -161,6 +174,35 @@
 										<li class="text-sm">{option}</li>
 									{/each}
 								</ol>
+
+								<!-- Vote buttons -->
+								<div class="mt-4 flex flex-wrap gap-2">
+									{#each poll.options as option}
+										<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
+									{/each}
+								</div>
+
+								<!-- Bar chart results -->
+								<div class="mt-6">
+									<h4 class="text-sm font-medium mb-3">Poll Results - Bar Chart</h4>
+									{#if pollResults.isLoading}
+										<div class="text-sm text-gray-500">Loading results...</div>
+									{:else if pollResults.data}
+										<div class="space-y-2">
+											{#each pollResults.data as result}
+												<div class="flex items-center gap-3">
+													<span class="text-sm w-20 truncate">{result.option}</span>
+													<div class="flex-1 bg-gray-200 h-4 rounded">
+														<div class="bg-blue-500 h-4 rounded" style="width: {result.count > 0 ? (result.count / Math.max(...pollResults.data.map(r => r.count))) * 100 : 2}%"></div>
+													</div>
+													<span class="text-sm text-gray-600 w-8">{result.count}</span>
+												</div>
+											{/each}
+										</div>
+									{:else}
+										<div class="text-sm text-gray-500">No votes yet</div>
+									{/if}
+								</div>
 								<div class="mt-2 text-sm text-gray-600 flex justify-between items-center">
 									<div>
 										{#if pollResults.isLoading}

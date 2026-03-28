@@ -50,13 +50,12 @@ describe('/test route', () => {
 		expect(content).toContain('text-[150px]');
 	});
 
-	it('should NOT import Button component from @babylon/ui/button', () => {
-		expect(content).not.toContain("import { Button } from '@babylon/ui/button'");
+	it('should import Button component from @babylon/ui/button for voting UI', () => {
+		expect(content).toContain("import { Button } from '@babylon/ui/button'");
 	});
 
-
-	it('should NOT have any shadcn Button component markup', () => {
-		expect(content).not.toContain('<Button');
+	it('should have shadcn Button components for voting', () => {
+		expect(content).toContain('<Button');
 	});
 
 
