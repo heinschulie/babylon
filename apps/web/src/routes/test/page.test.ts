@@ -236,7 +236,7 @@ describe('/test route', () => {
 		});
 
 		it('should import Convex client functions', () => {
-			expect(content).toContain('useConvexMutation');
+			expect(content).toContain('useConvexClient');
 			expect(content).toContain('api.testEmojiMutation.submitEmoji');
 		});
 
@@ -265,7 +265,7 @@ describe('/test route', () => {
 		});
 
 		it('should have loading state markup', () => {
-			expect(content).toContain('Loading');
+			expect(content).toContain('Loading timeline...');
 		});
 
 		it('should have empty state markup', () => {
@@ -274,6 +274,34 @@ describe('/test route', () => {
 
 		it('should pass userId to submitEmoji mutation', () => {
 			expect(content).toContain('userId: "test-user"');
+		});
+
+
+
+		it('should show individual timeline entries with emoji and mood badge', () => {
+			// Timeline entries should display individual submissions, not just counts
+			expect(content).toContain('{#each recentEmojis.data as entry}');  // Should iterate over timeline data
+			expect(content).toContain('{entry.emoji}');  // Should display emoji from entry
+			expect(content).toContain('entry.mood');   // Should use mood for badge color
+		});
+
+		it('should pass mood parameter to handleEmojiClick function', () => {
+			// Each emoji button should pass the correct mood
+			expect(content).toContain("handleEmojiClick('😎', 'chill')");  // Cool emoji -> chill
+			expect(content).toContain("handleEmojiClick('💩', 'angry')");  // Poop emoji -> angry
+			expect(content).toContain("handleEmojiClick('🔥', 'happy')");  // Fire emoji -> happy
+		});
+
+		it('should display relative timestamps for timeline entries', () => {
+			// Timeline entries should show relative time (e.g., "2 minutes ago")
+			expect(content).toContain('entry.createdAt');  // Should access createdAt from entry
+			expect(content).toMatch(/minutes?\s+ago/);     // Should show relative time format
+		});
+
+		it('should use proper mood color mapping for badge classes', () => {
+			// Should use a mapping object instead of dynamic string interpolation
+			expect(content).toContain('moodColors');       // Should have color mapping object
+			expect(content).toContain('moodColors[entry.mood as keyof typeof moodColors]'); // Should use mapping to get classes
 		});
 	});
 });

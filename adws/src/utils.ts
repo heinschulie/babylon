@@ -230,6 +230,7 @@ export interface WorkflowModels {
   research: string;
   default: string;
   review: string;
+  opus?: string;
 }
 
 /**
@@ -362,6 +363,7 @@ export function getWorkflowModels(): WorkflowModels {
     research: process.env.ADW_RESEARCH_MODEL ?? "claude-haiku-4-5-20251001",
     default: process.env.ADW_MODEL ?? "claude-sonnet-4-20250514",
     review: process.env.ADW_REVIEW_MODEL ?? (process.env.ADW_MODEL ?? "claude-sonnet-4-20250514"),
+    opus: process.env.ADW_OPUS_MODEL ?? "claude-opus-4-20250514",
   };
 }
 

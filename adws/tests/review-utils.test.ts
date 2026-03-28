@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import { extractScreenshots, type ReviewResult } from "../src/review-utils";
 
 describe("extractScreenshots", () => {

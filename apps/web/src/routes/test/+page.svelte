@@ -1,18 +1,25 @@
 <script lang="ts">
 	import * as Dialog from '@babylon/ui/dialog';
-	import { useConvexMutation, useQuery } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 
 	let dialogOpen = $state(false);
 
-	const submitEmoji = useConvexMutation(api.testEmojiMutation.submitEmoji);
+	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+
+	// Mood color mapping for proper Tailwind class application
+	const moodColors = {
+		chill: 'bg-blue-100 text-blue-800',
+		angry: 'bg-red-100 text-red-800',
+		happy: 'bg-orange-100 text-orange-800'
+	} as const;
 
 	// $derived computations for mood analysis
 	const moodCounts = $derived(() => {
-		if (!recentEmojis.value) return { chill: 0, angry: 0, happy: 0 };
+		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 };
 
-		return recentEmojis.value.reduce((acc, entry) => {
+		return recentEmojis.data.reduce((acc: Record<string, number>, entry: any) => {
 			acc[entry.mood as 'chill' | 'angry' | 'happy']++;
 			return acc;
 		}, { chill: 0, angry: 0, happy: 0 });
@@ -23,9 +30,19 @@
 		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
 	});
 
-	async function handleEmojiClick(emoji: string) {
+	function formatRelativeTime(timestamp: number): string {
+		const now = Date.now();
+		const diffMs = now - timestamp;
+		const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+		if (diffMinutes < 1) return "now";
+		if (diffMinutes === 1) return "1 minute ago";
+		return `${diffMinutes} minutes ago`;
+	}
+
+	async function handleEmojiClick(emoji: string, mood: 'chill' | 'angry' | 'happy') {
 		try {
-			await submitEmoji({ emoji, userId: "test-user" });
+			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -40,9 +57,9 @@
 		<Dialog.Content>
 			<Dialog.Title>Choose an Emoji</Dialog.Title>
 			<div class="flex gap-4">
-				<button class="text-4xl" onclick={() => handleEmojiClick('😎')}>😎</button>
-				<button class="text-4xl" onclick={() => handleEmojiClick('💩')}>💩</button>
-				<button class="text-4xl" onclick={() => handleEmojiClick('🔥')}>🔥</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('😎', 'chill')}>😎</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('💩', 'angry')}>💩</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('🔥', 'happy')}>🔥</button>
 			</div>
 		</Dialog.Content>
 	</Dialog.Root>
@@ -51,8 +68,8 @@
 	<section>
 		<h2>Sentiment Timeline</h2>
 		{#if recentEmojis.isLoading}
-			<div>Loading...</div>
-		{:else if !recentEmojis.value || recentEmojis.value.length === 0}
+			<div>Loading timeline...</div>
+		{:else if !recentEmojis.data || recentEmojis.data.length === 0}
 			<div>No emoji submissions yet</div>
 		{:else}
 			<div>{moodSummary()}</div>
@@ -66,6 +83,21 @@
 				{#if moodCounts().happy > 0}
 					<span class="bg-orange-100 text-orange-800 px-2 py-1 rounded mr-2">happy ({moodCounts().happy})</span>
 				{/if}
+			</div>
+
+			<!-- Individual timeline entries -->
+			<div>
+				{#each recentEmojis.data as entry}
+					<div class="flex items-center gap-2 mb-2">
+						<span class="text-2xl">{entry.emoji}</span>
+						<span class="{moodColors[entry.mood as keyof typeof moodColors]} px-2 py-1 rounded text-xs">
+							{entry.mood}
+						</span>
+						<span class="text-sm text-gray-500">
+							{formatRelativeTime(entry.createdAt)}
+						</span>
+					</div>
+				{/each}
 			</div>
 		{/if}
 	</section>

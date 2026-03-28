@@ -13,10 +13,21 @@ export interface ReviewIssue {
   issue_severity: "blocker" | "tech_debt" | "skippable";
 }
 
+/** Structured learning entry from review output. */
+export interface ReviewLearning {
+  tags: string[];
+  context: string;
+  expected: string;
+  actual: string;
+  confidence: "high" | "medium" | "low";
+}
+
 /** Parsed review result from /review skill. */
 export interface ReviewResult {
   success: boolean;
+  verdict?: "PASS" | "PASS_WITH_ISSUES" | "FAIL";
   review_summary?: string;
+  learnings?: ReviewLearning[];
   review_issues: ReviewIssue[];
   screenshots?: string[];
 }

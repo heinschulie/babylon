@@ -13,17 +13,24 @@ const MAX_RECENT_ENTRIES = 20;
 export const submitEmoji = mutation({
 	args: {
 		emoji: v.string(),
+		mood: v.string(),
 		userId: v.string(),
 	},
-	handler: async (ctx, { emoji, userId }) => {
+	handler: async (ctx, { emoji, mood, userId }) => {
 		const config = EMOJI_CONFIG[emoji];
 		if (!config) {
 			throw new Error(`Invalid emoji: ${emoji}. Must be one of: ${VALID_EMOJIS.join(', ')}`);
 		}
 
+		// Validate mood matches emoji config
+		if (config.mood !== mood) {
+			throw new Error(`Mood mismatch: ${emoji} should have mood '${config.mood}', got '${mood}'`);
+		}
+
 		return ctx.db.insert('testTable', {
 			emoji,
-			...config,
+			mood,
+			sentence: config.sentence,
 			userId,
 			createdAt: Date.now(),
 		});

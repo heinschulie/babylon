@@ -205,5 +205,7 @@
   "practice_vocab_kicker": "[TODO] Vocabulary",
   "practice_vocab_title": "[TODO] Learn New Words",
   "practice_vocab_desc": "[TODO] Build vocabulary with visual flashcards before practicing phrases.",
-  "practice_vocab_go": "[TODO] Browse Sets"
+  "practice_vocab_go": "[TODO] Browse Sets",
+  "test_timeline_loading": "Ilayisha imbali yemvavanyo...",
+  "test_timeline_empty": "Akukho kuvunyelo lwe-emoji okwangoku"
 }

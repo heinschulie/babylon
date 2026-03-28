@@ -72,21 +72,29 @@ IMPORTANT: Read and **Execute** `.claude/commands/prepare_app.md` now to prepare
 
 ```json
 {
-    success: "boolean - true if there are NO BLOCKING issues (can have skippable/tech_debt issues), false if there are BLOCKING issues",
-    review_summary: "string - 2-4 sentences describing what was built and whether it matches the spec. Written as if reporting during a standup meeting.",
-    review_issues: [
+    "success": "boolean - true if there are NO BLOCKING issues (can have skippable/tech_debt issues), false if there are BLOCKING issues",
+    "verdict": "string - one of: PASS, PASS_WITH_ISSUES, FAIL",
+    "review_summary": "string - 2-4 sentences describing what was built and whether it matches the spec. Written as if reporting during a standup meeting.",
+    "learnings": [
+        {
+            "tags": ["string - domain tags inferred from changed files, e.g. 'convex', 'frontend', 'auth'"],
+            "context": "string - what was being done when the learning arose",
+            "expected": "string - what was expected to happen",
+            "actual": "string - what actually happened",
+            "confidence": "string - one of: high, medium, low"
+        }
+    ],
+    "review_issues": [
         {
             "review_issue_number": "number - the issue number based on the index of this issue",
             "screenshot_path": "string - /absolute/path/to/screenshot_that_shows_review_issue.png",
             "issue_description": "string - description of the issue",
             "issue_resolution": "string - description of the resolution",
             "issue_severity": "string - severity of the issue between 'skippable', 'tech_debt', 'blocker'"
-        },
-        ...
+        }
     ],
-    screenshots: [
-        "string - /absolute/path/to/screenshot_showcasing_functionality.png",
-        ...
+    "screenshots": [
+        "string - /absolute/path/to/screenshot_showcasing_functionality.png"
     ]
 }
 
