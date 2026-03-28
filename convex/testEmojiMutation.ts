@@ -10,6 +10,17 @@ const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
 const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
 const MAX_RECENT_ENTRIES = 20;
 
+/** Group entries by emoji and return sorted counts (descending, alphabetical tiebreak). */
+function countByEmoji(entries: Array<{ emoji: string }>): Array<{ emoji: string; count: number }> {
+	const counts = new Map<string, number>();
+	for (const { emoji } of entries) {
+		counts.set(emoji, (counts.get(emoji) ?? 0) + 1);
+	}
+	return Array.from(counts.entries())
+		.map(([emoji, count]) => ({ emoji, count }))
+		.sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji));
+}
+
 export const submitEmoji = mutation({
 	args: {
 		emoji: v.string(),
@@ -42,24 +53,11 @@ export const getEmojiLeaderboard = query({
 		mood: v.optional(v.string()),
 	},
 	handler: async (ctx, { mood }) => {
-		let entries;
-		if (mood) {
-			entries = await ctx.db
-				.query('testTable')
-				.filter((q) => q.eq(q.field('mood'), mood))
-				.collect();
-		} else {
-			entries = await ctx.db.query('testTable').collect();
-		}
-
-		const counts = new Map<string, number>();
-		for (const entry of entries) {
-			counts.set(entry.emoji, (counts.get(entry.emoji) ?? 0) + 1);
-		}
-
-		return Array.from(counts.entries())
-			.map(([emoji, count]) => ({ emoji, count }))
-			.sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji));
+		const query = ctx.db.query('testTable');
+		const entries = mood
+			? await query.filter((q) => q.eq(q.field('mood'), mood)).collect()
+			: await query.collect();
+		return countByEmoji(entries);
 	},
 });
 

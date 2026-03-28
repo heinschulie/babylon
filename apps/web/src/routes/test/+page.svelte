@@ -266,7 +266,7 @@
 			<div>No emoji data available</div>
 		{:else}
 			<ol class="list-decimal list-inside space-y-1">
-				{#each leaderboardData.data as entry, index}
+				{#each leaderboardData.data as entry}
 					<li>
 						<span class="text-2xl">{entry.emoji}</span>
 						<span class="ml-2 text-sm text-gray-600">{entry.count}</span>
