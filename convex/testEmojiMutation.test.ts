@@ -14,6 +14,7 @@ describe('testEmojiMutation', () => {
 			const before = Date.now();
 			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '😎',
+				mood: 'chill',
 				userId: 'test-user'
 			});
 			const after = Date.now();
@@ -43,6 +44,7 @@ describe('testEmojiMutation', () => {
 
 			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '💩',
+				mood: 'angry',
 				userId: 'test-user'
 			});
 
@@ -59,6 +61,7 @@ describe('testEmojiMutation', () => {
 
 			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '🔥',
+				mood: 'happy',
 				userId: 'test-user'
 			});
 
@@ -76,6 +79,7 @@ describe('testEmojiMutation', () => {
 			await expect(
 				asUser.mutation(api.testEmojiMutation.submitEmoji, {
 					emoji: '🚀',
+					mood: 'chill',
 					userId: 'test-user'
 				})
 			).rejects.toThrow('Invalid emoji: 🚀. Must be one of: 😎, 💩, 🔥');
@@ -88,6 +92,7 @@ describe('testEmojiMutation', () => {
 			await expect(
 				asUser.mutation(api.testEmojiMutation.submitEmoji, {
 					emoji: '',
+					mood: 'chill',
 					userId: 'test-user'
 				})
 			).rejects.toThrow('Invalid emoji: . Must be one of: 😎, 💩, 🔥');
@@ -99,10 +104,12 @@ describe('testEmojiMutation', () => {
 
 			const id1 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '😎',
+				mood: 'chill',
 				userId: 'test-user'
 			});
 			const id2 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '😎',
+				mood: 'chill',
 				userId: 'test-user'
 			});
 
@@ -129,6 +136,7 @@ describe('testEmojiMutation', () => {
 			// Insert multiple entries with different timestamps
 			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '😎',
+				mood: 'chill',
 				userId: 'test-user'
 			});
 
@@ -137,6 +145,7 @@ describe('testEmojiMutation', () => {
 
 			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '💩',
+				mood: 'angry',
 				userId: 'test-user'
 			});
 
@@ -144,6 +153,7 @@ describe('testEmojiMutation', () => {
 
 			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '🔥',
+				mood: 'happy',
 				userId: 'test-user'
 			});
 
@@ -168,6 +178,7 @@ describe('testEmojiMutation', () => {
 			for (let i = 0; i < 25; i++) {
 				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 					emoji: '😎',
+					mood: 'chill',
 					userId: 'test-user'
 				});
 			}
@@ -198,6 +209,7 @@ describe('testEmojiMutation', () => {
 			// Insert one entry
 			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 				emoji: '🔥',
+				mood: 'happy',
 				userId: 'test-user'
 			});
 
@@ -233,6 +245,7 @@ describe('testEmojiMutation', () => {
 			for (let i = 0; i < 5; i++) {
 				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
 					emoji: '😎',
+					mood: 'chill',
 					userId: 'test-user'
 				});
 			}
