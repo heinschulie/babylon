@@ -302,6 +302,15 @@ export default defineSchema({
 		sentence: v.string(),
 		mood: v.string(),
 		userId: v.string(),
+		createdAt: v.number(),
+		pollId: v.optional(v.id('testPollTable'))
+	})
+		.index('by_createdAt', ['createdAt']),
+
+	// Test table for polls
+	testPollTable: defineTable({
+		question: v.string(),
+		options: v.array(v.string()),
 		createdAt: v.number()
 	})
 		.index('by_createdAt', ['createdAt'])

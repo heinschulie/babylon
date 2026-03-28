@@ -198,13 +198,10 @@ export async function runPipeline(
 
     // ── Per-step commit (before postcondition so head-must-advance sees the commit) ──
     if (step.commitAfter && result.success) {
-      const postSha = await getHeadSha(workingDir);
-      if (postSha !== preSha) {
-        const commitMsg = `feat(#${ctx.issue.number}): ${step.name} — ${ctx.issue.title}`;
-        const [commitOk, commitErr] = await commitChanges(commitMsg, workingDir);
-        if (!commitOk) {
-          logger.warn(`Commit after ${step.name} failed: ${commitErr}`);
-        }
+      const commitMsg = `feat(#${ctx.issue.number}): ${step.name} — ${ctx.issue.title}`;
+      const [commitOk, commitErr] = await commitChanges(commitMsg, workingDir);
+      if (!commitOk && commitErr) {
+        logger.warn(`Commit after ${step.name} failed: ${commitErr}`);
       }
     }
 

@@ -8,21 +8,28 @@
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
 
+	type Mood = 'chill' | 'angry' | 'happy';
+
 	// Mood color mapping for proper Tailwind class application
-	const moodColors = {
+	const moodColors: Record<Mood, string> = {
 		chill: 'bg-blue-100 text-blue-800',
 		angry: 'bg-red-100 text-red-800',
 		happy: 'bg-orange-100 text-orange-800'
 	} as const;
 
+	const moods: Mood[] = ['chill', 'angry', 'happy'] as const;
+
 	// $derived computations for mood analysis
 	const moodCounts = $derived(() => {
-		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 };
+		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
 
-		return recentEmojis.data.reduce((acc: Record<string, number>, entry: any) => {
-			acc[entry.mood as 'chill' | 'angry' | 'happy']++;
-			return acc;
-		}, { chill: 0, angry: 0, happy: 0 });
+		return recentEmojis.data.reduce(
+			(acc: Record<Mood, number>, entry: any) => {
+				acc[entry.mood as Mood]++;
+				return acc;
+			},
+			{ chill: 0, angry: 0, happy: 0 }
+		);
 	});
 
 	const moodSummary = $derived(() => {
@@ -40,7 +47,7 @@
 		return `${diffMinutes} minutes ago`;
 	}
 
-	async function handleEmojiClick(emoji: string, mood: 'chill' | 'angry' | 'happy') {
+	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
 			dialogOpen = false;
@@ -74,15 +81,9 @@
 		{:else}
 			<div>{moodSummary()}</div>
 			<div>
-				{#if moodCounts().chill > 0}
-					<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">chill ({moodCounts().chill})</span>
-				{/if}
-				{#if moodCounts().angry > 0}
-					<span class="bg-red-100 text-red-800 px-2 py-1 rounded mr-2">angry ({moodCounts().angry})</span>
-				{/if}
-				{#if moodCounts().happy > 0}
-					<span class="bg-orange-100 text-orange-800 px-2 py-1 rounded mr-2">happy ({moodCounts().happy})</span>
-				{/if}
+				{#each moods.filter((m) => moodCounts()[m] > 0) as mood}
+					<span class="{moodColors[mood]} px-2 py-1 rounded mr-2">{mood} ({moodCounts()[mood]})</span>
+				{/each}
 			</div>
 
 			<!-- Individual timeline entries -->

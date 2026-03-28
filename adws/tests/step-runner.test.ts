@@ -318,8 +318,8 @@ describe("runPipeline", () => {
     expect(gitOps.commitChanges).toHaveBeenCalled();
   });
 
-  it("commitAfter — skips commit when HEAD unchanged", async () => {
-    // mockHeadSha stays the same
+  it("commitAfter — attempts commit even when HEAD unchanged", async () => {
+    // mockHeadSha stays the same — commitChanges is still called (it no-ops if clean)
     mockHeadSha = "same-sha";
     const gitOps = await import("../src/git-ops");
     (gitOps.getHeadSha as any).mockImplementation(async () => "same-sha");
@@ -331,7 +331,7 @@ describe("runPipeline", () => {
     ];
 
     await runPipeline(pipeline, makeContext(), makeOptions(executor));
-    expect(gitOps.commitChanges).not.toHaveBeenCalled();
+    expect(gitOps.commitChanges).toHaveBeenCalled();
   });
 
   it("context bag threads produces to later steps", async () => {
@@ -517,7 +517,7 @@ describe("runPipeline", () => {
     expect(result.ok).toBe(false);
     expect(result.stepResults[0].ok).toBe(false);
     expect(result.stepResults[0].error).toContain("HEAD did not advance");
-    expect(gitOps.commitChanges).not.toHaveBeenCalled();
+    expect(gitOps.commitChanges).toHaveBeenCalled();
   });
 
   it("runtime consumes validation warns when consumed key is undefined", async () => {
