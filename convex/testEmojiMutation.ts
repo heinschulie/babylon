@@ -37,6 +37,32 @@ export const submitEmoji = mutation({
 	},
 });
 
+export const getEmojiLeaderboard = query({
+	args: {
+		mood: v.optional(v.string()),
+	},
+	handler: async (ctx, { mood }) => {
+		let entries;
+		if (mood) {
+			entries = await ctx.db
+				.query('testTable')
+				.filter((q) => q.eq(q.field('mood'), mood))
+				.collect();
+		} else {
+			entries = await ctx.db.query('testTable').collect();
+		}
+
+		const counts = new Map<string, number>();
+		for (const entry of entries) {
+			counts.set(entry.emoji, (counts.get(entry.emoji) ?? 0) + 1);
+		}
+
+		return Array.from(counts.entries())
+			.map(([emoji, count]) => ({ emoji, count }))
+			.sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji));
+	},
+});
+
 export const listRecentEmojis = query({
 	args: {},
 	handler: async (ctx) => {

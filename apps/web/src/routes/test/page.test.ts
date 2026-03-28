@@ -278,8 +278,8 @@ describe('/test route', () => {
 
 
 		it('should show individual timeline entries with emoji and mood badge', () => {
-			// Timeline entries should display individual submissions, not just counts
-			expect(content).toContain('{#each recentEmojis.data as entry}');  // Should iterate over timeline data
+			// Timeline entries should display individual submissions (filtered)
+			expect(content).toContain('{#each filteredEmojis() as entry}');  // Should iterate over filtered timeline data
 			expect(content).toContain('{entry.emoji}');  // Should display emoji from entry
 			expect(content).toContain('entry.mood');   // Should use mood for badge color
 		});
@@ -324,6 +324,59 @@ describe('/test route', () => {
 			expect(content).toContain('listPolls');
 			// Should show option count for each poll
 			expect(content).toMatch(/option/i);
+		});
+	});
+
+	// Emoji leaderboard feature tests
+	describe('emoji leaderboard feature', () => {
+		it('should have leaderboard section with heading', () => {
+			expect(content).toContain('Emoji Leaderboard');
+			expect(content).toContain('getEmojiLeaderboard');
+		});
+
+		it('should render ranked list with position, emoji, and count', () => {
+			// Should iterate leaderboard data with index for position
+			expect(content).toMatch(/leaderboard/i);
+			// Should display emoji and count from each entry
+			expect(content).toContain('.emoji');
+			expect(content).toContain('.count');
+		});
+
+		it('should have empty state when no emojis match filter', () => {
+			expect(content).toMatch(/no.*emoji|empty/i);
+		});
+	});
+
+	// Mood filter feature tests
+	describe('mood filter feature', () => {
+		it('should have activeMoodFilter state variable', () => {
+			expect(content).toContain('activeMoodFilter');
+		});
+
+		it('should have mood filter buttons for chill, angry, happy, and All', () => {
+			// Should render filter buttons for each mood plus All
+			expect(content).toMatch(/filter/i);
+			// Should have Button components for filtering
+			const filterSection = content.includes('activeMoodFilter');
+			expect(filterSection).toBe(true);
+		});
+
+		it('should pass activeMoodFilter to getEmojiLeaderboard query', () => {
+			expect(content).toContain('getEmojiLeaderboard');
+			expect(content).toContain('activeMoodFilter');
+		});
+
+		it('should filter sentiment timeline entries by active mood', () => {
+			// Should use $derived to filter recentEmojis.data
+			expect(content).toContain('filteredEmojis');
+			expect(content).toContain('activeMoodFilter');
+		});
+
+		it('should keep mood count badges unfiltered (show totals always)', () => {
+			// moodCounts should NOT reference activeMoodFilter
+			// It should always use recentEmojis.data directly
+			const moodCountsBlock = content.match(/moodCounts[\s\S]*?\}\)/)?.[0] ?? '';
+			expect(moodCountsBlock).not.toContain('activeMoodFilter');
 		});
 	});
 

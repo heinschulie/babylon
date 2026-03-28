@@ -262,4 +262,104 @@ describe('testEmojiMutation', () => {
 			)).toBe(true);
 		});
 	});
+
+	describe('getEmojiLeaderboard', () => {
+		it('should return only emojis matching mood when filter provided', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert mixed moods
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				mood: 'chill'
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ emoji: '😎', count: 1 });
+		});
+
+		it('should return empty array when no emojis match filter', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				mood: 'angry'
+			});
+
+			expect(result).toEqual([]);
+		});
+
+		it('should sort by count descending with alphabetical tiebreak', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// 🔥 x1, 😎 x1, 💩 x2 — expect 💩 first, then 😎 and 🔥 alphabetically
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			for (let i = 0; i < 2; i++) {
+				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+					emoji: '💩', mood: 'angry', userId: 'test-user'
+				});
+			}
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {});
+
+			expect(result[0].count).toBe(2);
+			expect(result[0].emoji).toBe('💩');
+			// Tied at count=1, sorted alphabetically by emoji string
+			expect(result[1].count).toBe(1);
+			expect(result[2].count).toBe(1);
+			expect(result[1].emoji.localeCompare(result[2].emoji)).toBeLessThan(0);
+		});
+
+		it('should return all emojis grouped and counted when no mood filter', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert: 😎 x3, 💩 x2, 🔥 x1
+			for (let i = 0; i < 3; i++) {
+				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+					emoji: '😎',
+					mood: 'chill',
+					userId: 'test-user'
+				});
+			}
+			for (let i = 0; i < 2; i++) {
+				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+					emoji: '💩',
+					mood: 'angry',
+					userId: 'test-user'
+				});
+			}
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {});
+
+			expect(result).toHaveLength(3);
+			expect(result[0]).toEqual({ emoji: '😎', count: 3 });
+			expect(result[1]).toEqual({ emoji: '💩', count: 2 });
+			expect(result[2]).toEqual({ emoji: '🔥', count: 1 });
+		});
+	});
 });

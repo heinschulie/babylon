@@ -8,9 +8,13 @@
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
 	let pollOptions = $state(['', '']);
+	let activeMoodFilter = $state<string | null>(null);
 
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
+		mood: activeMoodFilter ?? undefined
+	}));
 	const polls = useQuery(api.testPollMutation.listPolls);
 	const createPoll = useMutation(api.testPollMutation.createPoll);
 
@@ -37,6 +41,16 @@
 			{ chill: 0, angry: 0, happy: 0 }
 		);
 	});
+
+	const filteredEmojis = $derived(() => {
+		if (!recentEmojis.data) return [];
+		if (!activeMoodFilter) return recentEmojis.data;
+		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
+	});
+
+	function toggleMoodFilter(mood: string | null) {
+		activeMoodFilter = activeMoodFilter === mood ? null : mood;
+	}
 
 	const moodSummary = $derived(() => {
 		const counts = moodCounts();
@@ -227,6 +241,41 @@
 		</div>
 	</section>
 
+	<!-- Mood Filter Buttons -->
+	<section class="p-4">
+		<div class="flex gap-2 mb-4">
+			<Button
+				variant={activeMoodFilter === null ? 'default' : 'ghost'}
+				onclick={() => toggleMoodFilter(null)}
+			>All</Button>
+			{#each moods as mood}
+				<Button
+					variant={activeMoodFilter === mood ? 'default' : 'ghost'}
+					onclick={() => toggleMoodFilter(mood)}
+				>{mood}</Button>
+			{/each}
+		</div>
+	</section>
+
+	<!-- Emoji Leaderboard section -->
+	<section class="p-4">
+		<h2>Emoji Leaderboard</h2>
+		{#if leaderboardData.isLoading}
+			<div>Loading leaderboard...</div>
+		{:else if !leaderboardData.data || leaderboardData.data.length === 0}
+			<div>No emoji data available</div>
+		{:else}
+			<ol class="list-decimal list-inside space-y-1">
+				{#each leaderboardData.data as entry, index}
+					<li>
+						<span class="text-2xl">{entry.emoji}</span>
+						<span class="ml-2 text-sm text-gray-600">{entry.count}</span>
+					</li>
+				{/each}
+			</ol>
+		{/if}
+	</section>
+
 	<!-- Sentiment Timeline section -->
 	<section>
 		<h2>Sentiment Timeline</h2>
@@ -242,9 +291,9 @@
 				{/each}
 			</div>
 
-			<!-- Individual timeline entries -->
+			<!-- Individual timeline entries (filtered by activeMoodFilter) -->
 			<div>
-				{#each recentEmojis.data as entry}
+				{#each filteredEmojis() as entry}
 					<div class="flex items-center gap-2 mb-2">
 						<span class="text-2xl">{entry.emoji}</span>
 						<span class="{moodColors[entry.mood as keyof typeof moodColors]} px-2 py-1 rounded text-xs">
