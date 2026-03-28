@@ -146,15 +146,37 @@
 			{#if polls.isLoading}
 				<div>Loading polls...</div>
 			{:else if !polls.data || polls.data.length === 0}
-				<div>No polls yet</div>
+				<div>No polls exist</div>
 			{:else}
 				<div class="space-y-3">
 					{#each polls.data as poll (poll._id)}
-						<Card.Root class="p-3">
-							<div class="space-y-2">
-								<p class="font-semibold">{poll.question}</p>
-								<p class="text-sm text-gray-600">{poll.options.length} options</p>
-							</div>
+						{@const pollResults = useQuery(api.testPollMutation.getPollResults, { pollId: poll._id })}
+						<Card.Root>
+							<Card.Header>
+								<Card.Title>{poll.question}</Card.Title>
+							</Card.Header>
+							<Card.Content>
+								<ol class="list-decimal list-inside space-y-1">
+									{#each poll.options as option, index}
+										<li class="text-sm">{option}</li>
+									{/each}
+								</ol>
+								<div class="mt-2 text-sm text-gray-600 flex justify-between items-center">
+									<div>
+										{#if pollResults.isLoading}
+											<span>Loading votes...</span>
+										{:else if pollResults.data}
+											{@const totalVotes = pollResults.data.reduce((sum, result) => sum + result.count, 0)}
+											<span>{totalVotes} total vote{totalVotes !== 1 ? 's' : ''}</span>
+										{:else}
+											<span>0 total votes</span>
+										{/if}
+									</div>
+									<div class="text-gray-500">
+										{formatRelativeTime(poll.createdAt)}
+									</div>
+								</div>
+							</Card.Content>
 						</Card.Root>
 					{/each}
 				</div>

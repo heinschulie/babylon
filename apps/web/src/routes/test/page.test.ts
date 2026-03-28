@@ -327,4 +327,38 @@ describe('/test route', () => {
 			expect(content).toMatch(/option/i);
 		});
 	});
+
+	// Enhanced poll list feature tests
+	describe('enhanced poll list feature', () => {
+		it('should render poll cards with shadcn Card components', () => {
+			// Each poll should be wrapped in Card.Root with Card.Header and Card.Content
+			expect(content).toContain('Card.Header');
+			expect(content).toContain('Card.Content');
+			// Poll question should be in Card.Title within Card.Header
+			expect(content).toContain('Card.Title');
+		});
+
+		it('should render numbered options list for each poll', () => {
+			// Should use numbered list (ol) to display all poll options
+			expect(content).toContain('<ol');
+			expect(content).toContain('poll.options as option');
+		});
+
+		it('should display total vote count for each poll', () => {
+			// Should query vote results and display total votes
+			expect(content).toContain('getPollResults');
+			expect(content).toContain('total vote');
+		});
+
+		it('should display relative timestamp for each poll', () => {
+			// Should use formatRelativeTime helper and display timestamp
+			expect(content).toContain('formatRelativeTime');
+			expect(content).toContain('poll.createdAt');
+		});
+
+		it('should render empty state when no polls exist', () => {
+			// Should display "No polls exist" message when list is empty
+			expect(content).toContain('No polls exist');
+		});
+	});
 });
