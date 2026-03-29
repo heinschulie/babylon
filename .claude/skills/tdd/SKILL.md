@@ -53,6 +53,7 @@ The issue body is your specification. It contains:
 Read the issue body carefully. Extract the interface spec, behaviors to test, and mocking boundaries. These replace any planning conversation — everything you need is in the issue.
 
 Also consider:
+
 - Opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
 - [Interface design](interface-design.md) for testability
 
@@ -95,7 +96,7 @@ GREEN means ALL of these pass — not just the test:
 4. **Convex sync** — if any files under `convex/` were modified, run `npx convex dev --once` and confirm it succeeds
 5. **Page loads** — read `DEV_TUNNEL_URL` from `.env.local`, fetch affected page route(s), confirm HTTP 200
 
-**If any validation fails, fix the issue before proceeding to the next cycle. Do NOT report success until all validations pass.**
+**IMPORTANT: If any validation fails, fix the issue before proceeding to the next cycle. Do NOT report success until all validations pass. YOU ARE WRITING MISSION CRITICAL CODE THAT WILL OUTLIVE US BOTH - YOU MAY NOT MOVE ON UNLESS ALL VALIDATIONS PASS.**
 
 ## Checklist Per Cycle
 
@@ -116,6 +117,7 @@ GREEN means ALL of these pass — not just the test:
 IMPORTANT: You MUST end your output with this exact block. Fill in each field with a single line.
 
 ## Step Summary
+
 - status: pass | fail
 - action: <one line describing what you did>
 - decision: <one line -- key choice and why>
