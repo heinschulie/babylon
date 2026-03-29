@@ -37,6 +37,7 @@ interface RunStepOptions {
   logger?: Logger;
   logDir?: string;
   stepName?: string;
+  timeout?: number;
 }
 
 /** Summarize a BetaMessage content array into a compact log line. */
@@ -73,10 +74,12 @@ export function extractStepSummary(text: string): StepSummary | null {
   const visual_validation = vv === "passed" || vv === "failed" || vv === "skipped" ? vv : undefined;
   const expert_consulted = get("expert_consulted");
   const expert_advice_summary = get("expert_advice_summary");
+  const action = get("action") || "[summary not extracted]";
+  const decision = get("decision") || "[summary not extracted]";
   return {
     status,
-    action: get("action"),
-    decision: get("decision"),
+    action,
+    decision,
     blockers: get("blockers"),
     files_changed: get("files_changed"),
     ...(visual_validation && { visual_validation }),
@@ -230,7 +233,7 @@ export async function runSkillStep(
     const sdk = await createSDK({ model: options.model, cwd: options.cwd });
     const query = sdk.query(prompt);
 
-    return await consumeQuery(query, logger, outputFile);
+    return await consumeQuery(query, logger, outputFile, options.timeout);
   } catch (e) {
     logger?.error(`Skill step failed: ${e}`);
     return { success: false, error: String(e) };
@@ -283,6 +286,11 @@ async function findFinalResult(
       if (!summary && finalResult.result) {
         summary = extractStepSummary(finalResult.result);
       }
+      // Break immediately after capturing the result message.
+      // The pipe may never close if the agent spawned background processes
+      // (e.g. `npx convex dev --once`) that hold stdout open — waiting for
+      // EOF caused multi-hour hangs in production (build 64).
+      break;
     }
   }
 
@@ -297,9 +305,44 @@ async function findFinalResult(
 async function consumeQuery(
   query: AsyncGenerator<any, void>,
   logger?: Logger,
-  outputFile?: string
+  outputFile?: string,
+  timeout?: number
 ): Promise<QueryResult> {
-  const { finalResult, summary } = await findFinalResult(query, logger, outputFile);
+  let resultPromise = findFinalResult(query, logger, outputFile);
+
+  // Enforce per-step timeout if specified
+  if (timeout && timeout > 0) {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`Step timed out after ${timeout}ms`)), timeout);
+    });
+    try {
+      const { finalResult, summary } = await Promise.race([resultPromise, timeoutPromise]);
+
+      if (!finalResult) {
+        return { success: false };
+      }
+
+      const usage = extractUsage(finalResult);
+      if (usage) {
+        logger?.info(`[usage] ${formatUsage(usage)}`);
+      }
+
+      return {
+        success: finalResult.subtype === "success",
+        session_id: finalResult.session_id,
+        result: finalResult.result,
+        usage,
+        summary: summary ?? undefined,
+      };
+    } catch (e) {
+      logger?.error(`Timeout: ${e}`);
+      // Try to close the generator to free resources
+      try { await query.return(undefined as any); } catch { /* ignore */ }
+      return { success: false, error: String(e) };
+    }
+  }
+
+  const { finalResult, summary } = await resultPromise;
 
   if (!finalResult) {
     return { success: false };

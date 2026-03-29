@@ -300,6 +300,21 @@ export default defineSchema({
 	testTable: defineTable({
 		emoji: v.string(),
 		sentence: v.string(),
-		createdAt: v.number()
+		mood: v.string(),
+		userId: v.string(),
+		createdAt: v.number(),
+		pollId: v.optional(v.id('testPollTable'))
 	})
+		.index('by_createdAt', ['createdAt'])
+		.index('by_pollId', ['pollId']),
+
+	// Test table for polls
+	testPollTable: defineTable({
+		question: v.string(),
+		options: v.array(v.string()),
+		createdAt: v.number(),
+		closedAt: v.optional(v.number())
+	})
+		.index('by_createdAt', ['createdAt'])
+		.index('by_closedAt', ['closedAt'])
 });

@@ -21,6 +21,9 @@ export interface LearningEntry {
   expertise_rule_violated?: string;
   confidence: "high" | "medium" | "low";
   platform_context: Record<string, string>;
+  occurrences?: number;
+  source_step?: string;
+  issue_number?: number;
 }
 
 export interface ExpertDomainTags {
@@ -85,13 +88,36 @@ function getNextId(existingEntries: LearningEntry[]): string {
 }
 
 /**
+ * Check if two learnings are semantically duplicate.
+ * Same tags (order-independent) + substring overlap on actual field.
+ */
+function isDuplicate(existing: LearningEntry, incoming: { tags: string[]; actual: string }): boolean {
+  const existingTags = [...existing.tags].sort().join(",");
+  const incomingTags = [...incoming.tags].sort().join(",");
+  if (existingTags !== incomingTags) return false;
+
+  const snippet = incoming.actual.slice(0, 50);
+  return existing.actual.includes(snippet) || incoming.actual.includes(existing.actual.slice(0, 50));
+}
+
+/**
+ * Rewrite the entire learnings file from entries.
+ */
+function rewriteLearningsFile(filePath: string, runId: string, entries: LearningEntry[]): void {
+  const yamlBlocks = entries.map(e => formatLearningYaml(e)).join("");
+  writeFileSync(filePath, `# Runtime Learnings: ${runId}\n\n\`\`\`yaml\n${yamlBlocks}\`\`\`\n`);
+}
+
+/**
  * Record a learning entry to temp/learnings/{run_id}.md
- * Lightweight — designed to not slow down the main workflow.
+ * Deduplicates at write time: same tags + overlapping actual → increment occurrences.
  */
 export function recordLearning(
   cwd: string,
   entry: Omit<LearningEntry, "id" | "date" | "platform_context"> & {
     platform_context?: Record<string, string>;
+    source_step?: string;
+    issue_number?: number;
   }
 ): string {
   const learningsDir = join(cwd, LEARNINGS_DIR);
@@ -99,23 +125,42 @@ export function recordLearning(
 
   const filePath = join(learningsDir, `${entry.run_id}.md`);
   const existingEntries = existsSync(filePath) ? parseLearningsFile(filePath) : [];
-
-  const id = getNextId(existingEntries);
   const platformCtx = entry.platform_context ?? readPlatformContext(cwd);
 
-  const yamlEntry = formatLearningYaml({
+  // Check for duplicate
+  const dupIndex = existingEntries.findIndex(e => isDuplicate(e, entry));
+  if (dupIndex >= 0) {
+    const dup = existingEntries[dupIndex];
+    // Update existing: bump occurrences, take higher confidence, update date
+    const confidenceRank = { low: 0, medium: 1, high: 2 } as const;
+    const newConf = confidenceRank[entry.confidence] > confidenceRank[dup.confidence] ? entry.confidence : dup.confidence;
+    existingEntries[dupIndex] = {
+      ...dup,
+      confidence: newConf,
+      date: new Date().toISOString().split("T")[0],
+      occurrences: (dup.occurrences ?? 1) + 1,
+      ...(entry.source_step && { source_step: entry.source_step }),
+      ...(entry.issue_number && { issue_number: entry.issue_number }),
+    };
+    rewriteLearningsFile(filePath, entry.run_id, existingEntries);
+    return dup.id;
+  }
+
+  // New entry
+  const id = getNextId(existingEntries);
+  const fullEntry: LearningEntry = {
     ...entry,
     id,
     date: new Date().toISOString().split("T")[0],
     platform_context: platformCtx,
-  });
+    occurrences: 1,
+  };
 
   if (existingEntries.length === 0) {
-    writeFileSync(filePath, `# Runtime Learnings: ${entry.run_id}\n\n\`\`\`yaml\n${yamlEntry}\`\`\`\n`);
+    writeFileSync(filePath, `# Runtime Learnings: ${entry.run_id}\n\n\`\`\`yaml\n${formatLearningYaml(fullEntry)}\`\`\`\n`);
   } else {
-    // Append to existing YAML block
     const content = readFileSync(filePath, "utf-8");
-    const updated = content.replace(/```\s*$/, `${yamlEntry}\`\`\`\n`);
+    const updated = content.replace(/```\s*$/, `${formatLearningYaml(fullEntry)}\`\`\`\n`);
     writeFileSync(filePath, updated);
   }
 
@@ -142,6 +187,15 @@ function formatLearningYaml(entry: LearningEntry): string {
     lines.push(`  expertise_rule_violated: "${escapeYaml(entry.expertise_rule_violated)}"`);
   }
   lines.push(`  confidence: ${entry.confidence}`);
+  if (entry.occurrences && entry.occurrences > 1) {
+    lines.push(`  occurrences: ${entry.occurrences}`);
+  }
+  if (entry.source_step) {
+    lines.push(`  source_step: "${entry.source_step}"`);
+  }
+  if (entry.issue_number) {
+    lines.push(`  issue_number: ${entry.issue_number}`);
+  }
   lines.push(`  platform_context:`);
   for (const [key, val] of Object.entries(entry.platform_context)) {
     lines.push(`    ${key}: "${val}"`);

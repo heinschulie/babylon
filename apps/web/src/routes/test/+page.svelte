@@ -1,18 +1,109 @@
 <script lang="ts">
 	import * as Dialog from '@babylon/ui/dialog';
-	import { useConvexClient } from 'convex-svelte';
+	import * as Card from '@babylon/ui/card';
+	import { Button } from '@babylon/ui/button';
+	import { useConvexClient, useQuery, useMutation } from 'convex-svelte';
 	import { api } from '@babylon/convex';
 
 	let dialogOpen = $state(false);
+	let pollQuestion = $state('');
+	let pollOptions = $state(['', '']);
+	let activeMoodFilter = $state<string | null>(null);
 
 	const client = useConvexClient();
+	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
+		mood: activeMoodFilter ?? undefined
+	}));
+	const polls = useQuery(api.testPollMutation.listPolls);
+	const createPoll = useMutation(api.testPollMutation.createPoll);
 
-	async function handleEmojiClick(emoji: string) {
+	type Mood = 'chill' | 'angry' | 'happy';
+
+	// Mood color mapping for proper Tailwind class application
+	const moodColors: Record<Mood, string> = {
+		chill: 'bg-blue-100 text-blue-800',
+		angry: 'bg-red-100 text-red-800',
+		happy: 'bg-orange-100 text-orange-800'
+	} as const;
+
+	const moods: Mood[] = ['chill', 'angry', 'happy'] as const;
+
+	// $derived computations for mood analysis
+	const moodCounts = $derived(() => {
+		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
+
+		return recentEmojis.data.reduce(
+			(acc: Record<Mood, number>, entry: any) => {
+				acc[entry.mood as Mood]++;
+				return acc;
+			},
+			{ chill: 0, angry: 0, happy: 0 }
+		);
+	});
+
+	const filteredEmojis = $derived(() => {
+		if (!recentEmojis.data) return [];
+		if (!activeMoodFilter) return recentEmojis.data;
+		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
+	});
+
+	function toggleMoodFilter(mood: string | null) {
+		activeMoodFilter = activeMoodFilter === mood ? null : mood;
+	}
+
+	const moodSummary = $derived(() => {
+		const counts = moodCounts();
+		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
+	});
+
+	function formatRelativeTime(timestamp: number): string {
+		const now = Date.now();
+		const diffMs = now - timestamp;
+		const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+		if (diffMinutes < 1) return "now";
+		if (diffMinutes === 1) return "1 minute ago";
+		return `${diffMinutes} minutes ago`;
+	}
+
+	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
-			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji });
+			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
+		}
+	}
+
+	async function handleCreatePoll() {
+		try {
+			const nonEmptyOptions = pollOptions.filter(opt => opt.trim());
+			await createPoll.mutate({
+				question: pollQuestion,
+				options: nonEmptyOptions
+			});
+			// Reset form
+			pollQuestion = '';
+			pollOptions = ['', ''];
+		} catch (error) {
+			console.error('Failed to create poll:', error);
+		}
+	}
+
+	function addPollOption() {
+		pollOptions = [...pollOptions, ''];
+	}
+
+	async function handleVoteClick(pollId: string, option: string) {
+		try {
+			await client.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option,
+				userId: "test-user"
+			});
+		} catch (error) {
+			console.error('Failed to cast vote:', error);
 		}
 	}
 </script>
@@ -24,12 +115,198 @@
 		<Dialog.Content>
 			<Dialog.Title>Choose an Emoji</Dialog.Title>
 			<div class="flex gap-4">
-				<button class="text-4xl" onclick={() => handleEmojiClick('😎')}>😎</button>
-				<button class="text-4xl" onclick={() => handleEmojiClick('💩')}>💩</button>
-				<button class="text-4xl" onclick={() => handleEmojiClick('🔥')}>🔥</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('😎', 'chill')}>😎</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('💩', 'angry')}>💩</button>
+				<button class="text-4xl" onclick={() => handleEmojiClick('🔥', 'happy')}>🔥</button>
 			</div>
 		</Dialog.Content>
 	</Dialog.Root>
+
+	<!-- Poll Creation and List section -->
+	<section class="p-4">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Create a Poll</Card.Title>
+			</Card.Header>
+			<Card.Content class="space-y-4">
+				<!-- Question Input -->
+				<div class="space-y-2">
+					<label for="question" class="text-sm font-medium">Question</label>
+					<input
+						id="question"
+						type="text"
+						placeholder="What is your question?"
+						bind:value={pollQuestion}
+						class="w-full px-3 py-2 border border-gray-300 rounded"
+					/>
+				</div>
+
+				<!-- Options List -->
+				<div class="space-y-2">
+					<label for="option-0" class="text-sm font-medium">Options</label>
+					<div class="space-y-2">
+						{#each pollOptions as option, index (index)}
+							<input
+								id={`option-${index}`}
+								type="text"
+								placeholder={`Option ${index + 1}`}
+								bind:value={pollOptions[index]}
+								class="w-full px-3 py-2 border border-gray-300 rounded"
+							/>
+						{/each}
+					</div>
+					<button onclick={addPollOption} class="px-3 py-2 bg-gray-200 rounded text-sm">
+						+ Add Option
+					</button>
+				</div>
+
+				<!-- Submit Button -->
+				<button onclick={handleCreatePoll} class="w-full px-4 py-2 bg-blue-600 text-white rounded">
+					Create Poll
+				</button>
+			</Card.Content>
+		</Card.Root>
+
+		<!-- Poll List -->
+		<div class="mt-6">
+			<h3 class="text-lg font-semibold mb-4">Recent Polls</h3>
+			{#if polls.isLoading}
+				<div>Loading polls...</div>
+			{:else if !polls.data || polls.data.length === 0}
+				<div>No polls exist</div>
+			{:else}
+				<div class="space-y-3">
+					{#each polls.data as poll (poll._id)}
+						{@const pollResults = useQuery(api.testPollMutation.getPollResults, { pollId: poll._id })}
+						<Card.Root>
+							<Card.Header>
+								<Card.Title>{poll.question}</Card.Title>
+							</Card.Header>
+							<Card.Content>
+								<ol class="list-decimal list-inside space-y-1">
+									{#each poll.options as option}
+										<li class="text-sm">{option}</li>
+									{/each}
+								</ol>
+
+								<!-- Vote buttons -->
+								<div class="mt-4 flex flex-wrap gap-2">
+									{#each poll.options as option}
+										<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
+									{/each}
+								</div>
+
+								<!-- Bar chart results -->
+								<div class="mt-6">
+									<h4 class="text-sm font-medium mb-3">Poll Results - Bar Chart</h4>
+									{#if pollResults.isLoading}
+										<div class="text-sm text-gray-500">Loading results...</div>
+									{:else if pollResults.data}
+									{@const maxCount = Math.max(...pollResults.data.map(r => r.count))}
+										<div class="space-y-2">
+											{#each pollResults.data as result}
+												<div class="flex items-center gap-3">
+													<span class="text-sm w-20 truncate">{result.option}</span>
+													<div class="flex-1 bg-gray-200 h-4 rounded">
+														<div class="bg-blue-500 h-4 rounded" style="width: {result.count > 0 ? (result.count / maxCount) * 100 : 2}%"></div>
+													</div>
+													<span class="text-sm text-gray-600 w-8">{result.count}</span>
+												</div>
+											{/each}
+										</div>
+									{:else}
+										<div class="text-sm text-gray-500">No votes yet</div>
+									{/if}
+								</div>
+								<div class="mt-2 text-sm text-gray-600 flex justify-between items-center">
+									<div>
+										{#if pollResults.isLoading}
+											<span>Loading votes...</span>
+										{:else if pollResults.data}
+											{@const totalVotes = pollResults.data.reduce((sum, result) => sum + result.count, 0)}
+											<span>{totalVotes} total vote{totalVotes !== 1 ? 's' : ''}</span>
+										{:else}
+											<span>0 total votes</span>
+										{/if}
+									</div>
+									<div class="text-gray-500">
+										{formatRelativeTime(poll.createdAt)}
+									</div>
+								</div>
+							</Card.Content>
+						</Card.Root>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- Mood Filter Buttons -->
+	<section class="p-4">
+		<div class="flex gap-2 mb-4">
+			<Button
+				variant={activeMoodFilter === null ? 'default' : 'ghost'}
+				onclick={() => toggleMoodFilter(null)}
+			>All</Button>
+			{#each moods as mood}
+				<Button
+					variant={activeMoodFilter === mood ? 'default' : 'ghost'}
+					onclick={() => toggleMoodFilter(mood)}
+				>{mood}</Button>
+			{/each}
+		</div>
+	</section>
+
+	<!-- Emoji Leaderboard section -->
+	<section class="p-4">
+		<h2>Emoji Leaderboard</h2>
+		{#if leaderboardData.isLoading}
+			<div>Loading leaderboard...</div>
+		{:else if !leaderboardData.data || leaderboardData.data.length === 0}
+			<div>No emoji data available</div>
+		{:else}
+			<ol class="list-decimal list-inside space-y-1">
+				{#each leaderboardData.data as entry}
+					<li>
+						<span class="text-2xl">{entry.emoji}</span>
+						<span class="ml-2 text-sm text-gray-600">{entry.count}</span>
+					</li>
+				{/each}
+			</ol>
+		{/if}
+	</section>
+
+	<!-- Sentiment Timeline section -->
+	<section>
+		<h2>Sentiment Timeline</h2>
+		{#if recentEmojis.isLoading}
+			<div>Loading timeline...</div>
+		{:else if !recentEmojis.data || recentEmojis.data.length === 0}
+			<div>No emoji submissions yet</div>
+		{:else}
+			<div>{moodSummary()}</div>
+			<div>
+				{#each moods.filter((m) => moodCounts()[m] > 0) as mood}
+					<span class="{moodColors[mood]} px-2 py-1 rounded mr-2">{mood} ({moodCounts()[mood]})</span>
+				{/each}
+			</div>
+
+			<!-- Individual timeline entries (filtered by activeMoodFilter) -->
+			<div>
+				{#each filteredEmojis() as entry}
+					<div class="flex items-center gap-2 mb-2">
+						<span class="text-2xl">{entry.emoji}</span>
+						<span class="{moodColors[entry.mood as keyof typeof moodColors]} px-2 py-1 rounded text-xs">
+							{entry.mood}
+						</span>
+						<span class="text-sm text-gray-500">
+							{formatRelativeTime(entry.createdAt)}
+						</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
 
 	<h1 class="text-[150px]">christ on a pogostick</h1>
 

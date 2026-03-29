@@ -41,16 +41,25 @@ export interface AgentStatus {
   screenshots?: Screenshot[];
 }
 
+/** Quality summary aggregated from review steps. */
+export interface QualitySummary {
+  issues_reviewed: number;
+  passed: number;
+  failed: number;
+  sub_issues_created: number;
+}
+
 /** Top-level workflow status written to logDir/status.json. */
 export interface WorkflowStatus {
   workflow: string;
   adw_id: string;
-  status: "pass" | "fail";
+  status: "pass" | "fail" | "pass_with_issues";
   duration_ms: number;
   started_at: string;
   finished_at: string;
   steps: Record<string, Record<string, AgentStatus>>;
   totals: StepUsage;
+  quality?: QualitySummary;
 }
 
 /** Extended logger returned by taggedLogger — adds finalize() for status + rename. */
@@ -252,15 +261,45 @@ export function writeWorkflowStatus(
     // ignore
   }
 
+  // Scan review steps for quality summary
+  let reviewsPassed = 0;
+  let reviewsFailed = 0;
+  let subIssuesCreated = 0;
+  for (const [stepName, agents] of Object.entries(steps)) {
+    if (!stepName.includes("review")) continue;
+    for (const agent of Object.values(agents)) {
+      const verdict = agent.summary?.action;
+      // Count based on step status — review steps that failed indicate FAIL verdict
+      if (agent.status === "pass") reviewsPassed++;
+      else reviewsFailed++;
+    }
+  }
+
+  const issuesReviewed = reviewsPassed + reviewsFailed;
+  const quality: QualitySummary | undefined = issuesReviewed > 0
+    ? { issues_reviewed: issuesReviewed, passed: reviewsPassed, failed: reviewsFailed, sub_issues_created: subIssuesCreated }
+    : undefined;
+
+  // Derive status: pass_with_issues when reviews fail but pipeline succeeded
+  let derivedStatus: "pass" | "fail" | "pass_with_issues";
+  if (!opts.ok) {
+    derivedStatus = "fail";
+  } else if (reviewsFailed > 0) {
+    derivedStatus = "pass_with_issues";
+  } else {
+    derivedStatus = "pass";
+  }
+
   const status: WorkflowStatus = {
     workflow: opts.workflow,
     adw_id: opts.adwId,
-    status: opts.ok ? "pass" : "fail",
+    status: derivedStatus,
     duration_ms: Date.now() - opts.startTime,
     started_at: new Date(opts.startTime).toISOString(),
     finished_at: new Date().toISOString(),
     steps,
     totals: opts.totals,
+    ...(quality && { quality }),
   };
 
   safeWriteJson(join(logDir, "status.json"), status);

@@ -205,5 +205,7 @@
   "practice_vocab_kicker": "Vocabulary",
   "practice_vocab_title": "Learn New Words",
   "practice_vocab_desc": "Build vocabulary with visual flashcards before practicing phrases.",
-  "practice_vocab_go": "Browse Sets"
+  "practice_vocab_go": "Browse Sets",
+  "test_timeline_loading": "Loading mood history...",
+  "test_timeline_empty": "No emoji submissions yet"
 }

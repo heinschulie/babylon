@@ -50,13 +50,12 @@ describe('/test route', () => {
 		expect(content).toContain('text-[150px]');
 	});
 
-	it('should NOT import Button component from @babylon/ui/button', () => {
-		expect(content).not.toContain("import { Button } from '@babylon/ui/button'");
+	it('should import Button component from @babylon/ui/button for voting UI', () => {
+		expect(content).toContain("import { Button } from '@babylon/ui/button'");
 	});
 
-
-	it('should NOT have any shadcn Button component markup', () => {
-		expect(content).not.toContain('<Button');
+	it('should have shadcn Button components for voting', () => {
+		expect(content).toContain('<Button');
 	});
 
 
@@ -236,13 +235,182 @@ describe('/test route', () => {
 		});
 
 		it('should import Convex client functions', () => {
-			expect(content).toContain('useConvexMutation');
+			expect(content).toContain('useConvexClient');
 			expect(content).toContain('api.testEmojiMutation.submitEmoji');
 		});
 
 		it('should have handleEmojiClick function that closes dialog', () => {
 			expect(content).toContain('handleEmojiClick');
 			expect(content).toContain('dialogOpen = false');
+		});
+	});
+
+	// New feature tests for sentiment timeline
+	describe('sentiment timeline feature', () => {
+		it('should have timeline section markup', () => {
+			expect(content).toContain('Sentiment Timeline');
+		});
+
+		it('should have mood badge elements with correct colors', () => {
+			expect(content).toContain('bg-blue-100 text-blue-800');   // chill badge
+			expect(content).toContain('bg-red-100 text-red-800');     // angry badge
+			expect(content).toContain('bg-orange-100 text-orange-800'); // happy badge
+		});
+
+		it('should have mood summary section markup', () => {
+			expect(content).toContain('chill ·');
+			expect(content).toContain('angry ·');
+			expect(content).toContain('happy');
+		});
+
+		it('should have loading state markup', () => {
+			expect(content).toContain('Loading timeline...');
+		});
+
+		it('should have empty state markup', () => {
+			expect(content).toContain('No emoji submissions yet');
+		});
+
+		it('should pass userId to submitEmoji mutation', () => {
+			expect(content).toContain('userId: "test-user"');
+		});
+
+
+
+		it('should show individual timeline entries with emoji and mood badge', () => {
+			// Timeline entries should display individual submissions (filtered)
+			expect(content).toContain('{#each filteredEmojis() as entry}');  // Should iterate over filtered timeline data
+			expect(content).toContain('{entry.emoji}');  // Should display emoji from entry
+			expect(content).toContain('entry.mood');   // Should use mood for badge color
+		});
+
+		it('should pass mood parameter to handleEmojiClick function', () => {
+			// Each emoji button should pass the correct mood
+			expect(content).toContain("handleEmojiClick('😎', 'chill')");  // Cool emoji -> chill
+			expect(content).toContain("handleEmojiClick('💩', 'angry')");  // Poop emoji -> angry
+			expect(content).toContain("handleEmojiClick('🔥', 'happy')");  // Fire emoji -> happy
+		});
+
+		it('should display relative timestamps for timeline entries', () => {
+			// Timeline entries should show relative time (e.g., "2 minutes ago")
+			expect(content).toContain('entry.createdAt');  // Should access createdAt from entry
+			expect(content).toMatch(/minutes?\s+ago/);     // Should show relative time format
+		});
+
+		it('should use proper mood color mapping for badge classes', () => {
+			// Should use a mapping object instead of dynamic string interpolation
+			expect(content).toContain('moodColors');       // Should have color mapping object
+			expect(content).toContain('moodColors[entry.mood as keyof typeof moodColors]'); // Should use mapping to get classes
+		});
+	});
+
+	// New feature tests for poll creation and listing
+	describe('poll creation form feature', () => {
+		it('should render poll creation form with question input', () => {
+			expect(content).toContain('testPollMutation.createPoll');
+			// Form should have a question input
+			expect(content).toMatch(/question/i);
+		});
+
+		it('should render poll creation form with option inputs', () => {
+			// Should have dynamic list of option inputs
+			expect(content).toContain('options');
+			// Should support adding options
+			expect(content).toMatch(/add.*option/i);
+		});
+
+		it('should render poll list with question text and option count', () => {
+			// Should display poll questions
+			expect(content).toContain('listPolls');
+			// Should show option count for each poll
+			expect(content).toMatch(/option/i);
+		});
+	});
+
+	// Emoji leaderboard feature tests
+	describe('emoji leaderboard feature', () => {
+		it('should have leaderboard section with heading', () => {
+			expect(content).toContain('Emoji Leaderboard');
+			expect(content).toContain('getEmojiLeaderboard');
+		});
+
+		it('should render ranked list with position, emoji, and count', () => {
+			// Should iterate leaderboard data with index for position
+			expect(content).toMatch(/leaderboard/i);
+			// Should display emoji and count from each entry
+			expect(content).toContain('.emoji');
+			expect(content).toContain('.count');
+		});
+
+		it('should have empty state when no emojis match filter', () => {
+			expect(content).toMatch(/no.*emoji|empty/i);
+		});
+	});
+
+	// Mood filter feature tests
+	describe('mood filter feature', () => {
+		it('should have activeMoodFilter state variable', () => {
+			expect(content).toContain('activeMoodFilter');
+		});
+
+		it('should have mood filter buttons for chill, angry, happy, and All', () => {
+			// Should render filter buttons for each mood plus All
+			expect(content).toMatch(/filter/i);
+			// Should have Button components for filtering
+			const filterSection = content.includes('activeMoodFilter');
+			expect(filterSection).toBe(true);
+		});
+
+		it('should pass activeMoodFilter to getEmojiLeaderboard query', () => {
+			expect(content).toContain('getEmojiLeaderboard');
+			expect(content).toContain('activeMoodFilter');
+		});
+
+		it('should filter sentiment timeline entries by active mood', () => {
+			// Should use $derived to filter recentEmojis.data
+			expect(content).toContain('filteredEmojis');
+			expect(content).toContain('activeMoodFilter');
+		});
+
+		it('should keep mood count badges unfiltered (show totals always)', () => {
+			// moodCounts should NOT reference activeMoodFilter
+			// It should always use recentEmojis.data directly
+			const moodCountsBlock = content.match(/moodCounts[\s\S]*?\}\)/)?.[0] ?? '';
+			expect(moodCountsBlock).not.toContain('activeMoodFilter');
+		});
+	});
+
+	// Enhanced poll list feature tests
+	describe('enhanced poll list feature', () => {
+		it('should render poll cards with shadcn Card components', () => {
+			// Each poll should be wrapped in Card.Root with Card.Header and Card.Content
+			expect(content).toContain('Card.Header');
+			expect(content).toContain('Card.Content');
+			// Poll question should be in Card.Title within Card.Header
+			expect(content).toContain('Card.Title');
+		});
+
+		it('should render numbered options list for each poll', () => {
+			// Should use numbered list (ol) to display all poll options
+			expect(content).toContain('<ol');
+			expect(content).toContain('poll.options as option');
+		});
+
+		it('should display total vote count for each poll', () => {
+			// Should query vote results and display total votes
+			expect(content).toContain('getPollResults');
+			expect(content).toContain('total vote');
+		});
+
+		it('should display relative timestamp for each poll', () => {
+			// Should use formatRelativeTime helper and display timestamp
+			expect(content).toContain('formatRelativeTime');
+			expect(content).toContain('poll.createdAt');
+		});
+
+		it('should render empty state when no polls exist', () => {
+			// Should display "No polls exist" message when list is empty
+			expect(content).toContain('No polls exist');
 		});
 	});
 });

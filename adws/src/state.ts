@@ -16,6 +16,9 @@ const CORE_FIELDS = new Set([
   "model_set",
   "base_branch",
   "all_adws",
+  "issues_processed",
+  "quality_summary",
+  "learning_file",
 ]);
 
 export class ADWState {
