@@ -71,7 +71,7 @@ describe('Tag functionality unit tests', () => {
 
 			// When no filter is active, should use listPolls
 			let queryFunction = activeTagFilter ? 'api.testPollTags.listPollsByTag' : 'api.testPollMutation.listPolls';
-			let queryArgs = activeTagFilter ? { tag: activeTagFilter } : undefined;
+			let queryArgs: { tag: string } | undefined = activeTagFilter ? { tag: activeTagFilter as string } : undefined;
 
 			expect(queryFunction).toBe('api.testPollMutation.listPolls');
 			expect(queryArgs).toBeUndefined();
@@ -79,7 +79,7 @@ describe('Tag functionality unit tests', () => {
 			// When filter is active, should use listPollsByTag
 			activeTagFilter = 'urgent';
 			queryFunction = activeTagFilter ? 'api.testPollTags.listPollsByTag' : 'api.testPollMutation.listPolls';
-			queryArgs = activeTagFilter ? { tag: activeTagFilter } : undefined;
+			queryArgs = activeTagFilter ? { tag: activeTagFilter as string } : undefined;
 
 			expect(queryFunction).toBe('api.testPollTags.listPollsByTag');
 			expect(queryArgs).toEqual({ tag: 'urgent' });

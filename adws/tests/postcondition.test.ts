@@ -67,14 +67,22 @@ describe("checkPostcondition", () => {
   });
 
   describe("code-must-compile", () => {
-    let originalSpawn: typeof Bun.spawn;
+    let originalSpawn: any;
 
     beforeEach(() => {
-      originalSpawn = Bun.spawn;
+      // Ensure Bun object exists for mocking
+      if (!(globalThis as any).Bun) {
+        (globalThis as any).Bun = {};
+      }
+      originalSpawn = (globalThis as any).Bun.spawn;
     });
 
     afterEach(() => {
-      (globalThis as any).Bun.spawn = originalSpawn;
+      if (originalSpawn) {
+        (globalThis as any).Bun.spawn = originalSpawn;
+      } else {
+        delete (globalThis as any).Bun.spawn;
+      }
     });
 
     it("passes when bun run check exits 0", async () => {

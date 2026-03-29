@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, rmSync, existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { recordLearning, parseLearningsFile } from "../src/learning-utils";
 
-const TEST_DIR = join(import.meta.dir, "..", ".test-dedup-tmp");
+const TEST_DIR = join(dirname(new URL(import.meta.url).pathname), "..", ".test-dedup-tmp");
 const LEARNINGS_DIR = join(TEST_DIR, "temp", "learnings");
 
 function baseLearning(overrides: Record<string, unknown> = {}) {
