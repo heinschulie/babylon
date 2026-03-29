@@ -5,6 +5,7 @@
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
+	import * as m from '$lib/paraglide/messages.js';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -106,6 +107,14 @@
 			console.error('Failed to cast vote:', error);
 		}
 	}
+
+	async function handleClosePoll(pollId: Id<'testPollTable'>) {
+		try {
+			await client.mutation(api.testPollMutation.closePoll, { pollId });
+		} catch (error) {
+			console.error('Failed to close poll:', error);
+		}
+	}
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
@@ -189,12 +198,30 @@
 									{/each}
 								</ol>
 
-								<!-- Vote buttons -->
-								<div class="mt-4 flex flex-wrap gap-2">
-									{#each poll.options as option}
-										<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
-									{/each}
-								</div>
+								<!-- Vote buttons (hidden when poll is closed) -->
+								{#if !poll.closedAt}
+									<div class="mt-4 flex flex-wrap gap-2">
+										{#each poll.options as option}
+											<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
+										{/each}
+									</div>
+
+									<!-- Close button (open polls only) -->
+									<div class="mt-3">
+										<Button variant="outline" size="sm" onclick={() => handleClosePoll(poll._id)}>
+											{m.test_poll_close()}
+										</Button>
+									</div>
+								{/if}
+
+								<!-- Closed badge -->
+								{#if poll.closedAt}
+									<div class="mt-3">
+										<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs">
+											{m.test_poll_closed()}
+										</span>
+									</div>
+								{/if}
 
 								<!-- Bar chart results -->
 								<div class="mt-6">

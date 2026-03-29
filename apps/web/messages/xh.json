@@ -207,5 +207,8 @@
   "practice_vocab_desc": "[TODO] Build vocabulary with visual flashcards before practicing phrases.",
   "practice_vocab_go": "[TODO] Browse Sets",
   "test_timeline_loading": "Ilayisha imbali yemvavanyo...",
-  "test_timeline_empty": "Akukho kuvunyelo lwe-emoji okwangoku"
+  "test_timeline_empty": "Akukho kuvunyelo lwe-emoji okwangoku",
+  "test_poll_close": "[TODO] Close Poll",
+  "test_poll_closed": "[TODO] Closed",
+  "test_poll_open": "[TODO] Open"
 }

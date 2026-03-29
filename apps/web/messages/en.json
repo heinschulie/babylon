@@ -207,5 +207,8 @@
   "practice_vocab_desc": "Build vocabulary with visual flashcards before practicing phrases.",
   "practice_vocab_go": "Browse Sets",
   "test_timeline_loading": "Loading mood history...",
-  "test_timeline_empty": "No emoji submissions yet"
+  "test_timeline_empty": "No emoji submissions yet",
+  "test_poll_close": "Close Poll",
+  "test_poll_closed": "Closed",
+  "test_poll_open": "Open"
 }
