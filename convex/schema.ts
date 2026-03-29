@@ -313,7 +313,8 @@ export default defineSchema({
 		question: v.string(),
 		options: v.array(v.string()),
 		createdAt: v.number(),
-		closedAt: v.optional(v.number())
+		closedAt: v.optional(v.number()),
+		tags: v.optional(v.array(v.string()))
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_closedAt', ['closedAt'])

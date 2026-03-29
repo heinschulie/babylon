@@ -10,6 +10,7 @@
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
 	let pollOptions = $state(['', '']);
+	let pollTagsInput = $state('');
 	let activeMoodFilter = $state<string | null>(null);
 
 	const client = useConvexClient();
@@ -80,13 +81,19 @@
 	async function handleCreatePoll() {
 		try {
 			const nonEmptyOptions = pollOptions.filter(opt => opt.trim());
+			const tags = pollTagsInput.trim()
+				? pollTagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+				: undefined;
+
 			await client.mutation(api.testPollMutation.createPoll, {
 				question: pollQuestion,
-				options: nonEmptyOptions
+				options: nonEmptyOptions,
+				tags
 			});
 			// Reset form
 			pollQuestion = '';
 			pollOptions = ['', ''];
+			pollTagsInput = '';
 		} catch (error) {
 			console.error('Failed to create poll:', error);
 		}
@@ -169,6 +176,18 @@
 					</button>
 				</div>
 
+				<!-- Tags Input -->
+				<div class="space-y-2">
+					<label for="tags" class="text-sm font-medium">{m.test_tags_label()}</label>
+					<input
+						id="tags"
+						type="text"
+						placeholder={m.test_tags_placeholder()}
+						bind:value={pollTagsInput}
+						class="w-full px-3 py-2 border border-gray-300 rounded"
+					/>
+				</div>
+
 				<!-- Submit Button -->
 				<button onclick={handleCreatePoll} class="w-full px-4 py-2 bg-blue-600 text-white rounded">
 					Create Poll
@@ -190,6 +209,16 @@
 						<Card.Root>
 							<Card.Header>
 								<Card.Title>{poll.question}</Card.Title>
+								<!-- Tags display -->
+								{#if poll.tags && poll.tags.length > 0}
+									<div class="flex flex-wrap gap-1 mt-2">
+										{#each poll.tags as tag}
+											<span class="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">
+												{tag}
+											</span>
+										{/each}
+									</div>
+								{/if}
 							</Card.Header>
 							<Card.Content>
 								<ol class="list-decimal list-inside space-y-1">

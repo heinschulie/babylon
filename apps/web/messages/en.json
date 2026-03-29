@@ -210,5 +210,7 @@
   "test_timeline_empty": "No emoji submissions yet",
   "test_poll_close": "Close Poll",
   "test_poll_closed": "Closed",
-  "test_poll_open": "Open"
+  "test_poll_open": "Open",
+  "test_tags_label": "Tags",
+  "test_tags_placeholder": "Add tags (comma-separated)"
 }

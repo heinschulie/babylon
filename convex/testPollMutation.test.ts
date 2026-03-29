@@ -68,9 +68,131 @@ describe('testPollMutation', () => {
 				})
 			).rejects.toThrow();
 		});
+
+		it('should store tags array when provided and query back correctly', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Tagged poll?',
+				options: ['yes', 'no'],
+				tags: ['urgent', 'feedback', 'team']
+			});
+
+			expect(pollId).toBeDefined();
+
+			// Verify tags were stored correctly
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.tags).toEqual(['urgent', 'feedback', 'team']);
+		});
+
+		it('should work without tags parameter (backward compatible)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Untagged poll?',
+				options: ['option1', 'option2']
+			});
+
+			expect(pollId).toBeDefined();
+
+			// Verify tags field is undefined/absent (not null or empty array)
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.tags).toBeUndefined();
+			expect(poll).toMatchObject({
+				question: 'Untagged poll?',
+				options: ['option1', 'option2'],
+				createdAt: expect.any(Number)
+			});
+		});
+
+		it('should reject empty-string tags after trimming', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await expect(
+				asUser.mutation(api.testPollMutation.createPoll, {
+					question: 'Bad tags poll?',
+					options: ['yes', 'no'],
+					tags: ['valid', '   ', 'another-valid']
+				})
+			).rejects.toThrow();
+		});
+
+		it('should reject more than 5 tags', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await expect(
+				asUser.mutation(api.testPollMutation.createPoll, {
+					question: 'Too many tags poll?',
+					options: ['yes', 'no'],
+					tags: ['tag1', 'tag2', 'tag3', 'tag4', 'tag5', 'tag6']
+				})
+			).rejects.toThrow();
+		});
+
+		it('should trim whitespace from tags', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Whitespace tags poll?',
+				options: ['yes', 'no'],
+				tags: ['  foo  ', ' bar', 'baz ']
+			});
+
+			// Verify tags were trimmed when stored
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.tags).toEqual(['foo', 'bar', 'baz']);
+		});
+
+		it('should reject tags longer than 20 characters', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await expect(
+				asUser.mutation(api.testPollMutation.createPoll, {
+					question: 'Long tag poll?',
+					options: ['yes', 'no'],
+					tags: ['short', 'this-tag-is-way-too-long-and-exceeds-twenty-chars', 'another']
+				})
+			).rejects.toThrow();
+		});
 	});
 
 	describe('listPolls', () => {
+		it('should return tags field on polls that have tags', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create poll with tags
+			const taggedPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Tagged poll?',
+				options: ['yes', 'no'],
+				tags: ['urgent', 'feedback']
+			});
+
+			// Create poll without tags
+			const untaggedPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Untagged poll?',
+				options: ['option1', 'option2']
+			});
+
+			const polls = await asUser.query(api.testPollMutation.listPolls, {});
+
+			// Find both polls in results
+			const taggedPoll = polls.find(p => p._id === taggedPollId);
+			const untaggedPoll = polls.find(p => p._id === untaggedPollId);
+
+			// Tagged poll should have tags
+			expect(taggedPoll?.tags).toEqual(['urgent', 'feedback']);
+
+			// Untagged poll should not have tags field or it should be undefined
+			expect(untaggedPoll?.tags).toBeUndefined();
+		});
+
 		it('should include closedAt field in returned polls', async () => {
 			const t = convexTest(schema, modules);
 			const asUser = t.withIdentity({ subject: 'user1' });

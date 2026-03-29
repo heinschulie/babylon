@@ -11,8 +11,9 @@ export const createPoll = mutation({
 	args: {
 		question: v.string(),
 		options: v.array(v.string()),
+		tags: v.optional(v.array(v.string())),
 	},
-	handler: async (ctx, { question, options }) => {
+	handler: async (ctx, { question, options, tags }) => {
 		// Validate question is non-empty
 		if (!question.trim()) {
 			throw new Error('Question must not be empty');
@@ -28,10 +29,26 @@ export const createPoll = mutation({
 			throw new Error('Options must not be empty');
 		}
 
+		// Validate and process tags if provided
+		let processedTags: string[] | undefined;
+		if (tags) {
+			if (tags.length > 5) {
+				throw new Error('Maximum 5 tags allowed');
+			}
+			if (tags.some(tag => !tag.trim())) {
+				throw new Error('Tags must not be empty');
+			}
+			if (tags.some(tag => tag.trim().length > 20)) {
+				throw new Error('Tags must not exceed 20 characters');
+			}
+			processedTags = tags.map(tag => tag.trim());
+		}
+
 		return ctx.db.insert('testPollTable', {
 			question,
 			options,
 			createdAt: Date.now(),
+			...(processedTags && { tags: processedTags }),
 		});
 	},
 });
