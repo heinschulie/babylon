@@ -13,6 +13,7 @@ import type { Logger } from "./logger";
 import type { StepExecutor } from "./step-runner";
 import { runPipeline } from "./step-runner";
 import { createLogger, writeWorkflowStatus } from "./logger";
+import { runHealthCheck } from "./health-check";
 import {
   createCommentStep,
   createFinalStatusComment,
@@ -134,6 +135,17 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
     logger.info(`On branch: ${branchName}`);
     state.update({ branch_name: branchName });
     await state.save("branch-created");
+
+    // ─── Health check — fail fast if branch doesn't compile ──────────
+    const health = await runHealthCheck(workingDir, logger);
+    if (!health.ok) {
+      logger.error(`Health check failed — branch is broken before any work started:`);
+      for (const f of health.failures) {
+        logger.error(f);
+      }
+      await commentStep(`Health check failed on branch ${branchName} — aborting. Fix the base branch first.`);
+      return false;
+    }
 
     // ─── Main iteration loop ──────────────────────────────────────────
     for (let iteration = 1; iteration <= maxIterations; iteration++) {
