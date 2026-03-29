@@ -37,3 +37,16 @@ EXPERTISE_PATH: .claude/commands/experts/frontend/expertise.yaml
 - References to the exact files and lines of code that support the answer
 - High-mid level conceptual explanations of the frontend architecture and patterns
 - Include component trees (indented or mermaid), route diagrams, or Svelte/TS snippets where appropriate to streamline communication
+
+### Quality Gates (MANDATORY for any .svelte changes)
+
+If the question involves `.svelte` file changes, you MUST include this section in your response:
+
+```
+### Quality Gates
+
+1. **Before coding**: Use `mcp__svelte__get-documentation` to verify Svelte 5 patterns (runes, events, bindings, snippets) rather than relying on memory
+2. **After coding**: Run `mcp__svelte__svelte-autofixer` on every modified `.svelte` file to catch syntax errors, deprecated patterns, and accessibility issues
+```
+
+Omitting this section when `.svelte` files are in scope is a consultation failure. The implementing agent depends on this guidance to produce correct Svelte 5 code.

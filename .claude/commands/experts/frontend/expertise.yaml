@@ -264,6 +264,33 @@ platform_constraints:
     - "OKLch color format for design tokens"
     - "Dark mode + data-skin='mono' variant supported"
 
+# ─── QUALITY GATES (Svelte MCP) ──────────────────────────────────────
+
+quality_gates:
+  svelte_mcp_tools:
+    note: >
+      The Svelte MCP server provides official tooling for validating and
+      improving Svelte code. These tools MUST be recommended in every
+      consultation that involves .svelte file changes.
+    tools:
+      - name: mcp__svelte__svelte-autofixer
+        when: "ALWAYS after writing or modifying any .svelte file"
+        purpose: "Validates Svelte 5 syntax, catches rune misuse, detects deprecated patterns, fixes accessibility issues"
+        instruction: "Run svelte-autofixer on every changed .svelte file before considering the task complete"
+      - name: mcp__svelte__get-documentation
+        when: "Before implementing any Svelte pattern you are not 100% certain about"
+        purpose: "Fetches official Svelte docs for a specific topic (runes, snippets, events, bindings, etc.)"
+        instruction: "Consult official docs via get-documentation rather than relying on training data for Svelte 5 APIs"
+      - name: mcp__svelte__list-sections
+        when: "When unsure which documentation section covers a topic"
+        purpose: "Lists all available documentation sections to find the right one"
+    enforcement: >
+      Every frontend consultation response MUST include a 'Quality Gates'
+      section that instructs the implementing agent to:
+      1. Use get-documentation to verify Svelte 5 patterns before coding
+      2. Run svelte-autofixer on every modified .svelte file after coding
+      Omitting this section is a consultation failure.
+
 # ─── KNOWN ISSUES ────────────────────────────────────────────────────
 
 known_issues:
