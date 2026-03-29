@@ -245,7 +245,7 @@
 								<!-- Tags display -->
 								{#if poll.tags && poll.tags.length > 0}
 									<div class="flex flex-wrap gap-1 mt-2">
-										{#each poll.tags as tag}
+										{#each poll.tags as tag (tag)}
 											<button onclick={() => handleTagClick(tag)}>
 												<Badge variant="secondary">{tag}</Badge>
 											</button>
