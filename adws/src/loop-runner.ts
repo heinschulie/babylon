@@ -68,6 +68,24 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
   logger.info(`Starting loop runner — ADW ID: ${adwId}, Parent Issue: #${parentIssueNumber}`);
 
   const { workingDir, models } = getAdwEnv();
+
+  // ─── Rival process guard ──────────────────────────────────────────
+  {
+    const { exec } = await import("./utils");
+    const myPid = process.pid;
+    const { stdout } = await exec(
+      ["sh", "-c", `ps aux | grep "adw_ralph.*--issue ${parentIssueNumber}" | grep -v grep | awk '{print $2}'`],
+      { cwd: workingDir },
+    );
+    const rivalPids = stdout.trim().split("\n")
+      .map(s => parseInt(s, 10))
+      .filter(pid => !isNaN(pid) && pid !== myPid);
+    if (rivalPids.length > 0) {
+      logger.error(`Rival ralph process(es) detected for issue #${parentIssueNumber}: PIDs ${rivalPids.join(", ")}. Aborting to avoid conflicts.`);
+      return false;
+    }
+  }
+
   const commentStep = createCommentStep(issueNumberStr);
   const commentFinalStatus = createFinalStatusComment(issueNumberStr);
 
