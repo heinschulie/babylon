@@ -2,6 +2,19 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 
 const MAX_TAGS = 5;
+const PAGE_SIZE = 20;
+
+/** Flatten + count tag occurrences across polls, sorted by count desc. */
+function countTags(polls: Array<{ tags?: string[] }>): Array<{ tag: string; count: number }> {
+	const counts = new Map<string, number>();
+	for (const { tags } of polls) {
+		for (const tag of tags ?? []) {
+			counts.set(tag, (counts.get(tag) || 0) + 1);
+		}
+	}
+	return Array.from(counts, ([tag, count]) => ({ tag, count }))
+		.sort((a, b) => b.count - a.count);
+}
 
 /** Validate + normalize tags in a single pass. Returns cleaned array or throws. */
 function validateAndProcessTags(tags: string[]): string[] {
@@ -21,20 +34,10 @@ export const tagPoll = mutation({
 		tags: v.array(v.string()),
 	},
 	handler: async (ctx, { pollId, tags }) => {
-		// Check if poll exists
 		const poll = await ctx.db.get(pollId);
-		if (!poll) {
-			throw new Error('Poll not found');
-		}
+		if (!poll) throw new Error('Poll not found');
 
-		// Validate and process tags
-		const processedTags = validateAndProcessTags(tags);
-
-		// Update the poll with new tags (set semantics - replace entire array)
-		await ctx.db.patch(pollId, {
-			tags: processedTags,
-		});
-
+		await ctx.db.patch(pollId, { tags: validateAndProcessTags(tags) });
 		return null;
 	},
 });
@@ -50,36 +53,16 @@ export const listPollsByTag = query({
 			.order('desc')
 			.collect();
 
-		// Filter polls that have the specified tag
-		const filteredPolls = allPolls.filter(poll =>
-			poll.tags && poll.tags.includes(tag)
-		);
-
-		// Return first 20 results
-		return filteredPolls.slice(0, 20);
+		return allPolls
+			.filter(poll => (poll.tags ?? []).includes(tag))
+			.slice(0, PAGE_SIZE);
 	},
 });
 
 export const getPollTagCloud = query({
 	args: {},
 	handler: async (ctx) => {
-		// Get all polls
 		const allPolls = await ctx.db.query('testPollTable').collect();
-
-		// Count tag occurrences
-		const tagCounts = new Map<string, number>();
-
-		for (const poll of allPolls) {
-			if (poll.tags) {
-				for (const tag of poll.tags) {
-					tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-				}
-			}
-		}
-
-		// Convert to array and sort by count descending
-		return Array.from(tagCounts.entries())
-			.map(([tag, count]) => ({ tag, count }))
-			.sort((a, b) => b.count - a.count);
+		return countTags(allPolls);
 	},
 });
