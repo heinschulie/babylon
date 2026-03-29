@@ -1,18 +1,7 @@
 # Health Check
 
-Run all health checks and report results. Every check must pass.
+Run the canonical health check and report results.
 
-## Checks
-
-### 1. Type check
-!`bun run check`
-
-### 2. Build
-!`bun run build`
-
-### 3. ADW tests
-!`bun run adw:test`
-
-## Report
+!`bun -e "import { runHealthCheck } from './adws/src/health-check.ts'; import { createLogger } from './adws/src/logger.ts'; const logger = { info: console.log, error: console.error, warn: console.warn, debug: () => {} }; const result = await runHealthCheck(process.cwd(), logger); if (!result.ok) { console.error('FAILED:', result.failures.join('\\n')); process.exit(1); }"`
 
 Report each check as PASS or FAIL. If any check fails, list the errors concisely.
