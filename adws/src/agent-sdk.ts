@@ -204,6 +204,10 @@ export async function createSDK(opts: { model?: string; cwd?: string } = {}) {
           permissionMode: "bypassPermissions" as const,
           allowDangerouslySkipPermissions: true,
           settingSources: ["user", "project", "local"] as ("user" | "project" | "local")[],
+          mcpServers: {
+            svelte: { command: "npx", args: ["-y", "@sveltejs/mcp"] },
+          },
+          env: { ENABLE_TOOL_SEARCH: "auto:0" },
         },
       }),
   };

@@ -134,6 +134,6 @@ review step  → Reads diff, scores against spec → Text-only review (no Svelte
 
 ## Open Questions
 
-1. Does the `@anthropic-ai/claude-agent-sdk` support passing MCP server configs to `sdk.query()`? If so, the Svelte MCP server could be forwarded to pipeline agents.
-2. If MCP forwarding isn't supported, could a pre/post hook run `mcp__svelte__svelte_autofixer` as a postcondition check between the TDD and review steps?
-3. Should the pipeline have a dedicated "lint/validate" step for frontend issues that runs the Svelte autofixer outside the agent?
+1. ~~Does the `@anthropic-ai/claude-agent-sdk` support passing MCP server configs to `sdk.query()`?~~ **RESOLVED (2026-03-29):** Yes. The SDK (v0.2.79) natively supports `mcpServers` in its `Options` interface. Supports `stdio`, `http`, `sse`, and `sdk` (in-process) transports. The fix is adding `mcpServers` config to `createSDK()` in `adws/src/agent-sdk.ts:196-209`. Local docs at `ai_docs/sdk-typescript.md` confirm the full type definition.
+2. If MCP forwarding isn't supported, could a pre/post hook run `mcp__svelte__svelte_autofixer` as a postcondition check between the TDD and review steps? **(Superseded by #1 — direct SDK integration is cleaner.)**
+3. Should the pipeline have a dedicated "lint/validate" step for frontend issues that runs the Svelte autofixer outside the agent? **(Superseded by #1 — agents can call the tool directly.)**
