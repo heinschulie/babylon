@@ -2,11 +2,13 @@
 	import * as Dialog from '@babylon/ui/dialog';
 	import * as Card from '@babylon/ui/card';
 	import { Button } from '@babylon/ui/button';
+	import { Badge } from '@babylon/ui';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Flame } from '@lucide/svelte';
+	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 
 	let dialogOpen = $state(false);
@@ -61,16 +63,6 @@
 		const counts = moodCounts();
 		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
 	});
-
-	function formatRelativeTime(timestamp: number): string {
-		const now = Date.now();
-		const diffMs = now - timestamp;
-		const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-		if (diffMinutes < 1) return "now";
-		if (diffMinutes === 1) return "1 minute ago";
-		return `${diffMinutes} minutes ago`;
-	}
 
 	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
@@ -227,9 +219,7 @@
 								{#if poll.tags && poll.tags.length > 0}
 									<div class="flex flex-wrap gap-1 mt-2">
 										{#each poll.tags as tag}
-											<span class="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">
-												{tag}
-											</span>
+											<Badge variant="secondary">{tag}</Badge>
 										{/each}
 									</div>
 								{/if}

@@ -235,6 +235,11 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
 
       // Handle review sub-issues: close original with link to fix sub-issues
       const reviewSubIssues = pipelineResult.context.reviewSubIssues;
+      const reviewCtx = pipelineResult.context.reviewResult;
+      const reviewVerdict = typeof reviewCtx === "object" && reviewCtx && "verdict" in reviewCtx
+        ? String((reviewCtx as { verdict?: string }).verdict)
+        : undefined;
+
       if (reviewSubIssues && reviewSubIssues.length > 0) {
         const subLinks = reviewSubIssues.map(n => `#${n}`).join(", ");
         await makeIssueComment(
@@ -245,6 +250,14 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
         logger.info(`Closed #${selectedIssue.number} with review sub-issues: ${subLinks}`);
         await commentStep(`Iteration ${iteration}: #${selectedIssue.number} closed with fix sub-issues ${subLinks}`);
         completedIssues.push(selectedIssue.number);
+      } else if (reviewVerdict === "FAIL") {
+        // Review FAIL but sub-issue creation failed — re-queue for retry
+        const count = (skipCounts.get(selectedIssue.number) ?? 0) + 1;
+        skipCounts.set(selectedIssue.number, count);
+        logger.warn(`#${selectedIssue.number} review FAIL but no sub-issues created — re-queuing (attempt ${count}/${maxSkipPerIssue})`);
+        await makeIssueComment(selectedIssue.number, `Review verdict: FAIL — re-queuing for retry (attempt ${count}/${maxSkipPerIssue})`);
+        await commentStep(`Iteration ${iteration}: #${selectedIssue.number} review FAIL, re-queued ⚠️`);
+        skippedIssues.push(selectedIssue.number);
       } else if (pipelineResult.ok) {
         // Close the sub-issue
         await closeSubIssue(selectedIssue.number, `Resolved by Ralph workflow (ADW: ${adwId})`);
@@ -266,10 +279,7 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
       }
 
       // Track review status for quality summary
-      const reviewCtx = pipelineResult.context.reviewResult;
-      const verdict = typeof reviewCtx === "object" && reviewCtx && "verdict" in reviewCtx
-        ? String((reviewCtx as { verdict?: string }).verdict ?? "unknown")
-        : "unknown";
+      const verdict = reviewVerdict ?? "unknown";
       issueReviewStatuses.push({
         number: selectedIssue.number,
         review_status: verdict,
