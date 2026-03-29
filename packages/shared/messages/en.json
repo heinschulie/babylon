@@ -39,5 +39,8 @@
   "error_enter_both": "Please enter both English and translation.",
   "error_enter_english": "Please enter an English phrase.",
   "error_failed_add_phrase": "Failed to add phrase",
-  "nav_theory": "How isiXhosa Works"
+  "nav_theory": "How isiXhosa Works",
+  "test_poll_close": "Close Poll",
+  "test_poll_closed": "Closed",
+  "test_poll_open": "Open"
 }

@@ -39,5 +39,8 @@
   "error_enter_both": "Nceda ufake zombini isiNgesi nenguqulelo.",
   "error_enter_english": "Nceda ufake ibinzana lesiNgesi.",
   "error_failed_add_phrase": "Ukongeza ibinzana akuphumelelanga",
-  "nav_theory": "Indlela isiXhosa Esisebenza Ngayo"
+  "nav_theory": "Indlela isiXhosa Esisebenza Ngayo",
+  "test_poll_close": "[TODO] Close Poll",
+  "test_poll_closed": "[TODO] Closed",
+  "test_poll_open": "[TODO] Open"
 }

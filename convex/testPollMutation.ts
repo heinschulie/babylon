@@ -59,6 +59,11 @@ export const castVote = mutation({
 			throw new Error('Poll not found');
 		}
 
+		// Check if poll is closed
+		if (poll.closedAt) {
+			throw new Error('Poll is closed');
+		}
+
 		const optionIndex = poll.options.indexOf(option);
 		if (optionIndex === -1) {
 			throw new Error(`Invalid option: ${option}. Must be one of: ${poll.options.join(', ')}`);
@@ -72,6 +77,24 @@ export const castVote = mutation({
 			pollId,
 			createdAt: Date.now()
 		});
+	},
+});
+
+export const closePoll = mutation({
+	args: {
+		pollId: v.id('testPollTable'),
+	},
+	handler: async (ctx, { pollId }) => {
+		const poll = await ctx.db.get(pollId);
+		if (!poll) {
+			throw new Error('Poll not found');
+		}
+
+		await ctx.db.patch(pollId, {
+			closedAt: Date.now(),
+		});
+
+		return null;
 	},
 });
 

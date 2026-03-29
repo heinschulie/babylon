@@ -71,6 +71,41 @@ describe('testPollMutation', () => {
 	});
 
 	describe('listPolls', () => {
+		it('should include closedAt field in returned polls', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create first poll (open)
+			const openPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Open poll?',
+				options: ['yes', 'no']
+			});
+
+			// Create second poll and close it
+			const closedPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Closed poll?',
+				options: ['maybe', 'definitely']
+			});
+			await asUser.mutation(api.testPollMutation.closePoll, {
+				pollId: closedPollId
+			});
+
+			// List polls
+			const polls = await asUser.query(api.testPollMutation.listPolls, {});
+
+			// Both polls should be present
+			expect(polls).toHaveLength(2);
+
+			// Closed poll should have a timestamp
+			const closedPoll = polls.find(p => p._id === closedPollId);
+			expect(closedPoll?.closedAt).toBeDefined();
+			expect(typeof closedPoll?.closedAt).toBe('number');
+
+			// Open poll should not have closedAt (optional field)
+			const openPoll = polls.find(p => p._id === openPollId);
+			expect(openPoll?.closedAt).toBeUndefined();
+		});
+
 		it('should return polls sorted by createdAt descending (newest first)', async () => {
 			const t = convexTest(schema, modules);
 			const asUser = t.withIdentity({ subject: 'user1' });
@@ -134,6 +169,60 @@ describe('testPollMutation', () => {
 	});
 
 	describe('castVote', () => {
+		it('should allow vote on open poll (regression)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+
+			// Cast vote without closing poll - should succeed
+			const voteId = await asUser.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option: 'yes',
+				userId: 'test-user'
+			});
+
+			expect(voteId).toBeDefined();
+
+			// Verify vote was recorded
+			const vote = await t.run(async (ctx) => ctx.db.get(voteId));
+			expect(vote).toMatchObject({
+				emoji: 'yes',
+				sentence: 'Test poll?',
+				userId: 'test-user',
+				pollId
+			});
+		});
+
+		it('should reject vote when poll is closed', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+
+			// Close the poll
+			await asUser.mutation(api.testPollMutation.closePoll, {
+				pollId
+			});
+
+			// Try to cast a vote - should throw error
+			await expect(
+				asUser.mutation(api.testPollMutation.castVote, {
+					pollId,
+					option: 'yes',
+					userId: 'test-user'
+				})
+			).rejects.toThrow('Poll is closed');
+		});
+
 		it('should insert a testTable row with correct fields including pollId', async () => {
 			const t = convexTest(schema, modules);
 			const asUser = t.withIdentity({ subject: 'user1' });
@@ -256,6 +345,34 @@ describe('testPollMutation', () => {
 			});
 			const record4 = await t.run(async (ctx) => ctx.db.get(vote4));
 			expect(record4?.mood).toBe('happy');
+		});
+	});
+
+	describe('closePoll', () => {
+		it('should set closedAt timestamp on an existing poll', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+
+			const before = Date.now();
+			const result = await asUser.mutation(api.testPollMutation.closePoll, {
+				pollId
+			});
+			const after = Date.now();
+
+			// closePoll should return null
+			expect(result).toBeNull();
+
+			// Verify poll now has closedAt set
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.closedAt).toBeDefined();
+			expect(poll?.closedAt).toBeGreaterThanOrEqual(before);
+			expect(poll?.closedAt).toBeLessThanOrEqual(after);
 		});
 	});
 
