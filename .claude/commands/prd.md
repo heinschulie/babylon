@@ -11,6 +11,12 @@ Create a Product Requirements Document (PRD) by interviewing the user, exploring
 ## Instructions
 
 - **Stable branch guard**: Before starting, check the current git branch. If on a branch matching `hein/feature/issue-*`, STOP and tell the user they must switch to a stable branch (e.g., `main`) before creating a PRD. Do not proceed.
+- **Branch health check**: After the branch guard passes, run four health checks in parallel to verify the branch is healthy enough for new development:
+  1. `bun run check` — TypeScript/Svelte type checking
+  2. `bun run test:run` — test suite
+  3. `bun run convex:check-generated` — Convex codegen is current
+  4. `bun run lockfile:check` — bun.lock is in sync
+  If ALL pass, proceed silently. If ANY fail, show the user the specific errors and tell them to fix before re-running `/prd`. Do not proceed with PRD creation until the branch is healthy.
 - Ask the user for a detailed description of the problem and any solution ideas before doing anything else
 - Explore the repo to verify user assertions and understand current codebase state
 - Interview the user relentlessly about every aspect of the plan until shared understanding is reached; walk down each branch of the design tree, resolving dependencies between decisions one-by-one
@@ -23,11 +29,12 @@ Create a Product Requirements Document (PRD) by interviewing the user, exploring
 
 ## Workflow
 
-1. Ask the user for a long, detailed description of the problem they want to solve and any potential solution ideas
-2. Explore the repo (read files, search code) to verify assertions and understand current state
-3. Interview the user about every aspect of the plan — resolve each design decision and its dependencies one-by-one
-4. Sketch out major modules to build or modify, favoring deep modules that can be tested in isolation; confirm with the user and ask which modules need tests
-5. Write the PRD using the template below and submit it as a GitHub issue via `gh issue create`
+1. Run the stable branch guard and branch health check (see Instructions). If either fails, stop and report.
+2. Ask the user for a long, detailed description of the problem they want to solve and any potential solution ideas
+3. Explore the repo (read files, search code) to verify assertions and understand current state
+4. Interview the user about every aspect of the plan — resolve each design decision and its dependencies one-by-one
+5. Sketch out major modules to build or modify, favoring deep modules that can be tested in isolation; confirm with the user and ask which modules need tests
+6. Write the PRD using the template below and submit it as a GitHub issue via `gh issue create`
 
 ### PRD Template
 
