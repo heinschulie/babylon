@@ -218,5 +218,8 @@
   "test_emoji_submitted": "[TODO] submitted",
   "test_new_poll": "[TODO] New poll",
   "test_vote_cast": "[TODO] Vote on poll",
-  "test_streak_label": "[TODO] Streak"
+  "test_streak_label": "[TODO] Streak",
+  "test_clear_tag_filter": "[TODO] Clear filter",
+  "test_tag_cloud_title": "[TODO] Tag Cloud",
+  "test_no_tags_yet": "[TODO] No tags yet"
 }

@@ -7,4 +7,5 @@ export * from './components/label';
 export * from './components/accordion';
 export * from './components/alert';
 export * from './components/dropdown-menu';
+export * from './components/badge';
 export { default as Header } from './components/header/Header.svelte';

@@ -218,5 +218,8 @@
   "test_emoji_submitted": "submitted",
   "test_new_poll": "New poll",
   "test_vote_cast": "Vote on poll",
-  "test_streak_label": "Streak"
+  "test_streak_label": "Streak",
+  "test_clear_tag_filter": "Clear filter",
+  "test_tag_cloud_title": "Tag Cloud",
+  "test_no_tags_yet": "No tags yet"
 }

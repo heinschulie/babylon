@@ -16,13 +16,18 @@
 	let pollOptions = $state(['', '']);
 	let pollTagsInput = $state('');
 	let activeMoodFilter = $state<string | null>(null);
+	let activeTagFilter = $state<string | null>(null);
 
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
 	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
 		mood: activeMoodFilter ?? undefined
 	}));
-	const polls = useQuery(api.testPollMutation.listPolls);
+	const polls = useQuery(
+		() => activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls,
+		() => activeTagFilter ? { tag: activeTagFilter } : undefined
+	);
+	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 
 	type Mood = 'chill' | 'angry' | 'happy';
@@ -59,9 +64,31 @@
 		activeMoodFilter = activeMoodFilter === mood ? null : mood;
 	}
 
+	function handleTagClick(tag: string) {
+		activeTagFilter = tag;
+	}
+
+	function handleClearFilter() {
+		activeTagFilter = null;
+	}
+
 	const moodSummary = $derived.by(() => {
 		const counts = moodCounts();
 		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
+	});
+
+	const tagCloudWithSizes = $derived.by(() => {
+		if (!tagCloud.data || tagCloud.data.length === 0) return [];
+
+		const maxCount = Math.max(...tagCloud.data.map(t => t.count));
+		const minFontSize = 0.75;
+		const maxFontSize = 2.0;
+		const fontSizeRange = maxFontSize - minFontSize;
+
+		return tagCloud.data.map(tagData => ({
+			...tagData,
+			fontSize: minFontSize + (tagData.count / maxCount) * fontSizeRange
+		}));
 	});
 
 	async function handleEmojiClick(emoji: string, mood: Mood) {
@@ -203,7 +230,14 @@
 
 		<!-- Poll List -->
 		<div class="mt-6">
-			<h3 class="text-lg font-semibold mb-4">Recent Polls</h3>
+			<div class="flex items-center gap-3 mb-4">
+				<h3 class="text-lg font-semibold">Recent Polls</h3>
+				{#if activeTagFilter !== null}
+					<Button variant="outline" size="sm" onclick={handleClearFilter}>
+						{m.test_clear_tag_filter()}
+					</Button>
+				{/if}
+			</div>
 			{#if polls.isLoading}
 				<div>Loading polls...</div>
 			{:else if !polls.data || polls.data.length === 0}
@@ -219,7 +253,9 @@
 								{#if poll.tags && poll.tags.length > 0}
 									<div class="flex flex-wrap gap-1 mt-2">
 										{#each poll.tags as tag}
-											<Badge variant="secondary">{tag}</Badge>
+											<button onclick={() => handleTagClick(tag)}>
+												<Badge variant="secondary">{tag}</Badge>
+											</button>
 										{/each}
 									</div>
 								{/if}
@@ -295,6 +331,29 @@
 								</div>
 							</Card.Content>
 						</Card.Root>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Tag Cloud -->
+		<div class="mt-8">
+			<h3 class="text-lg font-semibold mb-4">{m.test_tag_cloud_title()}</h3>
+			{#if tagCloud.isLoading}
+				<div>Loading tag cloud...</div>
+			{:else if !tagCloudWithSizes() || tagCloudWithSizes().length === 0}
+				<div class="text-gray-500">{m.test_no_tags_yet()}</div>
+			{:else}
+				<div class="flex flex-wrap gap-3">
+					{#each tagCloudWithSizes() as tagData}
+						<button
+							onclick={() => handleTagClick(tagData.tag)}
+							class="hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+							style="font-size: {tagData.fontSize}rem"
+						>
+							<span class="font-medium text-blue-600">{tagData.tag}</span>
+							<span class="text-gray-500 text-sm ml-1">({tagData.count})</span>
+						</button>
 					{/each}
 				</div>
 			{/if}
