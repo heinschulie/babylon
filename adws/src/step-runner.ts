@@ -100,14 +100,13 @@ export function shouldSkip(step: StepDefinition, context: PipelineContext): bool
 
 // ─── Postcondition checks ──────────────────────────────────────────────────────
 
-export async function checkPostcondition(
-  postcondition: string | null,
+/** Check a single postcondition. */
+async function checkSinglePostcondition(
+  postcondition: string,
   preSha: string,
   cwd: string,
   stepResult: QueryResult,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (!postcondition) return { ok: true };
-
   if (postcondition === "head-must-advance") {
     const postSha = await getHeadSha(cwd);
     if (postSha === preSha) {
@@ -122,14 +121,68 @@ export async function checkPostcondition(
     if (parsed.verdict && validVerdicts.includes(parsed.verdict)) {
       return { ok: true };
     }
-    // Fallback: accept if parsed successfully with review issues (legacy format)
     if (parsed.success || parsed.review_issues.length > 0) {
       return { ok: true };
     }
     return { ok: false, error: "Postcondition failed: review verdict could not be parsed" };
   }
 
+  if (postcondition === "code-must-compile") {
+    try {
+      const proc = Bun.spawn(["bun", "run", "check"], { cwd, stdout: "pipe", stderr: "pipe" });
+      const exitCode = await proc.exited;
+      if (exitCode !== 0) {
+        const stderr = await new Response(proc.stderr).text();
+        return { ok: false, error: `Postcondition failed: code-must-compile — ${stderr.slice(0, 500)}` };
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: `Postcondition failed: code-must-compile — ${e}` };
+    }
+  }
+
+  if (postcondition === "page-must-load") {
+    try {
+      const { readFileSync } = await import("fs");
+      const { join } = await import("path");
+      const envPath = join(cwd, ".env.local");
+      const envContent = readFileSync(envPath, "utf-8");
+      const tunnelMatch = envContent.match(/^DEV_TUNNEL_URL=(.+)$/m);
+      if (!tunnelMatch) return { ok: true }; // graceful skip if not configured
+      const tunnelUrl = tunnelMatch[1].trim();
+      const response = await fetch(`${tunnelUrl}/test`, { signal: AbortSignal.timeout(10_000) });
+      if (response.status !== 200) {
+        return { ok: false, error: `Postcondition failed: page-must-load — status ${response.status}` };
+      }
+      return { ok: true };
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("ENOENT") || msg.includes("no such file")) return { ok: true }; // no .env.local → skip
+      return { ok: false, error: `Postcondition failed: page-must-load — ${msg.slice(0, 300)}` };
+    }
+  }
+
   return { ok: false, error: `Unknown postcondition: ${postcondition}` };
+}
+
+/**
+ * Check postcondition(s) — supports single string or array.
+ * Arrays short-circuit on first failure.
+ */
+export async function checkPostcondition(
+  postcondition: string | string[] | null,
+  preSha: string,
+  cwd: string,
+  stepResult: QueryResult,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!postcondition) return { ok: true };
+
+  const conditions = Array.isArray(postcondition) ? postcondition : [postcondition];
+  for (const pc of conditions) {
+    const result = await checkSinglePostcondition(pc, preSha, cwd, stepResult);
+    if (!result.ok) return result;
+  }
+  return { ok: true };
 }
 
 // ─── Pipeline runner ───────────────────────────────────────────────────────────

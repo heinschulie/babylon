@@ -25,6 +25,7 @@ import { ADWState } from "./state";
 import {
   fetchSubIssues,
   closeSubIssue,
+  makeIssueComment,
   filterUnblockedIssues,
 } from "./github";
 import {
@@ -82,6 +83,7 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
   const completedIssues: number[] = [];
   const skippedIssues: number[] = [];
   const skipCounts = new Map<number, number>();
+  const issueReviewStatuses: { number: number; review_status: string; sub_issues_created?: number[] }[] = [];
 
   try {
     // ─── Stable branch guard with crash recovery ─────────────────────
@@ -231,7 +233,19 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
         allStepUsages.push({ step: `${sr.name}-${selectedIssue.number}`, ok: sr.ok, usage: sr.usage });
       }
 
-      if (pipelineResult.ok) {
+      // Handle review sub-issues: close original with link to fix sub-issues
+      const reviewSubIssues = pipelineResult.context.reviewSubIssues;
+      if (reviewSubIssues && reviewSubIssues.length > 0) {
+        const subLinks = reviewSubIssues.map(n => `#${n}`).join(", ");
+        await makeIssueComment(
+          selectedIssue.number,
+          `Resolved with known issues. Fix sub-issues: ${subLinks}`,
+        );
+        await closeSubIssue(selectedIssue.number, `Closing — fix sub-issues created: ${subLinks}`);
+        logger.info(`Closed #${selectedIssue.number} with review sub-issues: ${subLinks}`);
+        await commentStep(`Iteration ${iteration}: #${selectedIssue.number} closed with fix sub-issues ${subLinks}`);
+        completedIssues.push(selectedIssue.number);
+      } else if (pipelineResult.ok) {
         // Close the sub-issue
         await closeSubIssue(selectedIssue.number, `Resolved by Ralph workflow (ADW: ${adwId})`);
         logger.info(`Closed #${selectedIssue.number} ✅`);
@@ -250,6 +264,33 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
         await commentStep(`Iteration ${iteration}: #${selectedIssue.number} halted ❌`);
         skippedIssues.push(selectedIssue.number);
       }
+
+      // Track review status for quality summary
+      const reviewCtx = pipelineResult.context.reviewResult;
+      const verdict = typeof reviewCtx === "object" && reviewCtx && "verdict" in reviewCtx
+        ? String((reviewCtx as { verdict?: string }).verdict ?? "unknown")
+        : "unknown";
+      issueReviewStatuses.push({
+        number: selectedIssue.number,
+        review_status: verdict,
+        ...(reviewSubIssues && reviewSubIssues.length > 0 && { sub_issues_created: reviewSubIssues }),
+      });
+    }
+
+    // ─── Enrich state with quality summary ──────────────────────────
+    {
+      const passed = issueReviewStatuses.filter(i => i.review_status === "PASS" || i.review_status === "PASS_WITH_ISSUES").length;
+      const failed = issueReviewStatuses.filter(i => i.review_status === "FAIL").length;
+      const defects = issueReviewStatuses
+        .filter(i => i.sub_issues_created && i.sub_issues_created.length > 0)
+        .flatMap(i => i.sub_issues_created!.map(n => `#${n}`));
+
+      state.update({
+        issues_processed: issueReviewStatuses,
+        quality_summary: { total: issueReviewStatuses.length, passed, failed, defects },
+        learning_file: `temp/learnings/pipeline-${new Date().toISOString().split("T")[0]}.md`,
+      } as any);
+      await state.save("quality-summary");
     }
 
     // ─── Finalization ───────────────────────────────────────────────

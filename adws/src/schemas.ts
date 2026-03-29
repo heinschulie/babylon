@@ -225,6 +225,18 @@ export const ADWStateDataSchema = z.object({
   base_branch: z.string().nullable().optional(),
   model_set: ModelSetEnum.nullable().default("base"),
   all_adws: z.array(z.string()).default([]),
+  issues_processed: z.array(z.object({
+    number: z.number(),
+    review_status: z.string(),
+    sub_issues_created: z.array(z.number()).optional(),
+  })).optional(),
+  quality_summary: z.object({
+    total: z.number(),
+    passed: z.number(),
+    failed: z.number(),
+    defects: z.array(z.string()),
+  }).optional(),
+  learning_file: z.string().optional(),
 });
 export type ADWStateData = z.infer<typeof ADWStateDataSchema>;
 

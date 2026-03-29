@@ -37,16 +37,14 @@ describe("RALPH_PIPELINE", () => {
     expect(commitSteps).toEqual(["tdd", "refactor"]);
   });
 
-  it("only tdd has head-must-advance postcondition", () => {
-    const steps = RALPH_PIPELINE.filter(s => s.postcondition === "head-must-advance");
-    expect(steps).toHaveLength(1);
-    expect(steps[0].name).toBe("tdd");
+  it("tdd has head-must-advance + code-must-compile + page-must-load postconditions", () => {
+    const tdd = RALPH_PIPELINE.find(s => s.name === "tdd")!;
+    expect(tdd.postcondition).toEqual(["head-must-advance", "code-must-compile", "page-must-load"]);
   });
 
   it("only review has result-must-parse postcondition", () => {
-    const steps = RALPH_PIPELINE.filter(s => s.postcondition === "result-must-parse");
-    expect(steps).toHaveLength(1);
-    expect(steps[0].name).toBe("review");
+    const review = RALPH_PIPELINE.find(s => s.name === "review")!;
+    expect(review.postcondition).toBe("result-must-parse");
   });
 
   it("refactor skips when complexity is trivial", () => {

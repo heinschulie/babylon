@@ -20,6 +20,8 @@ export interface ReviewLearning {
   expected: string;
   actual: string;
   confidence: "high" | "medium" | "low";
+  source_step?: string;
+  issue_number?: number;
 }
 
 /** Parsed review result from /review skill. */

@@ -20,7 +20,12 @@ export const StepResultSchema = z.object({
 export type StepResult = z.infer<typeof StepResultSchema>;
 
 /** Known postcondition types. */
-export const PostconditionSchema = z.enum(["head-must-advance", "result-must-parse"]);
+export const PostconditionSchema = z.enum([
+  "head-must-advance",
+  "result-must-parse",
+  "code-must-compile",
+  "page-must-load",
+]);
 export type Postcondition = z.infer<typeof PostconditionSchema>;
 
 /** Known onFail policies. */
@@ -37,7 +42,7 @@ export const StepDefinitionSchema = z.object({
   modelMap: z.record(z.enum(["trivial", "standard", "complex"]), z.string()),
   commitAfter: z.boolean(),
   timeout: z.number(),
-  postcondition: PostconditionSchema.nullable(),
+  postcondition: z.union([PostconditionSchema, z.array(PostconditionSchema)]).nullable(),
   skipWhen: z.record(z.string(), z.array(z.string())).optional(),
 });
 export type StepDefinition = z.infer<typeof StepDefinitionSchema>;
@@ -83,6 +88,7 @@ export const PipelineContextSchema = z.object({
     actual: z.string(),
     confidence: z.enum(["high", "medium", "low"]),
   })).optional(),
+  reviewSubIssues: z.array(z.number()).optional(),
 });
 export type PipelineContext = z.infer<typeof PipelineContextSchema>;
 

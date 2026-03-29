@@ -18,6 +18,7 @@ import {
 import { diffFileList } from "./git-ops";
 import { recordLearning, inferTagsFromFiles } from "./learning-utils";
 import { parseReviewResult } from "./review-utils";
+import { createSubIssue, parseBlockers } from "./github";
 
 /**
  * Create a Ralph step executor bound to a specific ADW ID.
@@ -46,9 +47,17 @@ export function createRalphExecutor(adwId: string): StepExecutor {
           "Given this issue, what constraints, patterns, and invariants must the implementation follow?",
           { ...baseOpts, context: context.issue.body, changedFiles: changedFilesStr },
         );
+        const expertAdvice = consultResult.summary?.expert_advice_summary ?? consultResult.result ?? "";
+
+        // Warn on filler consult advice
+        const substantiveKeywords = ["must", "should", "constraint", "pattern", "index", "validation"];
+        if (expertAdvice.length < 100 || !substantiveKeywords.some(kw => expertAdvice.toLowerCase().includes(kw))) {
+          logger.warn("[consult] Expert advice appears to be filler — TDD step may lack guardrails");
+        }
+
         return {
           ...consultResult,
-          produces: { expertAdvice: consultResult.summary?.expert_advice_summary ?? consultResult.result ?? "" },
+          produces: { expertAdvice },
         };
       }
 
@@ -88,6 +97,7 @@ export function createRalphExecutor(adwId: string): StepExecutor {
             const changedFiles = await diffFileList(context.baseSha, "HEAD", cwd).catch(() => [] as string[]);
             const fileTags = inferTagsFromFiles(cwd, changedFiles);
 
+            const sourceStep = `${context.issue.number}_review`;
             for (const learning of parsed.learnings) {
               const tags = learning.tags.length > 0 ? learning.tags : (fileTags.length > 0 ? fileTags : ["unknown"]);
               recordLearning(cwd, {
@@ -98,9 +108,48 @@ export function createRalphExecutor(adwId: string): StepExecutor {
                 expected: learning.expected,
                 actual: learning.actual,
                 confidence: learning.confidence,
+                source_step: sourceStep,
+                issue_number: context.issue.number,
               });
             }
           } catch { /* learning capture is non-blocking */ }
+        }
+
+        // Create sub-issues for review FAIL verdicts with blockers
+        const reviewSubIssues: number[] = [];
+        if (parsed?.verdict === "FAIL") {
+          const blockerIssues = parsed.review_issues.filter(i => i.issue_severity === "blocker");
+          const toCreate = blockerIssues.slice(0, 2); // cap at 2 sub-issues per review
+          const originalBlockers = parseBlockers(context.issue.body);
+          const blockerLine = originalBlockers.length > 0
+            ? `- **Blocked by**: ${originalBlockers.map(b => `#${b}`).join(", ")}`
+            : `- **Blocked by**: None`;
+
+          for (const blocker of toCreate) {
+            try {
+              const subTitle = `Fix: ${context.issue.title} — ${blocker.issue_description.slice(0, 80)}`;
+              const subBody = [
+                `## Review Defect`,
+                ``,
+                `**Original issue**: #${context.issue.number}`,
+                `**Severity**: ${blocker.issue_severity}`,
+                ``,
+                `### Description`,
+                blocker.issue_description,
+                ``,
+                `### Resolution`,
+                blocker.issue_resolution,
+                ``,
+                `## Dependencies`,
+                blockerLine,
+              ].join("\n");
+              const sub = await createSubIssue(context.issue.number, subTitle, subBody, ["auto-fix"]);
+              reviewSubIssues.push(sub.number);
+              logger.info(`Created review sub-issue #${sub.number}: ${subTitle}`);
+            } catch (e) {
+              logger.warn(`Failed to create review sub-issue: ${e}`);
+            }
+          }
         }
 
         return {
@@ -108,6 +157,7 @@ export function createRalphExecutor(adwId: string): StepExecutor {
           produces: {
             reviewResult: parsed ?? reviewResult.result,
             learningEntry: parsed?.learnings ?? [],
+            ...(reviewSubIssues.length > 0 && { reviewSubIssues }),
           },
         };
       }

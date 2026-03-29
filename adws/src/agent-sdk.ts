@@ -74,10 +74,12 @@ export function extractStepSummary(text: string): StepSummary | null {
   const visual_validation = vv === "passed" || vv === "failed" || vv === "skipped" ? vv : undefined;
   const expert_consulted = get("expert_consulted");
   const expert_advice_summary = get("expert_advice_summary");
+  const action = get("action") || "[summary not extracted]";
+  const decision = get("decision") || "[summary not extracted]";
   return {
     status,
-    action: get("action"),
-    decision: get("decision"),
+    action,
+    decision,
     blockers: get("blockers"),
     files_changed: get("files_changed"),
     ...(visual_validation && { visual_validation }),
