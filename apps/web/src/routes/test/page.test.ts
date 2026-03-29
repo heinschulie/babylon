@@ -439,6 +439,51 @@ describe('/test route', () => {
 		});
 	});
 
+	// Badge component quality fixes
+	describe('badge component quality fixes', () => {
+		it('should use Badge component (not raw spans) for poll tag chips', () => {
+			// Find poll tags section in card header
+			const tagsStart = content.indexOf('<!-- Tags display -->');
+			const tagsEnd = content.indexOf('{/if}', tagsStart + 100);
+			const tagsSection = content.substring(tagsStart, tagsEnd);
+
+			// Should use Badge component with variant="secondary"
+			expect(tagsSection).toContain('<Badge variant="secondary">');
+			expect(tagsSection).toContain('</Badge>');
+
+			// Should NOT use raw span elements with moodColors or tailwind badge classes
+			const hasRawSpans = tagsSection.includes('<span class="') && tagsSection.includes('rounded-full');
+			expect(hasRawSpans).toBe(false);
+
+			// Should wrap Badge inside button for interactivity
+			expect(tagsSection).toContain('<button onclick={() => handleTagClick(tag)}>');
+		});
+
+		it('should import formatRelativeTime from shared format utilities', () => {
+			// formatRelativeTime should be imported from $lib/format
+			expect(content).toContain("import { formatRelativeTime } from '$lib/format'");
+
+			// Should NOT have inline duplicate definition
+			const scriptStart = content.indexOf('<script lang="ts">');
+			const scriptEnd = content.indexOf('</script>');
+			const scriptSection = content.substring(scriptStart, scriptEnd);
+
+			// Count formatRelativeTime function definitions (should be 0, not defined inline)
+			const inlineFuncMatches = scriptSection.match(/function\s+formatRelativeTime/g);
+			expect(inlineFuncMatches).toBe(null);
+		});
+
+		it('should use formatRelativeTime for poll timestamps', () => {
+			// Poll creation timestamp should use formatRelativeTime
+			expect(content).toContain('formatRelativeTime(poll.createdAt)');
+		});
+
+		it('should use formatRelativeTime for sentiment timeline timestamps', () => {
+			// Timeline entry timestamp should use formatRelativeTime
+			expect(content).toContain('formatRelativeTime(entry.createdAt)');
+		});
+	});
+
 	// Tag filtering feature tests
 	describe('tag filtering feature', () => {
 		it('should have activeTagFilter state variable', () => {

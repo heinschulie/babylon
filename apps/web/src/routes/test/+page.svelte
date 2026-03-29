@@ -24,7 +24,7 @@
 		mood: activeMoodFilter ?? undefined
 	}));
 	const polls = useQuery(
-		() => activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls,
+		(() => activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls) as any,
 		() => activeTagFilter ? { tag: activeTagFilter } : undefined
 	);
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
