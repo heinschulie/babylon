@@ -19250,3 +19250,145 @@ HOOK OUTPUT (JSON returned via stdout to Claude Code):
 }
 
 === SessionStart Hook Completed: 2026-03-29T14:36:36.487Z ===
+
+============================================================
+=== SessionStart Hook: 2026-03-29T14:42:15.336Z ===
+============================================================
+
+HOOK INPUT (JSON received via stdin from Claude Code):
+------------------------------------------------------------
+{
+  "session_id": "0bff0430-7c51-4cca-9667-cdc8da436b33",
+  "transcript_path": "/Users/heinschulie/.claude/projects/-Users-heinschulie-Documents-code-babylon/0bff0430-7c51-4cca-9667-cdc8da436b33.jsonl",
+  "cwd": "/Users/heinschulie/Documents/code/babylon",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+
+Claude Code SessionStart Hook: Loading Environment
+------------------------------------------------------------
+Source: startup
+Session ID: 0bff0430-7c51-4cca-9667-cdc8da436b33
+Project directory: /Users/heinschulie/Documents/code/babylon
+CLAUDE_ENV_FILE: /Users/heinschulie/.claude/session-env/0bff0430-7c51-4cca-9667-cdc8da436b33/sessionstart-hook-0.sh
+Log file: /Users/heinschulie/Documents/code/babylon/.claude/hooks/session_start.log
+
+>>> Loading variables from /Users/heinschulie/Documents/code/babylon/.env...
+  Loaded: PUBLIC_CONVEX_URL
+  Loaded: PUBLIC_CONVEX_SITE_URL
+  Loaded: SITE_URL
+  Loaded: VITE_VAPID_PUBLIC_KEY
+  Loaded: VAPID_PRIVATE_KEY
+
+>>> Adding mock session variable...
+  Added: MOCK_SESSION_VAR='hello_from_session_start'
+
+------------------------------------------------------------
+SessionStart Complete!
+------------------------------------------------------------
+
+HOOK OUTPUT (JSON returned via stdout to Claude Code):
+------------------------------------------------------------
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "SessionStart hook ran (source: startup). Loaded environment variables: PUBLIC_CONVEX_URL, PUBLIC_CONVEX_SITE_URL, SITE_URL, VITE_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, MOCK_SESSION_VAR"
+  }
+}
+
+=== SessionStart Hook Completed: 2026-03-29T14:42:15.338Z ===
+
+============================================================
+=== SessionStart Hook: 2026-03-29T14:43:11.099Z ===
+============================================================
+
+HOOK INPUT (JSON received via stdin from Claude Code):
+------------------------------------------------------------
+{
+  "session_id": "fb6898a7-aa18-4064-94eb-2a15fb248b85",
+  "transcript_path": "/Users/heinschulie/.claude/projects/-Users-heinschulie-Documents-code-babylon/fb6898a7-aa18-4064-94eb-2a15fb248b85.jsonl",
+  "cwd": "/Users/heinschulie/Documents/code/babylon",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+
+Claude Code SessionStart Hook: Loading Environment
+------------------------------------------------------------
+Source: startup
+Session ID: fb6898a7-aa18-4064-94eb-2a15fb248b85
+Project directory: /Users/heinschulie/Documents/code/babylon
+CLAUDE_ENV_FILE: /Users/heinschulie/.claude/session-env/fb6898a7-aa18-4064-94eb-2a15fb248b85/sessionstart-hook-0.sh
+Log file: /Users/heinschulie/Documents/code/babylon/.claude/hooks/session_start.log
+
+>>> Loading variables from /Users/heinschulie/Documents/code/babylon/.env...
+  Loaded: PUBLIC_CONVEX_URL
+  Loaded: PUBLIC_CONVEX_SITE_URL
+  Loaded: SITE_URL
+  Loaded: VITE_VAPID_PUBLIC_KEY
+  Loaded: VAPID_PRIVATE_KEY
+
+>>> Adding mock session variable...
+  Added: MOCK_SESSION_VAR='hello_from_session_start'
+
+------------------------------------------------------------
+SessionStart Complete!
+------------------------------------------------------------
+
+HOOK OUTPUT (JSON returned via stdout to Claude Code):
+------------------------------------------------------------
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "SessionStart hook ran (source: startup). Loaded environment variables: PUBLIC_CONVEX_URL, PUBLIC_CONVEX_SITE_URL, SITE_URL, VITE_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, MOCK_SESSION_VAR"
+  }
+}
+
+=== SessionStart Hook Completed: 2026-03-29T14:43:11.101Z ===
+
+============================================================
+=== SessionStart Hook: 2026-03-29T14:44:26.674Z ===
+============================================================
+
+HOOK INPUT (JSON received via stdin from Claude Code):
+------------------------------------------------------------
+{
+  "session_id": "4078dd6a-c21f-4445-aacb-85d7e22d7943",
+  "transcript_path": "/Users/heinschulie/.claude/projects/-Users-heinschulie-Documents-code-babylon/4078dd6a-c21f-4445-aacb-85d7e22d7943.jsonl",
+  "cwd": "/Users/heinschulie/Documents/code/babylon",
+  "hook_event_name": "SessionStart",
+  "source": "startup",
+  "model": "claude-opus-4-6"
+}
+
+Claude Code SessionStart Hook: Loading Environment
+------------------------------------------------------------
+Source: startup
+Session ID: 4078dd6a-c21f-4445-aacb-85d7e22d7943
+Project directory: /Users/heinschulie/Documents/code/babylon
+CLAUDE_ENV_FILE: /Users/heinschulie/.claude/session-env/4078dd6a-c21f-4445-aacb-85d7e22d7943/sessionstart-hook-0.sh
+Log file: /Users/heinschulie/Documents/code/babylon/.claude/hooks/session_start.log
+
+>>> Loading variables from /Users/heinschulie/Documents/code/babylon/.env...
+  Loaded: PUBLIC_CONVEX_URL
+  Loaded: PUBLIC_CONVEX_SITE_URL
+  Loaded: SITE_URL
+  Loaded: VITE_VAPID_PUBLIC_KEY
+  Loaded: VAPID_PRIVATE_KEY
+
+>>> Adding mock session variable...
+  Added: MOCK_SESSION_VAR='hello_from_session_start'
+
+------------------------------------------------------------
+SessionStart Complete!
+------------------------------------------------------------
+
+HOOK OUTPUT (JSON returned via stdout to Claude Code):
+------------------------------------------------------------
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "SessionStart hook ran (source: startup). Loaded environment variables: PUBLIC_CONVEX_URL, PUBLIC_CONVEX_SITE_URL, SITE_URL, VITE_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, MOCK_SESSION_VAR"
+  }
+}
+
+=== SessionStart Hook Completed: 2026-03-29T14:44:26.685Z ===

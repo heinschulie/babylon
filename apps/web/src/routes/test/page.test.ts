@@ -439,4 +439,83 @@ describe('/test route', () => {
 			expect(content).toContain('<ActivityFeed />');
 		});
 	});
+
+	// Tag filtering feature tests
+	describe('tag filtering feature', () => {
+		it('should have activeTagFilter state variable', () => {
+			expect(content).toContain('activeTagFilter');
+		});
+
+		it('should have clickable tag badges that call handleTagClick', () => {
+			// Tag badges should be buttons that trigger tag filtering
+			expect(content).toContain('handleTagClick');
+			expect(content).toContain('<button onclick={() => handleTagClick(tag)}>');
+		});
+
+		it('should conditionally query listPollsByTag when tag filter is active', () => {
+			// Should switch between listPolls and listPollsByTag based on activeTagFilter
+			expect(content).toContain('listPollsByTag');
+			expect(content).toContain('listPolls');
+			expect(content).toContain('activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls');
+		});
+
+		it('should show clear filter button when tag filter is active', () => {
+			// Clear button should only show when activeTagFilter is not null
+			expect(content).toContain('test_clear_tag_filter');
+			expect(content).toContain('activeTagFilter !== null');
+			expect(content).toContain('handleClearFilter');
+		});
+
+		it('should import required API functions for tag functionality', () => {
+			expect(content).toContain('api.testPollTags.listPollsByTag');
+			expect(content).toContain('api.testPollTags.getPollTagCloud');
+		});
+	});
+
+	// Tag cloud feature tests
+	describe('tag cloud feature', () => {
+		it('should have tag cloud section with heading', () => {
+			expect(content).toContain('test_tag_cloud_title');
+		});
+
+		it('should query getPollTagCloud for tag data', () => {
+			expect(content).toContain('getPollTagCloud');
+		});
+
+		it('should render tags with variable font sizes based on count', () => {
+			// Should calculate font sizes using derived state
+			expect(content).toContain('tagCloudWithSizes');
+			expect(content).toContain('fontSize');
+			expect(content).toContain('minFontSize');
+			expect(content).toContain('maxFontSize');
+		});
+
+		it('should render clickable tag buttons in tag cloud', () => {
+			// Tag cloud tags should also be clickable to filter
+			expect(content).toContain('{#each tagCloudWithSizes() as tagData}');
+			expect(content).toContain('onclick={() => handleTagClick(tagData.tag)}');
+		});
+
+		it('should show empty state when no tags exist', () => {
+			expect(content).toContain('test_no_tags_yet');
+		});
+
+		it('should use inline font-size styles for tag scaling', () => {
+			// Tags should use inline style with calculated fontSize
+			expect(content).toContain('style="font-size: {tagData.fontSize}rem"');
+		});
+	});
+
+	// i18n keys tests for tag functionality
+	describe('tag i18n keys', () => {
+		it('should use required i18n message keys', () => {
+			expect(content).toContain('test_clear_tag_filter');
+			expect(content).toContain('test_tag_cloud_title');
+			expect(content).toContain('test_no_tags_yet');
+		});
+
+		it('should import paraglide messages', () => {
+			expect(content).toContain("import * as m from '$lib/paraglide/messages.js'");
+		});
+	});
 });
