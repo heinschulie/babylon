@@ -91,11 +91,11 @@ Rules:
 GREEN means ALL of these pass — not just the test:
 
 1. **Tests pass** — the new test and all existing tests
-2. **Run `/health_check`** — this runs `bun run check` (types) + `bun run build` (Vite/SSR) + ADW tests. ALL must pass.
+2. **Run `bun run adws/scripts/health-check.ts`** — this runs `bun run check` (types) + `bun run build` (Vite/SSR). Exit 0 = pass, exit 1 = fail. ALL must pass.
 3. **Convex sync** — if any files under `convex/` were modified, run `npx convex dev --once` and confirm it succeeds
 4. **Page loads** — read `DEV_TUNNEL_URL` from `.env.local`, fetch affected page route(s), confirm HTTP 200
 
-**IMPORTANT: If `/health_check` or any validation fails, fix the issue before proceeding to the next cycle. Do NOT report success until all validations pass.**
+**IMPORTANT: If the health check or any validation fails, fix the issue before proceeding to the next cycle. Do NOT report success until all validations pass.**
 
 ## Checklist Per Cycle
 
@@ -105,7 +105,7 @@ GREEN means ALL of these pass — not just the test:
 [ ] Test would survive internal refactor
 [ ] Code is minimal for this test
 [ ] No speculative features added
-[ ] /health_check passes (types + build + ADW tests)
+[ ] bun run adws/scripts/health-check.ts exits 0 (types + build)
 [ ] If convex/ files changed, npx convex dev --once succeeds
 [ ] Affected page(s) return 200 via DEV_TUNNEL_URL
 ```
