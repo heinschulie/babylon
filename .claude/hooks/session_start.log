@@ -18215,3 +18215,50 @@ HOOK OUTPUT (JSON returned via stdout to Claude Code):
 }
 
 === SessionStart Hook Completed: 2026-03-29T13:15:37.922Z ===
+
+============================================================
+=== SessionStart Hook: 2026-03-29T13:22:31.163Z ===
+============================================================
+
+HOOK INPUT (JSON received via stdin from Claude Code):
+------------------------------------------------------------
+{
+  "session_id": "aabf9812-dfeb-4ab4-8328-eb280f396a28",
+  "transcript_path": "/Users/heinschulie/.claude/projects/-Users-heinschulie-Documents-code-babylon/aabf9812-dfeb-4ab4-8328-eb280f396a28.jsonl",
+  "cwd": "/Users/heinschulie/Documents/code/babylon",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+
+Claude Code SessionStart Hook: Loading Environment
+------------------------------------------------------------
+Source: startup
+Session ID: aabf9812-dfeb-4ab4-8328-eb280f396a28
+Project directory: /Users/heinschulie/Documents/code/babylon
+CLAUDE_ENV_FILE: /Users/heinschulie/.claude/session-env/aabf9812-dfeb-4ab4-8328-eb280f396a28/sessionstart-hook-0.sh
+Log file: /Users/heinschulie/Documents/code/babylon/.claude/hooks/session_start.log
+
+>>> Loading variables from /Users/heinschulie/Documents/code/babylon/.env...
+  Loaded: PUBLIC_CONVEX_URL
+  Loaded: PUBLIC_CONVEX_SITE_URL
+  Loaded: SITE_URL
+  Loaded: VITE_VAPID_PUBLIC_KEY
+  Loaded: VAPID_PRIVATE_KEY
+
+>>> Adding mock session variable...
+  Added: MOCK_SESSION_VAR='hello_from_session_start'
+
+------------------------------------------------------------
+SessionStart Complete!
+------------------------------------------------------------
+
+HOOK OUTPUT (JSON returned via stdout to Claude Code):
+------------------------------------------------------------
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "SessionStart hook ran (source: startup). Loaded environment variables: PUBLIC_CONVEX_URL, PUBLIC_CONVEX_SITE_URL, SITE_URL, VITE_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, MOCK_SESSION_VAR"
+  }
+}
+
+=== SessionStart Hook Completed: 2026-03-29T13:22:31.166Z ===

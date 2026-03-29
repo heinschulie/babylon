@@ -4,18 +4,9 @@
 	import * as Card from '@babylon/ui/card';
 	import { Smile, BarChart3, Vote } from '@lucide/svelte';
 	import * as m from '$lib/paraglide/messages.js';
+	import { formatRelativeTime } from '$lib/format';
 
 	const activityFeed = useQuery(api.testActivityFeed.getActivityFeed, {});
-
-	function formatRelativeTime(timestamp: number): string {
-		const now = Date.now();
-		const diffMs = now - timestamp;
-		const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-		if (diffMinutes < 1) return "now";
-		if (diffMinutes === 1) return "1 minute ago";
-		return `${diffMinutes} minutes ago`;
-	}
 
 	function getEventIcon(eventType: string) {
 		switch (eventType) {
@@ -26,7 +17,9 @@
 		}
 	}
 
-	function getEventDescription(event: any): string {
+	type FeedEvent = NonNullable<typeof activityFeed.data>[number];
+
+	function getEventDescription(event: FeedEvent): string {
 		switch (event.type) {
 			case 'emoji':
 				return `${event.data.emoji} ${m.test_emoji_submitted()} (${event.data.mood})`;

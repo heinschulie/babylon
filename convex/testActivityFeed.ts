@@ -1,45 +1,51 @@
 import { query } from './_generated/server';
+import type { Doc } from './_generated/dataModel';
+
+const FEED_LIMIT = 30;
+
+type FeedEvent = {
+	type: 'emoji' | 'vote' | 'poll';
+	timestamp: number;
+	data: Record<string, unknown>;
+};
+
+function mapTestEntry(entry: Doc<'testTable'>): FeedEvent {
+	if (entry.pollId) {
+		return {
+			type: 'vote',
+			timestamp: entry.createdAt,
+			data: { emoji: entry.emoji, mood: entry.mood, pollId: entry.pollId },
+		};
+	}
+	return {
+		type: 'emoji',
+		timestamp: entry.createdAt,
+		data: { emoji: entry.emoji, mood: entry.mood, userId: entry.userId },
+	};
+}
+
+function mapPollEntry(entry: Doc<'testPollTable'>): FeedEvent {
+	return {
+		type: 'poll',
+		timestamp: entry.createdAt,
+		data: { question: entry.question, optionCount: entry.options.length },
+	};
+}
 
 export const getActivityFeed = query({
 	args: {},
 	handler: async (ctx) => {
-		// Fetch recent entries from both tables
-		const testTableEntries = await ctx.db
-			.query('testTable')
-			.withIndex('by_createdAt')
-			.order('desc')
-			.take(30);
+		const [testEntries, pollEntries] = await Promise.all([
+			ctx.db.query('testTable').withIndex('by_createdAt').order('desc').take(FEED_LIMIT),
+			ctx.db.query('testPollTable').withIndex('by_createdAt').order('desc').take(FEED_LIMIT),
+		]);
 
-		const testPollEntries = await ctx.db
-			.query('testPollTable')
-			.withIndex('by_createdAt')
-			.order('desc')
-			.take(30);
-
-		// Map to activity feed events
-		const emojiEvents = testTableEntries.map((entry) => ({
-			type: entry.pollId ? ('vote' as const) : ('emoji' as const),
-			timestamp: entry.createdAt,
-			data: {
-				emoji: entry.emoji,
-				mood: entry.mood,
-				...(entry.pollId ? { pollId: entry.pollId } : { userId: entry.userId }),
-			},
-		}));
-
-		const pollEvents = testPollEntries.map((entry) => ({
-			type: 'poll' as const,
-			timestamp: entry.createdAt,
-			data: {
-				question: entry.question,
-				optionCount: entry.options.length,
-			},
-		}));
-
-		// Merge, sort by timestamp desc, and limit to 30
-		const allEvents = [...emojiEvents, ...pollEvents];
+		const allEvents = [
+			...testEntries.map(mapTestEntry),
+			...pollEntries.map(mapPollEntry),
+		];
 		allEvents.sort((a, b) => b.timestamp - a.timestamp);
 
-		return allEvents.slice(0, 30);
+		return allEvents.slice(0, FEED_LIMIT);
 	},
 });
