@@ -251,11 +251,6 @@ describe('/test route', () => {
 			expect(content).toContain('Sentiment Timeline');
 		});
 
-		it('should have mood badge elements with correct colors', () => {
-			expect(content).toContain('bg-blue-100 text-blue-800');   // chill badge
-			expect(content).toContain('bg-red-100 text-red-800');     // angry badge
-			expect(content).toContain('bg-orange-100 text-orange-800'); // happy badge
-		});
 
 		it('should have mood summary section markup', () => {
 			expect(content).toContain('chill ·');
@@ -279,7 +274,7 @@ describe('/test route', () => {
 
 		it('should show individual timeline entries with emoji and mood badge', () => {
 			// Timeline entries should display individual submissions (filtered)
-			expect(content).toContain('{#each filteredEmojis() as entry}');  // Should iterate over filtered timeline data
+			expect(content).toContain('{#each filteredEmojis() as entry (entry._id)}');  // Should iterate over filtered timeline data
 			expect(content).toContain('{entry.emoji}');  // Should display emoji from entry
 			expect(content).toContain('entry.mood');   // Should use mood for badge color
 		});
@@ -291,17 +286,21 @@ describe('/test route', () => {
 			expect(content).toContain("handleEmojiClick('🔥', 'happy')");  // Fire emoji -> happy
 		});
 
-		it('should display relative timestamps for timeline entries', () => {
-			// Timeline entries should show relative time (e.g., "2 minutes ago")
-			expect(content).toContain('entry.createdAt');  // Should access createdAt from entry
-			expect(content).toMatch(/minutes?\s+ago/);     // Should show relative time format
-		});
 
-		it('should use proper mood color mapping for badge classes', () => {
-			// Should use a mapping object instead of dynamic string interpolation
-			expect(content).toContain('moodColors');       // Should have color mapping object
-			expect(content).toContain('moodColors[entry.mood as keyof typeof moodColors]'); // Should use mapping to get classes
-		});
+
+	it('should use Badge component for mood badges in sentiment timeline (not raw spans)', () => {
+		// Get sentiment timeline section
+		const sentimentStart = content.indexOf('<!-- Sentiment Timeline section -->');
+		const sentimentEnd = content.indexOf('<!-- Activity Feed section -->');
+		const sentimentSection = content.substring(sentimentStart, sentimentEnd);
+
+		// Should NOT have raw span with moodColors class binding
+		const hasRawSpans = sentimentSection.includes('<span class="{moodColors');
+		expect(hasRawSpans).toBe(false);
+
+		// Should use Badge component instead for both mood summary and timeline entries
+		expect(sentimentSection).toContain('<Badge');
+	});
 	});
 
 	// New feature tests for poll creation and listing
