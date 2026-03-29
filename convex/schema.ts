@@ -303,17 +303,20 @@ export default defineSchema({
 		mood: v.string(),
 		userId: v.string(),
 		createdAt: v.number(),
-		pollId: v.optional(v.id('testPollTable'))
+		pollId: v.optional(v.id('testPollTable')),
+		streakDay: v.optional(v.number())
 	})
 		.index('by_createdAt', ['createdAt'])
-		.index('by_pollId', ['pollId']),
+		.index('by_pollId', ['pollId'])
+		.index('by_userId_createdAt', ['userId', 'createdAt']),
 
 	// Test table for polls
 	testPollTable: defineTable({
 		question: v.string(),
 		options: v.array(v.string()),
 		createdAt: v.number(),
-		closedAt: v.optional(v.number())
+		closedAt: v.optional(v.number()),
+		tags: v.optional(v.array(v.string()))
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_closedAt', ['closedAt'])

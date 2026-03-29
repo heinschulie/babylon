@@ -210,5 +210,16 @@
   "test_timeline_empty": "No emoji submissions yet",
   "test_poll_close": "Close Poll",
   "test_poll_closed": "Closed",
-  "test_poll_open": "Open"
+  "test_poll_open": "Open",
+  "test_tags_label": "Tags",
+  "test_tags_placeholder": "Add tags (comma-separated)",
+  "test_activity_feed_title": "Activity Feed",
+  "test_no_activity": "No activity yet",
+  "test_emoji_submitted": "submitted",
+  "test_new_poll": "New poll",
+  "test_vote_cast": "Vote on poll",
+  "test_streak_label": "Streak",
+  "test_clear_tag_filter": "Clear filter",
+  "test_tag_cloud_title": "Tag Cloud",
+  "test_no_tags_yet": "No tags yet"
 }

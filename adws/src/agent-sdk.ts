@@ -207,7 +207,7 @@ export async function createSDK(opts: { model?: string; cwd?: string } = {}) {
           mcpServers: {
             svelte: { command: "npx", args: ["-y", "@sveltejs/mcp"] },
           },
-          env: { ENABLE_TOOL_SEARCH: "auto:0" },
+          env: { ...process.env, ENABLE_TOOL_SEARCH: "auto:0" },
         },
       }),
   };

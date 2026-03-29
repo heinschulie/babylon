@@ -9,6 +9,25 @@ const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
 
 const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
 const MAX_RECENT_ENTRIES = 20;
+const MS_PER_DAY = 86400000;
+
+/** Compute the streak day for a new submission given the user's most recent prior one. */
+function computeStreakDay(
+	prior: { createdAt: number; streakDay?: number } | null,
+	nowMs: number
+): number {
+	if (!prior) return 1;
+
+	const toUtcDay = (ms: number) => Math.floor(ms / MS_PER_DAY);
+	const todayDay = toUtcDay(nowMs);
+	const priorDay = toUtcDay(prior.createdAt);
+	const gap = todayDay - priorDay;
+	const priorStreak = prior.streakDay ?? 1;
+
+	if (gap === 1) return priorStreak + 1; // consecutive day
+	if (gap === 0) return priorStreak; // same day — carry forward
+	return 1; // gap > 1 day — reset
+}
 
 /** Group entries by emoji and return sorted counts (descending, alphabetical tiebreak). */
 function countByEmoji(entries: Array<{ emoji: string }>): Array<{ emoji: string; count: number }> {
@@ -38,12 +57,23 @@ export const submitEmoji = mutation({
 			throw new Error(`Mood mismatch: ${emoji} should have mood '${config.mood}', got '${mood}'`);
 		}
 
+		// Compute streak from most recent prior submission
+		const priorSubmission = await ctx.db
+			.query('testTable')
+			.withIndex('by_userId_createdAt', (q) => q.eq('userId', userId))
+			.order('desc')
+			.first();
+
+		const now = Date.now();
+		const streakDay = computeStreakDay(priorSubmission, now);
+
 		return ctx.db.insert('testTable', {
 			emoji,
 			mood,
 			sentence: config.sentence,
 			userId,
 			createdAt: Date.now(),
+			streakDay,
 		});
 	},
 });
@@ -58,6 +88,21 @@ export const getEmojiLeaderboard = query({
 			? await query.filter((q) => q.eq(q.field('mood'), mood)).collect()
 			: await query.collect();
 		return countByEmoji(entries);
+	},
+});
+
+export const getUserStreak = query({
+	args: {
+		userId: v.string(),
+	},
+	handler: async (ctx, { userId }) => {
+		const mostRecentSubmission = await ctx.db
+			.query('testTable')
+			.withIndex('by_userId_createdAt', q => q.eq('userId', userId))
+			.order('desc')
+			.first();
+
+		return { streak: mostRecentSubmission?.streakDay ?? 0 };
 	},
 });
 

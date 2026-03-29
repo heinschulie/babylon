@@ -1,0 +1,9 @@
+@@ -399,7 +399,7 @@
+ 		<div>{moodSummary()}</div>
+ 		<div class="flex flex-wrap gap-2">
+-			{#each moods.filter((m) => moodCounts()[m] > 0) as mood}
++			{#each moods.filter((m) => moodCounts()[m] > 0) as mood (mood)}
+ 				<Badge variant="secondary">{mood} ({moodCounts()[mood]})</Badge>
+ 			{/each}
+ 		</div>
+ 

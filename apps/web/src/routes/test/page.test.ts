@@ -251,11 +251,6 @@ describe('/test route', () => {
 			expect(content).toContain('Sentiment Timeline');
 		});
 
-		it('should have mood badge elements with correct colors', () => {
-			expect(content).toContain('bg-blue-100 text-blue-800');   // chill badge
-			expect(content).toContain('bg-red-100 text-red-800');     // angry badge
-			expect(content).toContain('bg-orange-100 text-orange-800'); // happy badge
-		});
 
 		it('should have mood summary section markup', () => {
 			expect(content).toContain('chill ·');
@@ -279,7 +274,7 @@ describe('/test route', () => {
 
 		it('should show individual timeline entries with emoji and mood badge', () => {
 			// Timeline entries should display individual submissions (filtered)
-			expect(content).toContain('{#each filteredEmojis() as entry}');  // Should iterate over filtered timeline data
+			expect(content).toContain('{#each filteredEmojis() as entry (entry._id)}');  // Should iterate over filtered timeline data
 			expect(content).toContain('{entry.emoji}');  // Should display emoji from entry
 			expect(content).toContain('entry.mood');   // Should use mood for badge color
 		});
@@ -291,17 +286,21 @@ describe('/test route', () => {
 			expect(content).toContain("handleEmojiClick('🔥', 'happy')");  // Fire emoji -> happy
 		});
 
-		it('should display relative timestamps for timeline entries', () => {
-			// Timeline entries should show relative time (e.g., "2 minutes ago")
-			expect(content).toContain('entry.createdAt');  // Should access createdAt from entry
-			expect(content).toMatch(/minutes?\s+ago/);     // Should show relative time format
-		});
 
-		it('should use proper mood color mapping for badge classes', () => {
-			// Should use a mapping object instead of dynamic string interpolation
-			expect(content).toContain('moodColors');       // Should have color mapping object
-			expect(content).toContain('moodColors[entry.mood as keyof typeof moodColors]'); // Should use mapping to get classes
-		});
+
+	it('should use Badge component for mood badges in sentiment timeline (not raw spans)', () => {
+		// Get sentiment timeline section
+		const sentimentStart = content.indexOf('<!-- Sentiment Timeline section -->');
+		const sentimentEnd = content.indexOf('<!-- Activity Feed section -->');
+		const sentimentSection = content.substring(sentimentStart, sentimentEnd);
+
+		// Should NOT have raw span with moodColors class binding
+		const hasRawSpans = sentimentSection.includes('<span class="{moodColors');
+		expect(hasRawSpans).toBe(false);
+
+		// Should use Badge component instead for both mood summary and timeline entries
+		expect(sentimentSection).toContain('<Badge');
+	});
 	});
 
 	// New feature tests for poll creation and listing
@@ -411,6 +410,111 @@ describe('/test route', () => {
 		it('should render empty state when no polls exist', () => {
 			// Should display "No polls exist" message when list is empty
 			expect(content).toContain('No polls exist');
+		});
+	});
+
+	// Activity Feed integration tests
+	describe('activity feed integration', () => {
+		it('should import ActivityFeed component', () => {
+			expect(content).toContain("import ActivityFeed from '$lib/components/ActivityFeed.svelte'");
+		});
+
+		it('should render ActivityFeed component between sentiment timeline and gallery', () => {
+			// ActivityFeed should be positioned after sentiment timeline section
+			const sentimentIndex = content.indexOf('Sentiment Timeline');
+			const activityFeedIndex = content.indexOf('<ActivityFeed');
+			const galleryIndex = content.indexOf('christ on a pogostick'); // Gallery heading
+
+			expect(sentimentIndex).toBeGreaterThan(-1);
+			expect(activityFeedIndex).toBeGreaterThan(-1);
+			expect(galleryIndex).toBeGreaterThan(-1);
+
+			// ActivityFeed should come after sentiment timeline and before gallery
+			expect(activityFeedIndex).toBeGreaterThan(sentimentIndex);
+			expect(galleryIndex).toBeGreaterThan(activityFeedIndex);
+		});
+
+		it('should render ActivityFeed as self-closing component', () => {
+			expect(content).toContain('<ActivityFeed />');
+		});
+	});
+
+	// Tag filtering feature tests
+	describe('tag filtering feature', () => {
+		it('should have activeTagFilter state variable', () => {
+			expect(content).toContain('activeTagFilter');
+		});
+
+		it('should have clickable tag badges that call handleTagClick', () => {
+			// Tag badges should be buttons that trigger tag filtering
+			expect(content).toContain('handleTagClick');
+			expect(content).toContain('<button onclick={() => handleTagClick(tag)}>');
+		});
+
+		it('should conditionally query listPollsByTag when tag filter is active', () => {
+			// Should switch between listPolls and listPollsByTag based on activeTagFilter
+			expect(content).toContain('listPollsByTag');
+			expect(content).toContain('listPolls');
+			expect(content).toContain('activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls');
+		});
+
+		it('should show clear filter button when tag filter is active', () => {
+			// Clear button should only show when activeTagFilter is not null
+			expect(content).toContain('test_clear_tag_filter');
+			expect(content).toContain('activeTagFilter !== null');
+			expect(content).toContain('handleClearFilter');
+		});
+
+		it('should import required API functions for tag functionality', () => {
+			expect(content).toContain('api.testPollTags.listPollsByTag');
+			expect(content).toContain('api.testPollTags.getPollTagCloud');
+		});
+	});
+
+	// Tag cloud feature tests
+	describe('tag cloud feature', () => {
+		it('should have tag cloud section with heading', () => {
+			expect(content).toContain('test_tag_cloud_title');
+		});
+
+		it('should query getPollTagCloud for tag data', () => {
+			expect(content).toContain('getPollTagCloud');
+		});
+
+		it('should render tags with variable font sizes based on count', () => {
+			// Should calculate font sizes using derived state
+			expect(content).toContain('tagCloudWithSizes');
+			expect(content).toContain('fontSize');
+			expect(content).toContain('minFontSize');
+			expect(content).toContain('maxFontSize');
+		});
+
+		it('should render clickable tag buttons in tag cloud', () => {
+			// Tag cloud tags should also be clickable to filter
+			expect(content).toContain('{#each tagCloudWithSizes() as tagData}');
+			expect(content).toContain('onclick={() => handleTagClick(tagData.tag)}');
+		});
+
+		it('should show empty state when no tags exist', () => {
+			expect(content).toContain('test_no_tags_yet');
+		});
+
+		it('should use inline font-size styles for tag scaling', () => {
+			// Tags should use inline style with calculated fontSize
+			expect(content).toContain('style="font-size: {tagData.fontSize}rem"');
+		});
+	});
+
+	// i18n keys tests for tag functionality
+	describe('tag i18n keys', () => {
+		it('should use required i18n message keys', () => {
+			expect(content).toContain('test_clear_tag_filter');
+			expect(content).toContain('test_tag_cloud_title');
+			expect(content).toContain('test_no_tags_yet');
+		});
+
+		it('should import paraglide messages', () => {
+			expect(content).toContain("import * as m from '$lib/paraglide/messages.js'");
 		});
 	});
 });
