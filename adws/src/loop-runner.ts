@@ -402,5 +402,22 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
     });
 
     return false;
+  } finally {
+    // ─── Expert Learning — always runs, even on crash ─────────────
+    try {
+      logger.info(`\n--- Running expert learning pass ---`);
+      const { exec } = await import("./utils");
+      const learnResult = await exec(
+        ["bun", "run", "adws/workflows/adw_learn.ts", "--adw-id", adwId, "--issue", String(parentIssueNumber)],
+        { cwd: workingDir },
+      );
+      if (learnResult.exitCode === 0) {
+        logger.info(`Expert learning pass completed successfully`);
+      } else {
+        logger.warn(`Expert learning pass exited with code ${learnResult.exitCode}: ${learnResult.stderr.slice(0, 300)}`);
+      }
+    } catch (e) {
+      logger.warn(`Expert learning pass failed: ${e}`);
+    }
   }
 }
