@@ -2,7 +2,8 @@
 	import * as Dialog from '@babylon/ui/dialog';
 	import * as Card from '@babylon/ui/card';
 	import { Button } from '@babylon/ui/button';
-	import { useConvexClient, useQuery, useMutation } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
+	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 
 	let dialogOpen = $state(false);
@@ -16,7 +17,6 @@
 		mood: activeMoodFilter ?? undefined
 	}));
 	const polls = useQuery(api.testPollMutation.listPolls);
-	const createPoll = useMutation(api.testPollMutation.createPoll);
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -79,7 +79,7 @@
 	async function handleCreatePoll() {
 		try {
 			const nonEmptyOptions = pollOptions.filter(opt => opt.trim());
-			await createPoll.mutate({
+			await client.mutation(api.testPollMutation.createPoll, {
 				question: pollQuestion,
 				options: nonEmptyOptions
 			});
@@ -95,7 +95,7 @@
 		pollOptions = [...pollOptions, ''];
 	}
 
-	async function handleVoteClick(pollId: string, option: string) {
+	async function handleVoteClick(pollId: Id<'testPollTable'>, option: string) {
 		try {
 			await client.mutation(api.testPollMutation.castVote, {
 				pollId,
