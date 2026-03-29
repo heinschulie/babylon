@@ -2,9 +2,24 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 
 const MOOD_BY_INDEX = ['chill', 'angry', 'happy'] as const;
+const MAX_TAGS = 5;
+const MAX_TAG_LENGTH = 20;
 
 function deriveMood(optionIndex: number): string {
 	return MOOD_BY_INDEX[Math.min(optionIndex, MOOD_BY_INDEX.length - 1)];
+}
+
+/** Validate + normalize tags in a single pass. Returns cleaned array or throws. */
+function validateAndProcessTags(tags: string[]): string[] {
+	if (tags.length > MAX_TAGS) {
+		throw new Error(`Maximum ${MAX_TAGS} tags allowed`);
+	}
+	return tags.map(tag => {
+		const trimmed = tag.trim();
+		if (!trimmed) throw new Error('Tags must not be empty');
+		if (trimmed.length > MAX_TAG_LENGTH) throw new Error('Tags must not exceed 20 characters');
+		return trimmed;
+	});
 }
 
 export const createPoll = mutation({
@@ -29,20 +44,7 @@ export const createPoll = mutation({
 			throw new Error('Options must not be empty');
 		}
 
-		// Validate and process tags if provided
-		let processedTags: string[] | undefined;
-		if (tags) {
-			if (tags.length > 5) {
-				throw new Error('Maximum 5 tags allowed');
-			}
-			if (tags.some(tag => !tag.trim())) {
-				throw new Error('Tags must not be empty');
-			}
-			if (tags.some(tag => tag.trim().length > 20)) {
-				throw new Error('Tags must not exceed 20 characters');
-			}
-			processedTags = tags.map(tag => tag.trim());
-		}
+		const processedTags = tags ? validateAndProcessTags(tags) : undefined;
 
 		return ctx.db.insert('testPollTable', {
 			question,
