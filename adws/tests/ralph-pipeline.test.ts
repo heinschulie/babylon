@@ -37,9 +37,9 @@ describe("RALPH_PIPELINE", () => {
     expect(commitSteps).toEqual(["tdd", "refactor"]);
   });
 
-  it("tdd has head-must-advance postcondition only", () => {
+  it("tdd has head-must-advance + code-must-compile postconditions", () => {
     const tdd = RALPH_PIPELINE.find(s => s.name === "tdd")!;
-    expect(tdd.postcondition).toEqual(["head-must-advance"]);
+    expect(tdd.postcondition).toEqual(["head-must-advance", "code-must-compile"]);
   });
 
   it("only review has result-must-parse postcondition", () => {
