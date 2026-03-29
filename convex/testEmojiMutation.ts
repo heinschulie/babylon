@@ -9,6 +9,25 @@ const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
 
 const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
 const MAX_RECENT_ENTRIES = 20;
+const MS_PER_DAY = 86400000;
+
+/** Compute the streak day for a new submission given the user's most recent prior one. */
+function computeStreakDay(
+	prior: { createdAt: number; streakDay?: number } | null,
+	nowMs: number
+): number {
+	if (!prior) return 1;
+
+	const toUtcDay = (ms: number) => Math.floor(ms / MS_PER_DAY);
+	const todayDay = toUtcDay(nowMs);
+	const priorDay = toUtcDay(prior.createdAt);
+	const gap = todayDay - priorDay;
+	const priorStreak = prior.streakDay ?? 1;
+
+	if (gap === 1) return priorStreak + 1; // consecutive day
+	if (gap === 0) return priorStreak; // same day — carry forward
+	return 1; // gap > 1 day — reset
+}
 
 /** Group entries by emoji and return sorted counts (descending, alphabetical tiebreak). */
 function countByEmoji(entries: Array<{ emoji: string }>): Array<{ emoji: string; count: number }> {
@@ -38,31 +57,15 @@ export const submitEmoji = mutation({
 			throw new Error(`Mood mismatch: ${emoji} should have mood '${config.mood}', got '${mood}'`);
 		}
 
-		// Compute streak: query user's most recent prior submission
+		// Compute streak from most recent prior submission
 		const priorSubmission = await ctx.db
 			.query('testTable')
-			.withIndex('by_userId_createdAt', q => q.eq('userId', userId))
+			.withIndex('by_userId_createdAt', (q) => q.eq('userId', userId))
 			.order('desc')
 			.first();
 
-		let streakDay = 1; // Default for first-ever submission
-		if (priorSubmission) {
-			const now = Date.now();
-			const todayUTC = Math.floor(now / 86400000) * 86400000; // UTC midnight today
-			const yesterdayUTC = todayUTC - 86400000; // UTC midnight yesterday
-			const priorDayUTC = Math.floor(priorSubmission.createdAt / 86400000) * 86400000;
-
-			if (priorDayUTC === yesterdayUTC) {
-				// Consecutive day: increment prior streak
-				streakDay = (priorSubmission.streakDay ?? 1) + 1;
-			} else if (priorDayUTC === todayUTC) {
-				// Same day: carry forward prior streak
-				streakDay = priorSubmission.streakDay ?? 1;
-			} else {
-				// Gap > 1 day: reset to 1
-				streakDay = 1;
-			}
-		}
+		const now = Date.now();
+		const streakDay = computeStreakDay(priorSubmission, now);
 
 		return ctx.db.insert('testTable', {
 			emoji,
