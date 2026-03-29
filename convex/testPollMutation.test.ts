@@ -71,6 +71,43 @@ describe('testPollMutation', () => {
 	});
 
 	describe('listPolls', () => {
+		it('should return polls with closedAt field present (undefined for open)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create an open poll
+			const openPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Open poll?',
+				options: ['yes', 'no']
+			});
+
+			// Create a poll and close it
+			const closedPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Closed poll?',
+				options: ['maybe', 'definitely']
+			});
+
+			await asUser.mutation(api.testPollMutation.closePoll, {
+				pollId: closedPollId
+			});
+
+			// Query polls
+			const result = await asUser.query(api.testPollMutation.listPolls, {});
+
+			expect(result).toHaveLength(2);
+
+			// Find open and closed polls in results
+			const openPoll = result.find(p => p._id === openPollId);
+			const closedPoll = result.find(p => p._id === closedPollId);
+
+			// Open poll should have closedAt as undefined
+			expect(openPoll?.closedAt).toBeUndefined();
+
+			// Closed poll should have closedAt set
+			expect(closedPoll?.closedAt).toBeDefined();
+			expect(typeof closedPoll?.closedAt).toBe('number');
+		});
+
 		it('should return polls sorted by createdAt descending (newest first)', async () => {
 			const t = convexTest(schema, modules);
 			const asUser = t.withIdentity({ subject: 'user1' });
@@ -256,6 +293,85 @@ describe('testPollMutation', () => {
 			});
 			const record4 = await t.run(async (ctx) => ctx.db.get(vote4));
 			expect(record4?.mood).toBe('happy');
+		});
+	});
+
+	describe('closePoll', () => {
+		it('should set closedAt timestamp on an existing poll', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll first
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+
+			// Close the poll
+			const before = Date.now();
+			const result = await asUser.mutation(api.testPollMutation.closePoll, {
+				pollId
+			});
+			const after = Date.now();
+
+			expect(result).toBeNull();
+
+			// Verify the poll has closedAt set
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.closedAt).toBeDefined();
+			expect(poll?.closedAt).toBeGreaterThanOrEqual(before);
+			expect(poll?.closedAt).toBeLessThanOrEqual(after);
+		});
+	});
+
+	describe('castVote with closed poll', () => {
+		it('should reject vote when poll has closedAt set', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create and close a poll
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Closed poll?',
+				options: ['yes', 'no']
+			});
+
+			await asUser.mutation(api.testPollMutation.closePoll, {
+				pollId
+			});
+
+			// Try to vote on closed poll
+			await expect(
+				asUser.mutation(api.testPollMutation.castVote, {
+					pollId,
+					option: 'yes',
+					userId: 'test-user'
+				})
+			).rejects.toThrow('Poll is closed');
+		});
+
+		it('should still accept votes on open polls (no closedAt)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll (without closing it)
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Open poll?',
+				options: ['yes', 'no']
+			});
+
+			// Vote on open poll should succeed
+			const voteId = await asUser.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option: 'yes',
+				userId: 'test-user'
+			});
+
+			expect(voteId).toBeDefined();
+
+			// Verify the vote was recorded
+			const vote = await t.run(async (ctx) => ctx.db.get(voteId));
+			expect(vote?.pollId).toBe(pollId);
+			expect(vote?.emoji).toBe('yes');
 		});
 	});
 

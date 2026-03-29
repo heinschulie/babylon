@@ -47,6 +47,24 @@ export const listPolls = query({
 	},
 });
 
+export const closePoll = mutation({
+	args: {
+		pollId: v.id('testPollTable'),
+	},
+	handler: async (ctx, { pollId }) => {
+		const poll = await ctx.db.get(pollId);
+		if (!poll) {
+			throw new Error('Poll not found');
+		}
+
+		await ctx.db.patch(pollId, {
+			closedAt: Date.now(),
+		});
+
+		return null;
+	},
+});
+
 export const castVote = mutation({
 	args: {
 		pollId: v.id('testPollTable'),
@@ -57,6 +75,10 @@ export const castVote = mutation({
 		const poll = await ctx.db.get(pollId);
 		if (!poll) {
 			throw new Error('Poll not found');
+		}
+
+		if (poll.closedAt) {
+			throw new Error('Poll is closed');
 		}
 
 		const optionIndex = poll.options.indexOf(option);

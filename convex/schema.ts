@@ -312,7 +312,9 @@ export default defineSchema({
 	testPollTable: defineTable({
 		question: v.string(),
 		options: v.array(v.string()),
-		createdAt: v.number()
+		createdAt: v.number(),
+		closedAt: v.optional(v.number())
 	})
 		.index('by_createdAt', ['createdAt'])
+		.index('by_closedAt', ['closedAt'])
 });
