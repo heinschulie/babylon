@@ -1,0 +1,29 @@
+# ─── DATABASE TECHNOLOGY LEARNINGS ───────────────────────────────────
+#
+# Durable technology and integration truths discovered through builds.
+# These entries survive self-improve passes — they are never removed
+# by automated processes, only by human review.
+#
+# Inclusion criteria: "Would this save time in a fresh project using
+# the same stack?" If yes, it belongs here. If it only makes sense
+# in the context of this codebase's internal patterns, it belongs
+# in expertise.yaml instead.
+#
+# Categories:
+#   platform_truth  — how a technology works (no codebase anchor)
+#   integration_seam — how two technologies interact
+#   versioned       — true for a specific version range
+#
+# ─────────────────────────────────────────────────────────────────────
+
+learnings: []
+
+# Example entry format:
+#
+# - id: convex-no-cross-mutation-calls
+#   category: platform_truth
+#   learning: "Convex mutations cannot call other mutations — extract shared logic to helper functions"
+#   stack: { convex: "*" }
+#   discovered: 2026-03-29
+#   source_build: 83_ralph_28e333e2
+#   occurrences: 1

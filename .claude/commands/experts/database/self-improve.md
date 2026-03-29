@@ -13,6 +13,7 @@ You maintain the Database expert system's expertise accuracy by comparing the ex
 CHECK_GIT_DIFF: $1 default to false if not specified
 FOCUS_AREA: $2 default to empty string
 EXPERTISE_FILE: .claude/commands/experts/database/expertise.yaml
+LEARNINGS_FILE: .claude/commands/experts/database/learnings.yaml
 LEARNINGS_DIR: temp/learnings
 MAX_LINES: 1000
 
@@ -75,6 +76,25 @@ MAX_LINES: 1000
        - If learning is validated, update the relevant section in expertise.yaml (platform_constraints, best_practices, or known_issues as appropriate)
      - Record which entry IDs were processed in the report
    - If no learnings files exist or no tags match, skip this step
+
+1c. **Promote Technology Learnings to Durable Store**
+   - Read LEARNINGS_FILE (the expert's `learnings.yaml`)
+   - For each matched entry from step 1b, apply the **technology truth filter**:
+     - Ask: "Would this save time in a fresh project using the same stack?"
+     - YES → it's a technology/integration truth (how technologies work or interact). Promote it.
+     - NO → it's a codebase-specific observation (did the agent implement correctly, internal patterns). Skip it.
+   - For entries that pass the filter:
+     - Check for duplicates in LEARNINGS_FILE (same stack + overlapping learning text)
+     - If duplicate: increment `occurrences`, update `discovered` date if newer
+     - If new: append to LEARNINGS_FILE with fields: `id`, `category` (platform_truth | integration_seam | versioned), `learning`, `stack`, `discovered`, `source_build`, `occurrences`
+   - **CRITICAL**: Never remove entries from LEARNINGS_FILE. Only humans may delete learnings.
+   - Record which entries were promoted vs filtered in the report
+
+1d. **Enforce Durable Learnings in Expertise**
+   - Read all entries from LEARNINGS_FILE
+   - For each entry, verify it is reflected in the appropriate section of EXPERTISE_FILE (platform_constraints, best_practices, known_issues)
+   - If a learning exists in LEARNINGS_FILE but is missing from EXPERTISE_FILE, re-add it
+   - This step prevents erosion: no self-improve pass may drop a durable learning from expertise
 
 2. **Read Current Expertise**
    - Read the entire EXPERTISE_FILE to understand current documented expertise
@@ -143,6 +163,8 @@ Provide a structured report with the following sections:
 - Whether git diff was checked
 - Focus area (if any)
 - Learnings processed (count, IDs)
+- Learnings promoted to LEARNINGS_FILE (count, IDs) vs filtered out (count, reasons)
+- Durable learnings enforced in expertise (count, any re-added)
 - Total discrepancies found and remedied
 - Final line count vs MAX_LINES
 

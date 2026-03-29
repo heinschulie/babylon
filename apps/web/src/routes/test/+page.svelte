@@ -286,9 +286,9 @@
 								<!-- Closed badge -->
 								{#if poll.closedAt}
 									<div class="mt-3">
-										<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs">
+										<Badge variant="secondary">
 											{m.test_poll_closed()}
-										</span>
+										</Badge>
 									</div>
 								{/if}
 
