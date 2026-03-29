@@ -64,7 +64,7 @@ Write ONE test that confirms ONE thing about the system:
 
 ```
 RED:   Write test for first behavior → test fails
-GREEN: Write minimal code to pass → test passes
+GREEN: Write minimal code to pass → ALL validations pass (see below)
 ```
 
 This is your tracer bullet - proves the path works end-to-end.
@@ -75,7 +75,7 @@ For each remaining behavior:
 
 ```
 RED:   Write next test → fails
-GREEN: Minimal code to pass → passes
+GREEN: Minimal code to pass → ALL validations pass (see below)
 ```
 
 Rules:
@@ -85,6 +85,18 @@ Rules:
 - Don't anticipate future tests
 - Keep tests focused on observable behavior
 
+### GREEN Validation Gate
+
+GREEN means ALL of these pass — not just the test:
+
+1. **Tests pass** — the new test and all existing tests
+2. **`bun run check` passes** — type correctness across all apps
+3. **`bun run build` passes** — Vite bundling, SSR, imports
+4. **Convex sync** — if any files under `convex/` were modified, run `npx convex dev --once` and confirm it succeeds
+5. **Page loads** — read `DEV_TUNNEL_URL` from `.env.local`, fetch affected page route(s), confirm HTTP 200
+
+**If any validation fails, fix the issue before proceeding to the next cycle. Do NOT report success until all validations pass.**
+
 ## Checklist Per Cycle
 
 ```
@@ -93,6 +105,10 @@ Rules:
 [ ] Test would survive internal refactor
 [ ] Code is minimal for this test
 [ ] No speculative features added
+[ ] bun run check passes
+[ ] bun run build passes
+[ ] If convex/ files changed, npx convex dev --once succeeds
+[ ] Affected page(s) return 200 via DEV_TUNNEL_URL
 ```
 
 ## Step Summary
