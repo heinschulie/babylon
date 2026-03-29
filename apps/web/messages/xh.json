@@ -208,7 +208,7 @@
   "practice_vocab_go": "[TODO] Browse Sets",
   "test_timeline_loading": "Ilayisha imbali yemvavanyo...",
   "test_timeline_empty": "Akukho kuvunyelo lwe-emoji okwangoku",
-  "test_poll_close": "[TODO] Close Poll",
-  "test_poll_closed": "[TODO] Closed",
-  "test_poll_open": "[TODO] Open"
+  "test_poll_close": "Vala Uvotelo",
+  "test_poll_closed": "Kuvaliwe",
+  "test_poll_open": "Ivuliwe"
 }
