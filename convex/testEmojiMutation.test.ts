@@ -30,7 +30,8 @@ describe('testEmojiMutation', () => {
 				sentence: 'The cat wore sunglasses to the job interview',
 				mood: 'chill',
 				userId: 'test-user',
-				createdAt: expect.any(Number)
+				createdAt: expect.any(Number),
+				streakDay: 1
 			});
 
 			// Verify timestamp is reasonable
@@ -96,6 +97,124 @@ describe('testEmojiMutation', () => {
 					userId: 'test-user'
 				})
 			).rejects.toThrow('Invalid emoji: . Must be one of: 😎, 💩, 🔥');
+		});
+
+		it('should set streakDay to 1 for first-ever emoji submission', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'streak-test-user'
+			});
+
+			const record = await t.run(async (ctx) => ctx.db.get(id));
+			expect(record?.streakDay).toBe(1);
+		});
+
+		it('should increment streak for consecutive day submission', async () => {
+			const t = convexTest(schema, modules);
+
+			// Mock timestamps: yesterday and today
+			const todayMs = Date.now();
+			const yesterdayMs = todayMs - 86400000; // 24 hours ago
+
+			// First submission yesterday
+			const originalDateNow = Date.now;
+			Date.now = () => yesterdayMs;
+
+			const id1 = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'consecutive-user'
+			});
+
+			const record1 = await t.run(async (ctx) => ctx.db.get(id1));
+			expect(record1?.streakDay).toBe(1);
+
+			// Second submission today (consecutive day)
+			Date.now = () => todayMs;
+
+			const id2 = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'consecutive-user'
+			});
+
+			const record2 = await t.run(async (ctx) => ctx.db.get(id2));
+			expect(record2?.streakDay).toBe(2);
+
+			// Restore Date.now
+			Date.now = originalDateNow;
+		});
+
+		it('should carry forward streak for same-day submission (no increment)', async () => {
+			const t = convexTest(schema, modules);
+
+			// Mock to same timestamp
+			const fixedTime = Date.now();
+			const originalDateNow = Date.now;
+			Date.now = () => fixedTime;
+
+			// First submission
+			const id1 = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'same-day-user'
+			});
+
+			const record1 = await t.run(async (ctx) => ctx.db.get(id1));
+			expect(record1?.streakDay).toBe(1);
+
+			// Second submission same day
+			const id2 = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'same-day-user'
+			});
+
+			const record2 = await t.run(async (ctx) => ctx.db.get(id2));
+			expect(record2?.streakDay).toBe(1); // Should carry forward, not increment
+
+			// Restore Date.now
+			Date.now = originalDateNow;
+		});
+
+		it('should reset streak to 1 after gap > 1 day', async () => {
+			const t = convexTest(schema, modules);
+
+			// Mock timestamps: 3 days ago, then today (2-day gap)
+			const todayMs = Date.now();
+			const threeDaysAgoMs = todayMs - 3 * 86400000; // 72 hours ago
+
+			// First submission 3 days ago
+			const originalDateNow = Date.now;
+			Date.now = () => threeDaysAgoMs;
+
+			const id1 = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'gap-user'
+			});
+
+			const record1 = await t.run(async (ctx) => ctx.db.get(id1));
+			expect(record1?.streakDay).toBe(1);
+
+			// Second submission today (after gap)
+			Date.now = () => todayMs;
+
+			const id2 = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'gap-user'
+			});
+
+			const record2 = await t.run(async (ctx) => ctx.db.get(id2));
+			expect(record2?.streakDay).toBe(1); // Should reset to 1, not increment
+
+			// Restore Date.now
+			Date.now = originalDateNow;
 		});
 
 		it('should create multiple records for same emoji', async () => {
@@ -360,6 +479,64 @@ describe('testEmojiMutation', () => {
 			expect(result[0]).toEqual({ emoji: '😎', count: 3 });
 			expect(result[1]).toEqual({ emoji: '💩', count: 2 });
 			expect(result[2]).toEqual({ emoji: '🔥', count: 1 });
+		});
+	});
+
+	describe('getUserStreak', () => {
+		it('should return correct streak for user with submissions', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create a submission with streak
+			const id = await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'streak-query-user'
+			});
+
+			const result = await t.query(api.testEmojiMutation.getUserStreak, {
+				userId: 'streak-query-user'
+			});
+
+			expect(result).toEqual({ streak: 1 });
+		});
+
+		it('should return { streak: 0 } for user with no submissions', async () => {
+			const t = convexTest(schema, modules);
+
+			const result = await t.query(api.testEmojiMutation.getUserStreak, {
+				userId: 'non-existent-user'
+			});
+
+			expect(result).toEqual({ streak: 0 });
+		});
+
+		it('should handle multiple users independently', async () => {
+			const t = convexTest(schema, modules);
+
+			// User 1 gets a streak of 1
+			await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'user1'
+			});
+
+			// User 2 gets a streak of 1 (independent)
+			await t.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'user2'
+			});
+
+			const user1Streak = await t.query(api.testEmojiMutation.getUserStreak, {
+				userId: 'user1'
+			});
+
+			const user2Streak = await t.query(api.testEmojiMutation.getUserStreak, {
+				userId: 'user2'
+			});
+
+			expect(user1Streak).toEqual({ streak: 1 });
+			expect(user2Streak).toEqual({ streak: 1 });
 		});
 	});
 });

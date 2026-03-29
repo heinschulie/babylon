@@ -217,5 +217,6 @@
   "test_no_activity": "[TODO] No activity yet",
   "test_emoji_submitted": "[TODO] submitted",
   "test_new_poll": "[TODO] New poll",
-  "test_vote_cast": "[TODO] Vote on poll"
+  "test_vote_cast": "[TODO] Vote on poll",
+  "test_streak_label": "[TODO] Streak"
 }

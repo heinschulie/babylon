@@ -6,6 +6,7 @@
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
+	import { Flame } from '@lucide/svelte';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 
 	let dialogOpen = $state(false);
@@ -20,6 +21,7 @@
 		mood: activeMoodFilter ?? undefined
 	}));
 	const polls = useQuery(api.testPollMutation.listPolls);
+	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -126,7 +128,18 @@
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
-	<button onclick={() => dialogOpen = true}>Test Emoji</button>
+	<div class="flex items-center gap-3 p-4">
+		<button onclick={() => dialogOpen = true}>Test Emoji</button>
+
+		<!-- Streak Badge -->
+		{#if userStreak.data && userStreak.data.streak >= 1}
+			<div class="flex items-center gap-1 bg-orange-100 text-orange-800 px-3 py-1 rounded-full">
+				<Flame size={16} />
+				<span class="text-sm font-medium">{userStreak.data.streak}</span>
+				<span class="text-sm">{m.test_streak_label()}</span>
+			</div>
+		{/if}
+	</div>
 
 	<Dialog.Root open={dialogOpen} onOpenChange={(open) => dialogOpen = open}>
 		<Dialog.Content>

@@ -217,5 +217,6 @@
   "test_no_activity": "No activity yet",
   "test_emoji_submitted": "submitted",
   "test_new_poll": "New poll",
-  "test_vote_cast": "Vote on poll"
+  "test_vote_cast": "Vote on poll",
+  "test_streak_label": "Streak"
 }
