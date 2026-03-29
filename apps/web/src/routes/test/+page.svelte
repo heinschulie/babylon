@@ -37,7 +37,7 @@
 	const moods: Mood[] = ['chill', 'angry', 'happy'] as const;
 
 	// $derived computations for mood analysis
-	const moodCounts = $derived(() => {
+	const moodCounts = $derived.by(() => {
 		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
 
 		return recentEmojis.data.reduce(
@@ -49,7 +49,7 @@
 		);
 	});
 
-	const filteredEmojis = $derived(() => {
+	const filteredEmojis = $derived.by(() => {
 		if (!recentEmojis.data) return [];
 		if (!activeMoodFilter) return recentEmojis.data;
 		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
@@ -59,7 +59,7 @@
 		activeMoodFilter = activeMoodFilter === mood ? null : mood;
 	}
 
-	const moodSummary = $derived(() => {
+	const moodSummary = $derived.by(() => {
 		const counts = moodCounts();
 		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
 	});
