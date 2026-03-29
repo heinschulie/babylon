@@ -274,7 +274,7 @@ describe('/test route', () => {
 
 		it('should show individual timeline entries with emoji and mood badge', () => {
 			// Timeline entries should display individual submissions (filtered)
-			expect(content).toContain('{#each filteredEmojis() as entry (entry._id)}');  // Should iterate over filtered timeline data
+			expect(content).toContain('{#each filteredEmojis as entry (entry._id)}');  // Should iterate over filtered timeline data
 			expect(content).toContain('{entry.emoji}');  // Should display emoji from entry
 			expect(content).toContain('entry.mood');   // Should use mood for badge color
 		});
@@ -491,7 +491,7 @@ describe('/test route', () => {
 
 		it('should render clickable tag buttons in tag cloud', () => {
 			// Tag cloud tags should also be clickable to filter
-			expect(content).toContain('{#each tagCloudWithSizes() as tagData}');
+			expect(content).toContain('{#each tagCloudWithSizes as tagData}');
 			expect(content).toContain('onclick={() => handleTagClick(tagData.tag)}');
 		});
 

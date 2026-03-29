@@ -86,8 +86,9 @@ describe('Voting UI - Behavior Tests', () => {
 		expect(content).toContain('m.test_poll_closed()');
 		// Check for conditional rendering based on poll.closedAt
 		expect(content).toContain('{#if poll.closedAt}');
-		// Check for badge styling
-		expect(content).toContain('bg-gray-100 text-gray-600');
+		// Check for Badge component instead of raw span
+		expect(content).toContain('<Badge variant="secondary">');
+		expect(content).toContain('m.test_poll_closed()');
 	});
 
 	it('should hide vote buttons on closed polls (closedAt is set)', () => {

@@ -66,7 +66,7 @@
 	}
 
 	const moodSummary = $derived.by(() => {
-		const counts = moodCounts();
+		const counts = moodCounts;
 		return `${counts.chill} chill · ${counts.angry} angry · ${counts.happy} happy`;
 	});
 
@@ -334,11 +334,11 @@
 			<h3 class="text-lg font-semibold mb-4">{m.test_tag_cloud_title()}</h3>
 			{#if tagCloud.isLoading}
 				<div>Loading tag cloud...</div>
-			{:else if !tagCloudWithSizes() || tagCloudWithSizes().length === 0}
+			{:else if !tagCloudWithSizes || tagCloudWithSizes.length === 0}
 				<div class="text-gray-500">{m.test_no_tags_yet()}</div>
 			{:else}
 				<div class="flex flex-wrap gap-3">
-					{#each tagCloudWithSizes() as tagData}
+					{#each tagCloudWithSizes as tagData}
 						<button
 							onclick={() => handleTagClick(tagData.tag)}
 							class="hover:bg-gray-100 px-2 py-1 rounded transition-colors"
@@ -396,16 +396,16 @@
 		{:else if !recentEmojis.data || recentEmojis.data.length === 0}
 			<div>No emoji submissions yet</div>
 		{:else}
-			<div>{moodSummary()}</div>
+			<div>{moodSummary}</div>
 			<div class="flex flex-wrap gap-2">
-				{#each moods.filter((m) => moodCounts()[m] > 0) as mood (mood)}
-					<Badge variant="secondary">{mood} ({moodCounts()[mood]})</Badge>
+				{#each moods.filter((m) => moodCounts[m] > 0) as mood (mood)}
+					<Badge variant="secondary">{mood} ({moodCounts[mood]})</Badge>
 				{/each}
 			</div>
 
 			<!-- Individual timeline entries (filtered by activeMoodFilter) -->
 			<div>
-				{#each filteredEmojis() as entry (entry._id)}
+				{#each filteredEmojis as entry (entry._id)}
 					<div class="flex items-center gap-2 mb-2">
 						<span class="text-2xl">{entry.emoji}</span>
 						<Badge variant="secondary">{entry.mood}</Badge>
