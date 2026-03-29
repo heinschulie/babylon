@@ -212,5 +212,10 @@
   "test_poll_closed": "Kuvaliwe",
   "test_poll_open": "Ivuliwe",
   "test_tags_label": "[TODO] Tags",
-  "test_tags_placeholder": "[TODO] Add tags (comma-separated)"
+  "test_tags_placeholder": "[TODO] Add tags (comma-separated)",
+  "test_activity_feed_title": "[TODO] Activity Feed",
+  "test_no_activity": "[TODO] No activity yet",
+  "test_emoji_submitted": "[TODO] submitted",
+  "test_new_poll": "[TODO] New poll",
+  "test_vote_cast": "[TODO] Vote on poll"
 }

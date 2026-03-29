@@ -6,6 +6,7 @@
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
+	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -363,6 +364,9 @@
 			</div>
 		{/if}
 	</section>
+
+	<!-- Activity Feed section -->
+	<ActivityFeed />
 
 	<h1 class="text-[150px]">christ on a pogostick</h1>
 

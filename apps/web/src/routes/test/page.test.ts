@@ -413,4 +413,30 @@ describe('/test route', () => {
 			expect(content).toContain('No polls exist');
 		});
 	});
+
+	// Activity Feed integration tests
+	describe('activity feed integration', () => {
+		it('should import ActivityFeed component', () => {
+			expect(content).toContain("import ActivityFeed from '$lib/components/ActivityFeed.svelte'");
+		});
+
+		it('should render ActivityFeed component between sentiment timeline and gallery', () => {
+			// ActivityFeed should be positioned after sentiment timeline section
+			const sentimentIndex = content.indexOf('Sentiment Timeline');
+			const activityFeedIndex = content.indexOf('<ActivityFeed');
+			const galleryIndex = content.indexOf('christ on a pogostick'); // Gallery heading
+
+			expect(sentimentIndex).toBeGreaterThan(-1);
+			expect(activityFeedIndex).toBeGreaterThan(-1);
+			expect(galleryIndex).toBeGreaterThan(-1);
+
+			// ActivityFeed should come after sentiment timeline and before gallery
+			expect(activityFeedIndex).toBeGreaterThan(sentimentIndex);
+			expect(galleryIndex).toBeGreaterThan(activityFeedIndex);
+		});
+
+		it('should render ActivityFeed as self-closing component', () => {
+			expect(content).toContain('<ActivityFeed />');
+		});
+	});
 });

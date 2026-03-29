@@ -212,5 +212,10 @@
   "test_poll_closed": "Closed",
   "test_poll_open": "Open",
   "test_tags_label": "Tags",
-  "test_tags_placeholder": "Add tags (comma-separated)"
+  "test_tags_placeholder": "Add tags (comma-separated)",
+  "test_activity_feed_title": "Activity Feed",
+  "test_no_activity": "No activity yet",
+  "test_emoji_submitted": "submitted",
+  "test_new_poll": "New poll",
+  "test_vote_cast": "Vote on poll"
 }
