@@ -25,6 +25,7 @@ import type * as http from "../http.js";
 import type * as humanReviews from "../humanReviews.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_billing from "../lib/billing.js";
+import type * as lib_emojiConfig from "../lib/emojiConfig.js";
 import type * as lib_fetchWithTimeout from "../lib/fetchWithTimeout.js";
 import type * as lib_languages from "../lib/languages.js";
 import type * as lib_payfast from "../lib/payfast.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   humanReviews: typeof humanReviews;
   "lib/auth": typeof lib_auth;
   "lib/billing": typeof lib_billing;
+  "lib/emojiConfig": typeof lib_emojiConfig;
   "lib/fetchWithTimeout": typeof lib_fetchWithTimeout;
   "lib/languages": typeof lib_languages;
   "lib/payfast": typeof lib_payfast;

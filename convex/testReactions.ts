@@ -1,11 +1,6 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
-
-const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
-	'😎': { sentence: 'The cat wore sunglasses to the job interview', mood: 'chill' },
-	'💩': { sentence: 'Someone left a flaming bag on the porch again', mood: 'angry' },
-	'🔥': { sentence: 'The server room is fine, everything is fine', mood: 'happy' },
-};
+import { EMOJI_CONFIG, countByEmoji } from './lib/emojiConfig';
 
 export const addReaction = mutation({
 	args: {
@@ -43,21 +38,11 @@ export const getReactionCounts = query({
 		parentId: v.id('testTable'),
 	},
 	handler: async (ctx, { parentId }) => {
-		// Get all reactions for this parent
 		const reactions = await ctx.db
 			.query('testTable')
 			.withIndex('by_parentId', (q) => q.eq('parentId', parentId))
 			.collect();
 
-		// Count by emoji
-		const counts = new Map<string, number>();
-		for (const reaction of reactions) {
-			counts.set(reaction.emoji, (counts.get(reaction.emoji) ?? 0) + 1);
-		}
-
-		// Convert to array and sort descending by count
-		return Array.from(counts.entries())
-			.map(([emoji, count]) => ({ emoji, count }))
-			.sort((a, b) => b.count - a.count);
+		return countByEmoji(reactions);
 	},
 });

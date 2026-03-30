@@ -1,13 +1,6 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
-
-const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
-	'😎': { sentence: 'The cat wore sunglasses to the job interview', mood: 'chill' },
-	'💩': { sentence: 'Someone left a flaming bag on the porch again', mood: 'angry' },
-	'🔥': { sentence: 'The server room is fine, everything is fine', mood: 'happy' },
-};
-
-const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
+import { EMOJI_CONFIG, VALID_EMOJIS, countByEmoji } from './lib/emojiConfig';
 const MAX_RECENT_ENTRIES = 20;
 const MS_PER_DAY = 86400000;
 
@@ -29,16 +22,6 @@ function computeStreakDay(
 	return 1; // gap > 1 day — reset
 }
 
-/** Group entries by emoji and return sorted counts (descending, alphabetical tiebreak). */
-function countByEmoji(entries: Array<{ emoji: string }>): Array<{ emoji: string; count: number }> {
-	const counts = new Map<string, number>();
-	for (const { emoji } of entries) {
-		counts.set(emoji, (counts.get(emoji) ?? 0) + 1);
-	}
-	return Array.from(counts.entries())
-		.map(([emoji, count]) => ({ emoji, count }))
-		.sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji));
-}
 
 export const submitEmoji = mutation({
 	args: {
