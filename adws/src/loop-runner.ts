@@ -245,6 +245,7 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
         },
         complexity,
         baseSha,
+        parentIssueNumber,
       };
 
       // ─── Execute pipeline ───────────────────────────────────────────

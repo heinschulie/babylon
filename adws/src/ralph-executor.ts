@@ -149,7 +149,10 @@ export function createRalphExecutor(adwId: string): StepExecutor {
                 `## Dependencies`,
                 blockerLine,
               ].join("\n");
-              const sub = await createSubIssue(context.issue.number, subTitle, subBody, ["auto-fix"]);
+              const sub = await createSubIssue(
+                context.parentIssueNumber ?? context.issue.number,
+                subTitle, subBody, ["auto-fix"]
+              );
               reviewSubIssues.push(sub.number);
               logger.info(`Created review sub-issue #${sub.number}: ${subTitle}`);
             } catch (e) {

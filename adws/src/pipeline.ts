@@ -52,7 +52,7 @@ export const PipelineDefinitionSchema = z.array(StepDefinitionSchema);
 export type PipelineDefinition = z.infer<typeof PipelineDefinitionSchema>;
 
 /** Base context fields always available to every step (provided by the loop runner). */
-export const BASE_CONTEXT_KEYS = ["issue", "complexity", "baseSha"] as const;
+export const BASE_CONTEXT_KEYS = ["issue", "complexity", "baseSha", "parentIssueNumber"] as const;
 
 // ─── Pipeline Context ──────────────────────────────────────────────────────────
 
@@ -67,6 +67,7 @@ export const PipelineContextSchema = z.object({
   }),
   complexity: z.enum(["trivial", "standard", "complex"]),
   baseSha: z.string(),
+  parentIssueNumber: z.number().optional(),
 
   // Step outputs (optional — filled as pipeline progresses)
   expertAdvice: z.string().optional(),
