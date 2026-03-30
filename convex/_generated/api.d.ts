@@ -40,6 +40,7 @@ import type * as practiceSessions from "../practiceSessions.js";
 import type * as preferences from "../preferences.js";
 import type * as sessions from "../sessions.js";
 import type * as testActivityFeed from "../testActivityFeed.js";
+import type * as testEmojiConfig from "../testEmojiConfig.js";
 import type * as testEmojiMutation from "../testEmojiMutation.js";
 import type * as testPollMutation from "../testPollMutation.js";
 import type * as testPollTags from "../testPollTags.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   preferences: typeof preferences;
   sessions: typeof sessions;
   testActivityFeed: typeof testActivityFeed;
+  testEmojiConfig: typeof testEmojiConfig;
   testEmojiMutation: typeof testEmojiMutation;
   testPollMutation: typeof testPollMutation;
   testPollTags: typeof testPollTags;
