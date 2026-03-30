@@ -29,6 +29,7 @@
 	);
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
+	const userAchievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -87,6 +88,8 @@
 	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
+			// Fire-and-forget achievement check after successful submission
+			client.mutation(api.testAchievements.checkAndUnlockAchievements, { userId: "test-user" });
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -125,6 +128,8 @@
 				option,
 				userId: "test-user"
 			});
+			// Fire-and-forget achievement check after successful vote
+			client.mutation(api.testAchievements.checkAndUnlockAchievements, { userId: "test-user" });
 		} catch (error) {
 			console.error('Failed to cast vote:', error);
 		}
@@ -397,6 +402,31 @@
 					</li>
 				{/each}
 			</ol>
+		{/if}
+	</section>
+
+	<!-- Achievements section -->
+	<section class="p-4">
+		<h2>Achievements</h2>
+		{#if userAchievements.isLoading}
+			<div>Loading achievements...</div>
+		{:else if !userAchievements.data || userAchievements.data.length === 0}
+			<div>No achievements yet — keep submitting!</div>
+		{:else}
+			<div class="space-y-3">
+				{#each userAchievements.data as achievement (achievement.type)}
+					<Card.Root>
+						<Card.Content class="flex items-center justify-between p-4">
+							<div class="flex items-center gap-3">
+								<Badge variant="secondary">{achievement.title}</Badge>
+								<span class="text-sm text-gray-600">
+									{formatRelativeTime(achievement.unlockedAt)}
+								</span>
+							</div>
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			</div>
 		{/if}
 	</section>
 
