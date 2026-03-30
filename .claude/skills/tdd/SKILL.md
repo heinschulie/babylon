@@ -57,7 +57,9 @@ Also consider:
 - Opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
 - [Interface design](interface-design.md) for testability
 
-**You can't test everything.** Focus testing effort on the behaviors listed in the issue body, prioritized as given.
+**The Behaviors to Test list is your complete work order.** You MUST implement every behavior in the list, top-to-bottom. Backend behaviors AND frontend behaviors. If the list has 12 items, you implement 12 items — not 7. Skipping behaviors is not allowed. If you cannot implement a behavior, your status is `fail`.
+
+**Frontend behaviors are real work.** A behavior like "[Frontend] Reaction bar renders below each emoji entry" means you write the Svelte component code, wire the query, and verify it renders. It does not mean "acknowledge it exists and move on." Frontend behaviors require the same RED→GREEN cycle as backend behaviors: write a test (or verify visually via page load), then write the component code to make it pass.
 
 ### 2. Tracer Bullet
 
@@ -110,6 +112,15 @@ GREEN means ALL of these pass — not just the test:
 [ ] Affected page(s) return 200 via DEV_TUNNEL_URL
 ```
 
+## Completion Gate
+
+Before reporting status, count the behaviors in the issue's "Behaviors to Test" list and count how many you implemented. If these numbers don't match, you are not done.
+
+- **All behaviors implemented** → status: pass
+- **Any behavior skipped or unimplemented** → status: fail
+
+Do NOT report pass with "remaining frontend behaviors" or "frontend work left for follow-up." There is no follow-up. This is the only chance.
+
 ## Step Summary
 
 IMPORTANT: You MUST end your output with this exact block. Fill in each field with a single line.
@@ -121,3 +132,4 @@ IMPORTANT: You MUST end your output with this exact block. Fill in each field wi
 - decision: <one line -- key choice and why>
 - blockers: <one line, or "none">
 - files_changed: <comma-separated list, or "none">
+- behaviors_completed: <N/M — e.g. "12/12" or "7/12">

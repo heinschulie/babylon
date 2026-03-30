@@ -17,6 +17,7 @@ PRD_REF: $ARGUMENTS
 
 - Each slice must cut through ALL layers end-to-end (schema, API, UI, tests) — never horizontal layer slices
 - **Behaviors to Test is the TDD agent's sole work order** — if a slice touches frontend, frontend behaviors MUST appear in the Behaviors to Test list, not only in Acceptance Criteria. Backend-only Behaviors to Test on a full-stack slice guarantees the frontend won't be built.
+- **Interleave backend and frontend behaviors by feature, not by layer.** Do NOT list all backend behaviors first and all frontend behaviors last — this causes the TDD agent to complete backend, feel "done," and skip frontend. Instead, group by feature: backend behavior → its frontend wiring → next feature's backend → its frontend wiring. Example: "addReaction creates entry" → "clicking reaction badge calls addReaction" → "getReactionCounts returns grouped counts" → "reaction bar displays Badge components with counts."
 - A completed slice must be demoable or verifiable on its own
 - Prefer many thin slices over few thick ones
 - Slices are either HITL (requires human interaction like arch decision or design review) or AFK (can be implemented and merged without human interaction) — prefer AFK
@@ -72,14 +73,17 @@ Public API, function signatures, types, and data structures this slice introduce
 
 ## Behaviors to Test (prioritized)
 
-1. [Backend] Most critical backend behavior — describe expected input/output
-2. [Backend] Next most critical backend behavior
-3. ...
-N. [Frontend] UI renders correct state when backend returns data
-N+1. [Frontend] User interaction triggers correct backend call
-N+2. [Frontend] Empty/error states display correctly
+Interleave by feature — do NOT group all backend first, all frontend last:
 
-Order matters — a TDD agent will work through these top-to-bottom. This list is the COMPLETE work order. If a slice touches frontend, frontend behaviors MUST appear here (not only in Acceptance Criteria).
+1. [Backend] Feature A core behavior — describe expected input/output
+2. [Frontend] Feature A wiring — UI calls backend and renders result
+3. [Backend] Feature B core behavior — describe expected input/output
+4. [Frontend] Feature B wiring — UI calls backend and renders result
+5. [Frontend] Empty/error states display correctly
+
+**Total: N behaviors (X backend, Y frontend)** ← include this count line
+
+Order matters — a TDD agent will work through these top-to-bottom. This list is the COMPLETE work order — every item is mandatory. If a slice touches frontend, frontend behaviors MUST appear here (not only in Acceptance Criteria). Interleaving forces the agent to context-switch between layers instead of treating frontend as a skippable tail.
 
 ## Mocking Boundaries
 
