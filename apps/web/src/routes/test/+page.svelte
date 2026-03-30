@@ -10,6 +10,24 @@
 	import { Flame } from '@lucide/svelte';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
+	// Simple toast system for now - will integrate proper Sonner later
+	interface Toast {
+		id: number;
+		message: string;
+	}
+
+	let toasts = $state<Toast[]>([]);
+
+	function showToast(message: string) {
+		const id = Date.now();
+		const toast: Toast = { id, message };
+		toasts.push(toast);
+
+		// Auto-remove toast after 3 seconds
+		setTimeout(() => {
+			toasts = toasts.filter(t => t.id !== id);
+		}, 3000);
+	}
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -87,6 +105,17 @@
 	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
+
+			// Check for newly unlocked achievements
+			const newlyUnlocked = await client.mutation(api.testAchievements.checkAndUnlockAchievements, {
+				userId: "test-user"
+			});
+
+			// Fire toast for each newly unlocked achievement
+			for (const achievement of newlyUnlocked) {
+				showToast(`🏆 ${achievement.title} unlocked!`);
+			}
+
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -125,6 +154,16 @@
 				option,
 				userId: "test-user"
 			});
+
+			// Check for newly unlocked achievements
+			const newlyUnlocked = await client.mutation(api.testAchievements.checkAndUnlockAchievements, {
+				userId: "test-user"
+			});
+
+			// Fire toast for each newly unlocked achievement
+			for (const achievement of newlyUnlocked) {
+				showToast(`🏆 ${achievement.title} unlocked!`);
+			}
 		} catch (error) {
 			console.error('Failed to cast vote:', error);
 		}
@@ -140,6 +179,16 @@
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
+	<!-- Simple Toast Container -->
+	{#if toasts.length > 0}
+		<div class="fixed top-4 right-4 z-50 space-y-2">
+			{#each toasts as toast (toast.id)}
+				<div class="bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
+					{toast.message}
+				</div>
+			{/each}
+		</div>
+	{/if}
 	<div class="flex items-center gap-3 p-4">
 		<button onclick={() => dialogOpen = true}>Test Emoji</button>
 

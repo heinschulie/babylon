@@ -28,6 +28,7 @@
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/vite": "^4.1.18",
 		"@testing-library/svelte": "^5.3.1",
+		"@testing-library/user-event": "^14.6.1",
 		"@types/node": "^25.0.10",
 		"@types/spark-md5": "^3.0.5",
 		"@types/web-push": "^3.6.4",
@@ -61,6 +62,7 @@
 		"better-auth": "^1.4.9",
 		"convex": "^1.31.6",
 		"convex-svelte": "^0.0.12",
+		"sonner-svelte": "^0.3.3",
 		"spark-md5": "^3.0.2",
 		"web-push": "^3.6.7"
 	}
