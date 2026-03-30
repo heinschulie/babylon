@@ -16,6 +16,7 @@ PRD_REF: $ARGUMENTS
 ## Instructions
 
 - Each slice must cut through ALL layers end-to-end (schema, API, UI, tests) — never horizontal layer slices
+- **Behaviors to Test is the TDD agent's sole work order** — if a slice touches frontend, frontend behaviors MUST appear in the Behaviors to Test list, not only in Acceptance Criteria. Backend-only Behaviors to Test on a full-stack slice guarantees the frontend won't be built.
 - A completed slice must be demoable or verifiable on its own
 - Prefer many thin slices over few thick ones
 - Slices are either HITL (requires human interaction like arch decision or design review) or AFK (can be implemented and merged without human interaction) — prefer AFK
@@ -57,6 +58,13 @@ PRD_REF: $ARGUMENTS
 
 ### Issue Template
 
+**CRITICAL — Behaviors to Test is the TDD agent's sole work order.** A TDD agent will implement ONLY what appears in the Behaviors to Test list, top-to-bottom. If a behavior is not in that list, it will not be built. Therefore:
+
+- Every layer touched by this slice (schema, backend function, frontend component, wiring) MUST have at least one behavior in the list
+- Frontend behaviors are behaviors too: "Clicking X calls Y", "Component renders Z when query returns data", "Empty state shows message W"
+- If the slice touches UI, the LAST behaviors in the list must be frontend integration behaviors that prove the backend is wired to the UI
+- Acceptance Criteria is a review checklist — it does NOT drive implementation. Never put implementation requirements only in Acceptance Criteria.
+
 ```
 ## Interface Specification
 
@@ -64,11 +72,14 @@ Public API, function signatures, types, and data structures this slice introduce
 
 ## Behaviors to Test (prioritized)
 
-1. Most critical behavior — describe expected input/output
-2. Next most critical behavior
+1. [Backend] Most critical backend behavior — describe expected input/output
+2. [Backend] Next most critical backend behavior
 3. ...
+N. [Frontend] UI renders correct state when backend returns data
+N+1. [Frontend] User interaction triggers correct backend call
+N+2. [Frontend] Empty/error states display correctly
 
-Order matters — a TDD agent will work through these top-to-bottom.
+Order matters — a TDD agent will work through these top-to-bottom. This list is the COMPLETE work order. If a slice touches frontend, frontend behaviors MUST appear here (not only in Acceptance Criteria).
 
 ## Mocking Boundaries
 
@@ -77,6 +88,8 @@ What's real vs stubbed in tests for this slice:
 - **Stubbed**: [e.g., external API calls, auth session]
 
 ## Acceptance Criteria
+
+Review checklist — the review step verifies these AFTER implementation. Do not put requirements here that aren't already covered by a Behavior to Test above.
 
 - [ ] Criterion 1
 - [ ] Criterion 2
