@@ -58,8 +58,10 @@ export const getUserAchievements = query({
     const achievements = await ctx.db
       .query('testAchievementTable')
       .withIndex('by_userId', q => q.eq('userId', userId))
-      .order('desc')
       .collect();
+
+    // Sort by unlockedAt descending (most recent first)
+    achievements.sort((a, b) => b.unlockedAt - a.unlockedAt);
 
     return achievements.map(a => ({
       type: a.type,

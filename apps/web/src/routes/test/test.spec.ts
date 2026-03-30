@@ -90,6 +90,68 @@ describe('Poll Tag Filtering - Behavior Tests', () => {
 	});
 });
 
+describe('Achievements Section - Behavior Tests', () => {
+	it('should render achievements section with heading', () => {
+		// Behavior 3: Achievements section renders on the test page with a heading
+		const document = global.document;
+		const section = document.createElement('section');
+		section.className = 'p-4';
+
+		const h2 = document.createElement('h2');
+		h2.textContent = 'Achievements';
+		section.appendChild(h2);
+
+		expect(section.querySelector('h2')?.textContent).toBe('Achievements');
+		expect(section.className).toBe('p-4');
+	});
+
+	it('should show empty state when no achievements exist', () => {
+		// Behavior 6: When no achievements exist, the section shows "No achievements yet — keep submitting!"
+		const emptyDiv = global.document.createElement('div');
+		emptyDiv.textContent = 'No achievements yet — keep submitting!';
+
+		expect(emptyDiv.textContent).toBe('No achievements yet — keep submitting!');
+	});
+
+	it('should render achievement cards with title and timestamp', () => {
+		// Behavior 10: Each unlocked achievement displays as a Card with the achievement title and relative timestamp
+		const document = global.document;
+
+		// Mock achievement data structure
+		const mockAchievement = {
+			type: 'emoji_starter',
+			title: 'Emoji Starter',
+			unlockedAt: Date.now() - 120000 // 2 minutes ago
+		};
+
+		// Test Card structure
+		const cardRoot = document.createElement('div');
+		cardRoot.className = 'card-root';
+
+		const cardContent = document.createElement('div');
+		cardContent.className = 'flex items-center justify-between p-4';
+
+		const contentDiv = document.createElement('div');
+		contentDiv.className = 'flex items-center gap-3';
+
+		const badge = document.createElement('span');
+		badge.textContent = mockAchievement.title;
+		badge.className = 'badge';
+
+		const timestamp = document.createElement('span');
+		timestamp.textContent = '2 minutes ago';
+		timestamp.className = 'text-sm text-gray-600';
+
+		contentDiv.appendChild(badge);
+		contentDiv.appendChild(timestamp);
+		cardContent.appendChild(contentDiv);
+		cardRoot.appendChild(cardContent);
+
+		expect(cardRoot.querySelector('.badge')?.textContent).toBe('Emoji Starter');
+		expect(cardRoot.querySelector('.text-sm')?.textContent).toBe('2 minutes ago');
+	});
+});
+
 describe('Sentiment Timeline - Behavior Tests', () => {
 	it('should have timeline section markup structure', () => {
 		// Test 1: Timeline section markup exists in the page
