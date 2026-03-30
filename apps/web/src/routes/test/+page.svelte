@@ -47,7 +47,8 @@
 		return [];
 	}
 
-	async function handleAchievementUnlock(newlyUnlocked: Achievement[]) {
+	async function handleAchievementUnlock() {
+		const newlyUnlocked = await checkAndUnlockAchievements();
 		for (const achievement of newlyUnlocked) {
 			toast.success(`🏆 ${achievement.title} unlocked!`);
 		}
@@ -106,8 +107,7 @@
 	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
-			const newlyUnlocked = await checkAndUnlockAchievements();
-			await handleAchievementUnlock(newlyUnlocked);
+			await handleAchievementUnlock();
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -146,8 +146,7 @@
 				option,
 				userId: "test-user"
 			});
-			const newlyUnlocked = await checkAndUnlockAchievements();
-			await handleAchievementUnlock(newlyUnlocked);
+			await handleAchievementUnlock();
 		} catch (error) {
 			console.error('Failed to cast vote:', error);
 		}
