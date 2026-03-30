@@ -10,6 +10,7 @@
 	import { Flame } from '@lucide/svelte';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
+	import { toast, Toaster } from 'sonner-svelte';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -33,6 +34,24 @@
 	type Mood = 'chill' | 'angry' | 'happy';
 
 	const moods: Mood[] = ['chill', 'angry', 'happy'] as const;
+
+	// Mock achievement type and function - will be replaced by real implementation from issue #105
+	type Achievement = {
+		title: string;
+		description: string;
+	};
+
+	async function checkAndUnlockAchievements(): Promise<Achievement[]> {
+		// Mock implementation - returns empty array for now
+		// Real implementation will call api.achievements.checkAndUnlock
+		return [];
+	}
+
+	async function handleAchievementUnlock(newlyUnlocked: Achievement[]) {
+		for (const achievement of newlyUnlocked) {
+			toast.success(`🏆 ${achievement.title} unlocked!`);
+		}
+	}
 
 	// $derived computations for mood analysis
 	const moodCounts = $derived.by(() => {
@@ -87,6 +106,8 @@
 	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
+			const newlyUnlocked = await checkAndUnlockAchievements();
+			await handleAchievementUnlock(newlyUnlocked);
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -125,6 +146,8 @@
 				option,
 				userId: "test-user"
 			});
+			const newlyUnlocked = await checkAndUnlockAchievements();
+			await handleAchievementUnlock(newlyUnlocked);
 		} catch (error) {
 			console.error('Failed to cast vote:', error);
 		}
@@ -138,6 +161,8 @@
 		}
 	}
 </script>
+
+<Toaster />
 
 <div class="bg-[#E1261C] min-h-[100vh]">
 	<div class="flex items-center gap-3 p-4">
