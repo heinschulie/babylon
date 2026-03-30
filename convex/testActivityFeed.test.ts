@@ -309,4 +309,312 @@ describe('testActivityFeed', () => {
 			expect(result[0].timestamp).toBeGreaterThan(result[1].timestamp);
 		});
 	});
+
+	describe('getActivityFeed with reactions and achievements', () => {
+		it('should return all 5 event types merged and sorted by timestamp desc', async () => {
+			const t = convexTest(schema, modules);
+			const baseTime = Date.now();
+
+			// 1. emoji entry (no pollId, no parentId)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Cool',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: baseTime - 5000,
+				});
+			});
+
+			// 2. poll entry
+			const pollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Fav color?',
+					options: ['red', 'blue'],
+					createdAt: baseTime - 4000,
+				});
+			});
+
+			// 3. vote entry (testTable with pollId)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'Fire',
+					mood: 'happy',
+					userId: 'user2',
+					pollId,
+					createdAt: baseTime - 3000,
+				});
+			});
+
+			// 4. reaction entry (testTable with parentId, no pollId)
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '💩',
+					sentence: 'Parent',
+					mood: 'angry',
+					userId: 'user3',
+					createdAt: baseTime - 6000,
+				});
+			});
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Reaction',
+					mood: 'chill',
+					userId: 'user4',
+					parentId,
+					createdAt: baseTime - 2000,
+				});
+			});
+
+			// 5. achievement entry
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: baseTime - 1000,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+
+			// Should contain all 5 types (parent emoji counts as an extra emoji)
+			const types = result.map((e: { type: string }) => e.type);
+			expect(types).toContain('emoji');
+			expect(types).toContain('poll');
+			expect(types).toContain('vote');
+			expect(types).toContain('reaction');
+			expect(types).toContain('achievement');
+
+			// Should be sorted by timestamp desc
+			for (let i = 0; i < result.length - 1; i++) {
+				expect(result[i].timestamp).toBeGreaterThanOrEqual(result[i + 1].timestamp);
+			}
+		});
+
+		it('should return only reaction events when filterType=reaction', async () => {
+			const t = convexTest(schema, modules);
+			const baseTime = Date.now();
+
+			// Create a parent emoji
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Parent',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: baseTime - 3000,
+				});
+			});
+
+			// Reaction
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'React',
+					mood: 'happy',
+					userId: 'user2',
+					parentId,
+					createdAt: baseTime - 2000,
+				});
+			});
+
+			// Pure emoji (should be excluded)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '💩',
+					sentence: 'Pure',
+					mood: 'angry',
+					userId: 'user3',
+					createdAt: baseTime - 1000,
+				});
+			});
+
+			// Achievement (should be excluded)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: baseTime,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'reaction',
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].type).toBe('reaction');
+			expect(result[0].data.parentId).toBe(parentId);
+		});
+
+		it('should return only achievement events when filterType=achievement', async () => {
+			const t = convexTest(schema, modules);
+			const baseTime = Date.now();
+
+			// Emoji (should be excluded)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Cool',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: baseTime - 2000,
+				});
+			});
+
+			// Two achievements
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: baseTime - 1000,
+				});
+				await ctx.db.insert('testAchievementTable', {
+					type: 'democracy',
+					title: 'Democracy!',
+					userId: 'user1',
+					unlockedAt: baseTime,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'achievement',
+			});
+
+			expect(result).toHaveLength(2);
+			expect(result.every((e: { type: string }) => e.type === 'achievement')).toBe(true);
+			// Sorted desc
+			expect(result[0].timestamp).toBeGreaterThan(result[1].timestamp);
+		});
+
+		it('should exclude reactions when filterType=emoji', async () => {
+			const t = convexTest(schema, modules);
+			const baseTime = Date.now();
+
+			// Pure emoji
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Pure emoji',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: baseTime - 2000,
+				});
+			});
+
+			// Reaction (has parentId — should be excluded)
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '💩',
+					sentence: 'Parent',
+					mood: 'angry',
+					userId: 'user2',
+					createdAt: baseTime - 3000,
+				});
+			});
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'Reaction',
+					mood: 'happy',
+					userId: 'user3',
+					parentId,
+					createdAt: baseTime - 1000,
+				});
+			});
+
+			// Vote (has pollId — should be excluded)
+			const pollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Test?',
+					options: ['a', 'b'],
+					createdAt: baseTime - 4000,
+				});
+			});
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Vote',
+					mood: 'chill',
+					userId: 'user4',
+					pollId,
+					createdAt: baseTime,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'emoji',
+			});
+
+			// Only the 2 pure emojis (parent + standalone), not the reaction or vote
+			expect(result).toHaveLength(2);
+			expect(result.every((e: { type: string }) => e.type === 'emoji')).toBe(true);
+		});
+
+		it('should have correct data shape for reaction events', async () => {
+			const t = convexTest(schema, modules);
+
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Parent',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: Date.now() - 2000,
+				});
+			});
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'React',
+					mood: 'happy',
+					userId: 'user2',
+					parentId,
+					createdAt: Date.now(),
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'reaction',
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].data).toMatchObject({
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'user2',
+				parentId,
+			});
+		});
+
+		it('should have correct data shape for achievement events', async () => {
+			const t = convexTest(schema, modules);
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testAchievementTable', {
+					type: 'social_butterfly',
+					title: 'Social Butterfly',
+					userId: 'user1',
+					unlockedAt: Date.now(),
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'achievement',
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].data).toMatchObject({
+				type: 'social_butterfly',
+				title: 'Social Butterfly',
+				userId: 'user1',
+			});
+		});
+	});
 });

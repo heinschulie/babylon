@@ -221,5 +221,13 @@
   "test_streak_label": "[TODO] Streak",
   "test_clear_tag_filter": "[TODO] Clear filter",
   "test_tag_cloud_title": "[TODO] Tag Cloud",
-  "test_no_tags_yet": "[TODO] No tags yet"
+  "test_no_tags_yet": "[TODO] No tags yet",
+  "test_filter_all": "[TODO] All",
+  "test_filter_emojis": "[TODO] Emojis",
+  "test_filter_polls": "[TODO] Polls",
+  "test_filter_votes": "[TODO] Votes",
+  "test_filter_reactions": "[TODO] Reactions",
+  "test_filter_achievements": "[TODO] Achievements",
+  "test_reaction_to": "[TODO] reacted",
+  "test_achievement_unlocked": "[TODO] unlocked"
 }
