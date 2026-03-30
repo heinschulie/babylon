@@ -221,5 +221,13 @@
   "test_streak_label": "Streak",
   "test_clear_tag_filter": "Clear filter",
   "test_tag_cloud_title": "Tag Cloud",
-  "test_no_tags_yet": "No tags yet"
+  "test_no_tags_yet": "No tags yet",
+  "test_filter_all": "All",
+  "test_filter_emojis": "Emojis",
+  "test_filter_polls": "Polls",
+  "test_filter_votes": "Votes",
+  "test_filter_reactions": "Reactions",
+  "test_filter_achievements": "Achievements",
+  "test_reaction_to": "reacted",
+  "test_achievement_unlocked": "unlocked"
 }
