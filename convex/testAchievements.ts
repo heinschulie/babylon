@@ -2,13 +2,69 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
 
-const ACHIEVEMENT_DEFS = {
-  emoji_starter: { title: 'Emoji Starter', threshold: 5 },
-  emoji_pro: { title: 'Emoji Pro', threshold: 25 },
-  democracy: { title: 'Democracy!', threshold: 1 },
-  social_butterfly: { title: 'Social Butterfly', threshold: 5 },
-  poll_creator: { title: 'Poll Creator', threshold: 3 },
+type CountCategory = 'emoji' | 'pollVote' | 'reaction' | 'pollCreated';
+
+const ACHIEVEMENT_DEFS: Record<
+  string,
+  { title: string; threshold: number; category: CountCategory }
+> = {
+  emoji_starter: { title: 'Emoji Starter', threshold: 5, category: 'emoji' },
+  emoji_pro: { title: 'Emoji Pro', threshold: 25, category: 'emoji' },
+  democracy: { title: 'Democracy!', threshold: 1, category: 'pollVote' },
+  social_butterfly: { title: 'Social Butterfly', threshold: 5, category: 'reaction' },
+  poll_creator: { title: 'Poll Creator', threshold: 3, category: 'pollCreated' },
 };
+
+/** Fetch per-category activity counts from testTable in a single query. */
+async function getCategoryCounts(
+  ctx: { db: any },
+  userId: string,
+): Promise<Record<CountCategory, number>> {
+  const entries = await ctx.db
+    .query('testTable')
+    .withIndex('by_userId_createdAt', (q: any) => q.eq('userId', userId))
+    .collect();
+
+  const counts: Record<CountCategory, number> = { emoji: 0, pollVote: 0, reaction: 0, pollCreated: 0 };
+  for (const entry of entries) {
+    if (entry.parentId !== undefined) {
+      counts.reaction++;
+    } else if (entry.pollId !== undefined) {
+      counts.pollVote++;
+    } else {
+      counts.emoji++;
+    }
+  }
+
+  // poll_creator counts polls created, not votes — requires separate query
+  // (polls are in a different table, not testTable entries)
+  // For now, pollCreated stays 0 until poll creation tracking is wired
+  return counts;
+}
+
+/** Check threshold and idempotently unlock a single achievement. */
+async function tryUnlock(
+  ctx: { db: any },
+  type: string,
+  title: string,
+  userId: string,
+): Promise<{ type: string; title: string } | null> {
+  const existing = await ctx.db
+    .query('testAchievementTable')
+    .withIndex('by_type_userId', (q: any) => q.eq('type', type).eq('userId', userId))
+    .unique();
+
+  if (existing) return null;
+
+  await ctx.db.insert('testAchievementTable', {
+    type,
+    title,
+    userId,
+    unlockedAt: Date.now(),
+  });
+
+  return { type, title };
+}
 
 export const checkAndUnlockAchievements = mutation({
   args: {
@@ -20,103 +76,13 @@ export const checkAndUnlockAchievements = mutation({
       throw new Error('User must be authenticated');
     }
 
-    // Count emoji entries for this user (parentId = undefined AND pollId = undefined)
-    const emojiEntries = await ctx.db
-      .query('testTable')
-      .withIndex('by_userId_createdAt', (q) => q.eq('userId', userId))
-      .filter((q) => q.and(q.eq(q.field('parentId'), undefined), q.eq(q.field('pollId'), undefined)))
-      .collect();
+    const counts = await getCategoryCounts(ctx, userId);
+    const newAchievements: Array<{ type: string; title: string }> = [];
 
-    const emojiCount = emojiEntries.length;
-
-    // Count poll votes for this user (entries with pollId != undefined)
-    const pollEntries = await ctx.db
-      .query('testTable')
-      .withIndex('by_userId_createdAt', (q) => q.eq('userId', userId))
-      .filter((q) => q.neq(q.field('pollId'), undefined))
-      .collect();
-
-    const pollVoteCount = pollEntries.length;
-
-    // Count reactions for this user (entries with parentId != undefined)
-    const reactionEntries = await ctx.db
-      .query('testTable')
-      .withIndex('by_userId_createdAt', (q) => q.eq('userId', userId))
-      .filter((q) => q.neq(q.field('parentId'), undefined))
-      .collect();
-
-    const reactionCount = reactionEntries.length;
-    const newAchievements = [];
-
-    // Check if emoji_starter threshold is met
-    if (emojiCount >= ACHIEVEMENT_DEFS.emoji_starter.threshold) {
-      // Check if user already has this achievement (idempotency)
-      const existingAchievement = await ctx.db
-        .query('testAchievementTable')
-        .withIndex('by_type_userId', (q) => q.eq('type', 'emoji_starter').eq('userId', userId))
-        .unique();
-
-      if (!existingAchievement) {
-        // Unlock the achievement
-        await ctx.db.insert('testAchievementTable', {
-          type: 'emoji_starter',
-          title: ACHIEVEMENT_DEFS.emoji_starter.title,
-          userId,
-          unlockedAt: Date.now(),
-        });
-
-        newAchievements.push({
-          type: 'emoji_starter',
-          title: ACHIEVEMENT_DEFS.emoji_starter.title,
-        });
-      }
-    }
-
-    // Check if democracy threshold is met
-    if (pollVoteCount >= ACHIEVEMENT_DEFS.democracy.threshold) {
-      // Check if user already has this achievement (idempotency)
-      const existingAchievement = await ctx.db
-        .query('testAchievementTable')
-        .withIndex('by_type_userId', (q) => q.eq('type', 'democracy').eq('userId', userId))
-        .unique();
-
-      if (!existingAchievement) {
-        // Unlock the achievement
-        await ctx.db.insert('testAchievementTable', {
-          type: 'democracy',
-          title: ACHIEVEMENT_DEFS.democracy.title,
-          userId,
-          unlockedAt: Date.now(),
-        });
-
-        newAchievements.push({
-          type: 'democracy',
-          title: ACHIEVEMENT_DEFS.democracy.title,
-        });
-      }
-    }
-
-    // Check if social_butterfly threshold is met
-    if (reactionCount >= ACHIEVEMENT_DEFS.social_butterfly.threshold) {
-      // Check if user already has this achievement (idempotency)
-      const existingAchievement = await ctx.db
-        .query('testAchievementTable')
-        .withIndex('by_type_userId', (q) => q.eq('type', 'social_butterfly').eq('userId', userId))
-        .unique();
-
-      if (!existingAchievement) {
-        // Unlock the achievement
-        await ctx.db.insert('testAchievementTable', {
-          type: 'social_butterfly',
-          title: ACHIEVEMENT_DEFS.social_butterfly.title,
-          userId,
-          unlockedAt: Date.now(),
-        });
-
-        newAchievements.push({
-          type: 'social_butterfly',
-          title: ACHIEVEMENT_DEFS.social_butterfly.title,
-        });
+    for (const [type, def] of Object.entries(ACHIEVEMENT_DEFS)) {
+      if (counts[def.category] >= def.threshold) {
+        const unlocked = await tryUnlock(ctx, type, def.title, userId);
+        if (unlocked) newAchievements.push(unlocked);
       }
     }
 
