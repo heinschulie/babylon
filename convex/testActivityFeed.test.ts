@@ -275,6 +275,324 @@ describe('testActivityFeed', () => {
 			expect(result).toHaveLength(0);
 		});
 
+		it('should return all 5 event types merged and sorted by timestamp when no filter', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Create a poll (for poll event + vote reference)
+			const pollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Favorite color?',
+					options: ['red', 'blue'],
+					createdAt: now - 4000,
+				});
+			});
+
+			// Pure emoji (no parentId, no pollId)
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Chill vibes',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: now - 3000,
+				});
+			});
+
+			// Vote (has pollId)
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '🔵',
+					sentence: 'Voted blue',
+					mood: 'happy',
+					userId: 'user2',
+					pollId,
+					createdAt: now - 2000,
+				});
+			});
+
+			// Reaction (has parentId, no pollId)
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '❤️',
+					sentence: 'Love it',
+					mood: 'happy',
+					userId: 'user1',
+					createdAt: now - 5000, // parent is older
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'Fire reaction',
+					mood: 'happy',
+					userId: 'user3',
+					parentId,
+					createdAt: now - 1000,
+				});
+			});
+
+			// Achievement
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+
+			// Should have 6 events: poll, emoji(parent), emoji, vote, reaction, achievement
+			expect(result).toHaveLength(6);
+
+			// Sorted by timestamp desc
+			for (let i = 0; i < result.length - 1; i++) {
+				expect(result[i].timestamp).toBeGreaterThanOrEqual(result[i + 1].timestamp);
+			}
+
+			// All 5 types present
+			const types = result.map((e: any) => e.type);
+			expect(types).toContain('emoji');
+			expect(types).toContain('vote');
+			expect(types).toContain('poll');
+			expect(types).toContain('reaction');
+			expect(types).toContain('achievement');
+		});
+
+		it('should return only reaction events when filterType=reaction', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Parent emoji
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Parent',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: now - 2000,
+				});
+			});
+
+			// Reaction to parent
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'React',
+					mood: 'happy',
+					userId: 'user2',
+					parentId,
+					createdAt: now - 1000,
+				});
+			});
+
+			// Achievement (should be excluded)
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'reaction',
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].type).toBe('reaction');
+			expect(result[0].data).toMatchObject({
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'user2',
+				parentId,
+			});
+		});
+
+		it('should return only achievement events when filterType=achievement', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Emoji (should be excluded)
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Test',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: now - 1000,
+				});
+			});
+
+			// Two achievements
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: now - 500,
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_pro',
+					title: 'Emoji Pro',
+					userId: 'user1',
+					unlockedAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'achievement',
+			});
+
+			expect(result).toHaveLength(2);
+			expect(result.every((e: any) => e.type === 'achievement')).toBe(true);
+			expect(result[0].data).toMatchObject({ type: 'emoji_pro', title: 'Emoji Pro', userId: 'user1' });
+			expect(result[1].data).toMatchObject({ type: 'emoji_starter', title: 'Emoji Starter', userId: 'user1' });
+		});
+
+		it('should return only pure emojis when filterType=emoji (no reactions or votes)', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Pure emoji
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Pure',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: now - 3000,
+				});
+			});
+
+			// Parent for reaction
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '❤️',
+					sentence: 'Another pure',
+					mood: 'happy',
+					userId: 'user2',
+					createdAt: now - 2000,
+				});
+			});
+
+			// Reaction (should be excluded from emoji filter)
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'React',
+					mood: 'happy',
+					userId: 'user3',
+					parentId,
+					createdAt: now - 1000,
+				});
+			});
+
+			// Vote (should be excluded from emoji filter)
+			const pollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Test?',
+					options: ['a', 'b'],
+					createdAt: now - 4000,
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '🔵',
+					sentence: 'Vote',
+					mood: 'chill',
+					userId: 'user4',
+					pollId,
+					createdAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: 'emoji',
+			});
+
+			// Only the 2 pure emojis (not reaction, not vote)
+			expect(result).toHaveLength(2);
+			expect(result.every((e: any) => e.type === 'emoji')).toBe(true);
+		});
+
+		it('should return same results for undefined filterType as no filter (backward compat)', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Test',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: now,
+				});
+			});
+
+			const noFilter = await t.query(api.testActivityFeed.getActivityFeed, {});
+			const undefinedFilter = await t.query(api.testActivityFeed.getActivityFeed, {
+				filterType: undefined,
+			});
+
+			expect(noFilter).toEqual(undefinedFilter);
+		});
+
+		it('should respect FEED_LIMIT (30) across all 3 tables', async () => {
+			const t = convexTest(schema, modules);
+			const baseTime = Date.now();
+
+			// 15 emojis
+			for (let i = 0; i < 15; i++) {
+				await t.run(async (ctx) => {
+					return ctx.db.insert('testTable', {
+						emoji: '😎',
+						sentence: `Emoji ${i}`,
+						mood: 'chill',
+						userId: `user${i}`,
+						createdAt: baseTime - (i * 100),
+					});
+				});
+			}
+
+			// 10 polls
+			for (let i = 0; i < 10; i++) {
+				await t.run(async (ctx) => {
+					return ctx.db.insert('testPollTable', {
+						question: `Poll ${i}?`,
+						options: ['a', 'b'],
+						createdAt: baseTime - 1500 - (i * 100),
+					});
+				});
+			}
+
+			// 10 achievements
+			for (let i = 0; i < 10; i++) {
+				await t.run(async (ctx) => {
+					return ctx.db.insert('testAchievementTable', {
+						type: `achievement_${i}`,
+						title: `Achievement ${i}`,
+						userId: `user${i}`,
+						unlockedAt: baseTime - 2500 - (i * 100),
+					});
+				});
+			}
+
+			// Total: 35 entries
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+			expect(result).toHaveLength(30);
+
+			// Sorted desc
+			for (let i = 0; i < result.length - 1; i++) {
+				expect(result[i].timestamp).toBeGreaterThanOrEqual(result[i + 1].timestamp);
+			}
+		});
+
 		it('should handle case where one table is empty and other has data', async () => {
 			const t = convexTest(schema, modules);
 

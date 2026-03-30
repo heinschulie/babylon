@@ -7,27 +7,10 @@
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
-	import { Flame } from '@lucide/svelte';
+	import { Flame, Loader2 } from '@lucide/svelte';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
-	// Simple toast system for now - will integrate proper Sonner later
-	interface Toast {
-		id: number;
-		message: string;
-	}
-
-	let toasts = $state<Toast[]>([]);
-
-	function showToast(message: string) {
-		const id = Date.now();
-		const toast: Toast = { id, message };
-		toasts.push(toast);
-
-		// Auto-remove toast after 3 seconds
-		setTimeout(() => {
-			toasts = toasts.filter(t => t.id !== id);
-		}, 3000);
-	}
+	import { toast, Toaster } from 'sonner-svelte';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -35,6 +18,16 @@
 	let pollTagsInput = $state('');
 	let activeMoodFilter = $state<string | null>(null);
 	let activeTagFilter = $state<string | null>(null);
+	let feedFilter = $state<string | undefined>(undefined);
+
+	const feedFilterTabs: Array<{ label: string; value: string | undefined }> = [
+		{ label: 'All', value: undefined },
+		{ label: 'Emojis', value: 'emoji' },
+		{ label: 'Polls', value: 'poll' },
+		{ label: 'Votes', value: 'vote' },
+		{ label: 'Reactions', value: 'reaction' },
+		{ label: 'Achievements', value: 'achievement' },
+	];
 
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
@@ -107,13 +100,13 @@
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
 
 			// Check for newly unlocked achievements
-			const newlyUnlocked = await client.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			const newlyUnlocked: Array<{ title: string }> = await client.mutation(api.testAchievements.checkAndUnlockAchievements, {
 				userId: "test-user"
 			});
 
 			// Fire toast for each newly unlocked achievement
 			for (const achievement of newlyUnlocked) {
-				showToast(`🏆 ${achievement.title} unlocked!`);
+				toast.success(`🏆 ${achievement.title} unlocked!`);
 			}
 
 			dialogOpen = false;
@@ -156,13 +149,13 @@
 			});
 
 			// Check for newly unlocked achievements
-			const newlyUnlocked = await client.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			const newlyUnlocked: Array<{ title: string }> = await client.mutation(api.testAchievements.checkAndUnlockAchievements, {
 				userId: "test-user"
 			});
 
 			// Fire toast for each newly unlocked achievement
 			for (const achievement of newlyUnlocked) {
-				showToast(`🏆 ${achievement.title} unlocked!`);
+				toast.success(`🏆 ${achievement.title} unlocked!`);
 			}
 		} catch (error) {
 			console.error('Failed to cast vote:', error);
@@ -179,16 +172,25 @@
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
-	<!-- Simple Toast Container -->
-	{#if toasts.length > 0}
-		<div class="fixed top-4 right-4 z-50 space-y-2">
-			{#each toasts as toast (toast.id)}
-				<div class="bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
-					{toast.message}
-				</div>
-			{/each}
-		</div>
-	{/if}
+	<Toaster
+		hotkey={[]}
+		position="top-right"
+		offset="32px"
+		visibleToasts={5}
+		expand={false}
+		closeButton={true}
+		richColors={false}
+		duration={4000}
+		gap={14}
+		loadingIcon={Loader2}
+		dir="auto"
+		theme="system"
+		invert={false}
+		toastOptions={{}}
+		portal="body"
+		class=""
+		style=""
+	/>
 	<div class="flex items-center gap-3 p-4">
 		<button onclick={() => dialogOpen = true}>Test Emoji</button>
 
@@ -467,8 +469,21 @@
 		{/if}
 	</section>
 
+	<!-- Activity Feed Filter Tabs -->
+	<section class="px-4">
+		<div class="flex gap-2 flex-wrap">
+			{#each feedFilterTabs as tab}
+				<Button
+					variant={feedFilter === tab.value ? 'default' : 'outline'}
+					size="sm"
+					onclick={() => feedFilter = tab.value}
+				>{tab.label}</Button>
+			{/each}
+		</div>
+	</section>
+
 	<!-- Activity Feed section -->
-	<ActivityFeed />
+	<ActivityFeed bind:filterType={feedFilter} />
 
 	<h1 class="text-[150px]">christ on a pogostick</h1>
 
