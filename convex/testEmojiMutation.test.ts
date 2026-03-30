@@ -539,4 +539,207 @@ describe('testEmojiMutation', () => {
 			expect(user2Streak).toEqual({ streak: 1 });
 		});
 	});
+
+	describe('parentId schema functionality', () => {
+		it('should insert testTable row WITHOUT parentId (backward compatibility)', async () => {
+			const t = convexTest(schema, modules);
+
+			const now = Date.now();
+			const recordId = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Test sentence',
+					mood: 'happy',
+					userId: 'test-user-1',
+					createdAt: now
+				});
+			});
+
+			expect(recordId).toBeDefined();
+
+			// Verify record was created correctly
+			const record = await t.run(async (ctx) => ctx.db.get(recordId));
+			expect(record?.emoji).toBe('😎');
+			expect(record?.userId).toBe('test-user-1');
+			expect(record?.createdAt).toBe(now);
+			// parentId should be undefined (not present in insert)
+			expect(record?.parentId).toBeUndefined();
+		});
+
+		it('should insert testTable row WITH valid parentId', async () => {
+			const t = convexTest(schema, modules);
+
+			// First create a parent record
+			const parentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'Parent record',
+					mood: 'happy',
+					userId: 'parent-user',
+					createdAt: Date.now()
+				});
+			});
+
+			// Then create a child record referencing the parent
+			const childId = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Child record',
+					mood: 'chill',
+					userId: 'child-user',
+					createdAt: Date.now(),
+					parentId: parentId
+				});
+			});
+
+			expect(childId).toBeDefined();
+
+			// Verify child record has correct parentId
+			const childRecord = await t.run(async (ctx) => ctx.db.get(childId));
+			expect(childRecord?.parentId).toBe(parentId);
+			expect(childRecord?.emoji).toBe('😎');
+			expect(childRecord?.userId).toBe('child-user');
+		});
+
+		it('should insert testTable row with non-existent parentId (orphaned entry)', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create a temporary record to get a valid ID format, then delete it
+			const tempId = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '⚠️',
+					sentence: 'Temp record for ID format',
+					mood: 'neutral',
+					userId: 'temp-user',
+					createdAt: Date.now()
+				});
+			});
+
+			// Delete the temp record, leaving us with a valid but non-existent ID
+			await t.run(async (ctx) => {
+				await ctx.db.delete(tempId);
+			});
+
+			// Use the now-deleted ID as a non-existent parentId
+			const orphanId = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '💩',
+					sentence: 'Orphaned record',
+					mood: 'sad',
+					userId: 'orphan-user',
+					createdAt: Date.now(),
+					parentId: tempId // Valid format but doesn't exist
+				});
+			});
+
+			expect(orphanId).toBeDefined();
+
+			// Verify orphaned record was created successfully
+			const orphanRecord = await t.run(async (ctx) => ctx.db.get(orphanId));
+			expect(orphanRecord?.parentId).toBe(tempId);
+			expect(orphanRecord?.emoji).toBe('💩');
+			expect(orphanRecord?.userId).toBe('orphan-user');
+		});
+
+		it('should return all entries with matching parentId via by_parentId index', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create a parent record
+			const parentId = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'Parent for index test',
+					mood: 'happy',
+					userId: 'parent-user',
+					createdAt: Date.now()
+				});
+			});
+
+			// Create multiple child records with same parentId
+			const child1Id = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Child 1',
+					mood: 'chill',
+					userId: 'child1-user',
+					createdAt: Date.now(),
+					parentId: parentId
+				});
+			});
+
+			const child2Id = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '💩',
+					sentence: 'Child 2',
+					mood: 'angry',
+					userId: 'child2-user',
+					createdAt: Date.now(),
+					parentId: parentId
+				});
+			});
+
+			// Query by parentId using the index
+			const children = await t.run(async (ctx) => {
+				return await ctx.db
+					.query('testTable')
+					.withIndex('by_parentId', q => q.eq('parentId', parentId))
+					.collect();
+			});
+
+			expect(children).toHaveLength(2);
+			const childIds = children.map(c => c._id);
+			expect(childIds).toContain(child1Id);
+			expect(childIds).toContain(child2Id);
+			expect(children.every(c => c.parentId === parentId)).toBe(true);
+		});
+
+		it('should maintain existing indexes functionality after parentId addition', async () => {
+			const t = convexTest(schema, modules);
+
+			const now = Date.now();
+			const userId = 'index-test-user';
+
+			// Insert test records
+			const id1 = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'First record',
+					mood: 'happy',
+					userId: userId,
+					createdAt: now
+				});
+			});
+
+			const id2 = await t.run(async (ctx) => {
+				return await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					sentence: 'Second record',
+					mood: 'happy',
+					userId: userId,
+					createdAt: now + 1000
+				});
+			});
+
+			// Test by_createdAt index
+			const byCreatedAt = await t.run(async (ctx) => {
+				return await ctx.db
+					.query('testTable')
+					.withIndex('by_createdAt')
+					.collect();
+			});
+			expect(byCreatedAt.length).toBeGreaterThanOrEqual(2);
+
+			// Test by_userId_createdAt index
+			const byUserCreated = await t.run(async (ctx) => {
+				return await ctx.db
+					.query('testTable')
+					.withIndex('by_userId_createdAt', q => q.eq('userId', userId))
+					.collect();
+			});
+			expect(byUserCreated).toHaveLength(2);
+			const foundIds = byUserCreated.map(r => r._id);
+			expect(foundIds).toContain(id1);
+			expect(foundIds).toContain(id2);
+		});
+	});
 });

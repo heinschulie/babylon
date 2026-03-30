@@ -304,11 +304,13 @@ export default defineSchema({
 		userId: v.string(),
 		createdAt: v.number(),
 		pollId: v.optional(v.id('testPollTable')),
-		streakDay: v.optional(v.number())
+		streakDay: v.optional(v.number()),
+		parentId: v.optional(v.id('testTable'))
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_pollId', ['pollId'])
-		.index('by_userId_createdAt', ['userId', 'createdAt']),
+		.index('by_userId_createdAt', ['userId', 'createdAt'])
+		.index('by_parentId', ['parentId']),
 
 	// Test table for polls
 	testPollTable: defineTable({
