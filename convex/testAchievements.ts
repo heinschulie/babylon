@@ -1,13 +1,18 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import type { Doc } from './_generated/dataModel';
 
-type TestEntry = { parentId?: string; pollId?: string };
+type TestEntry = Doc<'testTable'>;
+
+const isOriginalEmoji = (e: TestEntry): boolean => !e.parentId && !e.pollId;
+const isPollVote = (e: TestEntry): boolean => e.pollId !== undefined;
+const isReaction = (e: TestEntry): boolean => e.parentId !== undefined;
 
 const ACHIEVEMENT_DEFS = {
-  emoji_starter:    { title: 'Emoji Starter',    threshold: 5,  qualify: (e: TestEntry) => !e.parentId && !e.pollId },
-  emoji_pro:        { title: 'Emoji Pro',        threshold: 25, qualify: (e: TestEntry) => !e.parentId && !e.pollId },
-  democracy:        { title: 'Democracy!',       threshold: 1,  qualify: (e: TestEntry) => !!e.pollId },
-  social_butterfly: { title: 'Social Butterfly', threshold: 5,  qualify: (e: TestEntry) => !!e.parentId },
+  emoji_starter:    { title: 'Emoji Starter',    threshold: 5,  qualify: isOriginalEmoji },
+  emoji_pro:        { title: 'Emoji Pro',        threshold: 25, qualify: isOriginalEmoji },
+  democracy:        { title: 'Democracy!',       threshold: 1,  qualify: isPollVote },
+  social_butterfly: { title: 'Social Butterfly', threshold: 5,  qualify: isReaction },
 };
 
 export const checkAndUnlockAchievements = mutation({
