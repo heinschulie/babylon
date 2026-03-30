@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import { validateAndNormalizeTags } from './lib/tags';
 
-const MAX_TAGS = 5;
 const PAGE_SIZE = 20;
 
 /** Flatten + count tag occurrences across polls, sorted by count desc. */
@@ -16,18 +16,6 @@ function countTags(polls: Array<{ tags?: string[] }>): Array<{ tag: string; coun
 		.sort((a, b) => b.count - a.count);
 }
 
-/** Validate + normalize tags in a single pass. Returns cleaned array or throws. */
-function validateAndProcessTags(tags: string[]): string[] {
-	if (tags.length > MAX_TAGS) {
-		throw new Error(`Maximum ${MAX_TAGS} tags allowed`);
-	}
-	return tags.map(tag => {
-		const trimmed = tag.trim();
-		if (!trimmed) throw new Error('Tags must not be empty');
-		return trimmed;
-	});
-}
-
 export const tagPoll = mutation({
 	args: {
 		pollId: v.id('testPollTable'),
@@ -37,7 +25,7 @@ export const tagPoll = mutation({
 		const poll = await ctx.db.get(pollId);
 		if (!poll) throw new Error('Poll not found');
 
-		await ctx.db.patch(pollId, { tags: validateAndProcessTags(tags) });
+		await ctx.db.patch(pollId, { tags: validateAndNormalizeTags(tags) });
 		return null;
 	},
 });

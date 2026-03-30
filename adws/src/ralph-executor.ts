@@ -15,10 +15,12 @@ import {
   runRefactorStep,
   runReviewStep,
 } from "./agent-sdk";
+import { mkdirSync } from "fs";
+import { join } from "path";
 import { diffFileList } from "./git-ops";
 import { recordLearning, inferTagsFromFiles } from "./learning-utils";
 import { parseReviewResult } from "./review-utils";
-import { createSubIssue, parseBlockers } from "./github";
+import { createSubIssue, parseBlockers, postReviewToIssue } from "./github";
 
 /**
  * Create a Ralph step executor bound to a specific ADW ID.
@@ -84,9 +86,13 @@ export function createRalphExecutor(adwId: string): StepExecutor {
 
       case "review": {
         // Review step — capture structured learnings from output
+        const reviewImageDir = join(cwd, "agents", adwId, "review", `${context.issue.number}_review_img`);
+        mkdirSync(reviewImageDir, { recursive: true });
+
         const reviewResult = await runReviewStep(adwId, "", {
           ...baseOpts,
           issueBody: `# #${context.issue.number}: ${context.issue.title}\n\n${context.issue.body}`,
+          reviewImageDir,
         });
 
         const parsed = reviewResult.result ? parseReviewResult(reviewResult.result) : undefined;
@@ -149,6 +155,20 @@ export function createRalphExecutor(adwId: string): StepExecutor {
             } catch (e) {
               logger.warn(`Failed to create review sub-issue: ${e}`);
             }
+          }
+        }
+
+        // Post review comment with screenshots to GitHub
+        if (parsed) {
+          try {
+            await postReviewToIssue(
+              String(context.issue.number),
+              adwId,
+              parsed,
+              logger,
+            );
+          } catch (e) {
+            logger.warn(`Failed to post review comment: ${e}`);
           }
         }
 
