@@ -60,5 +60,93 @@ describe('testAchievements', () => {
 				unlockedAt: expect.any(Number)
 			});
 		});
+
+		it('should be idempotent — calling twice after threshold doesn\'t create duplicates', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+			const userId = 'idempotent-test-user';
+
+			// Submit exactly 5 emojis to reach emoji_starter threshold
+			for (let i = 0; i < 5; i++) {
+				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+					emoji: '😎',
+					mood: 'chill',
+					userId
+				});
+			}
+
+			// First call - should unlock emoji_starter
+			const firstResult = await asUser.mutation(api.testAchievements.checkAndUnlockAchievements, {
+				userId
+			});
+
+			expect(firstResult).toEqual([
+				{ type: 'emoji_starter', title: 'Emoji Starter' }
+			]);
+
+			// Second call immediately after - should return empty (idempotent)
+			const secondResult = await asUser.mutation(api.testAchievements.checkAndUnlockAchievements, {
+				userId
+			});
+
+			expect(secondResult).toEqual([]);
+
+			// Third call for good measure - should still return empty
+			const thirdResult = await asUser.mutation(api.testAchievements.checkAndUnlockAchievements, {
+				userId
+			});
+
+			expect(thirdResult).toEqual([]);
+
+			// Verify only one achievement record exists in database
+			const storedAchievements = await t.run(async (ctx) => {
+				return ctx.db
+					.query('testAchievementTable')
+					.withIndex('by_userId', q => q.eq('userId', userId))
+					.collect();
+			});
+
+			expect(storedAchievements).toHaveLength(1);
+			expect(storedAchievements[0].type).toBe('emoji_starter');
+		});
+
+		it('should unlock democracy after first poll vote', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+			const userId = 'democracy-test-user';
+
+			// Create a poll first
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'What is your favorite emoji?',
+				options: ['😎', '🔥', '💩']
+			});
+
+			// Cast a vote on the poll (this creates a testTable entry with pollId)
+			await asUser.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option: '😎',
+				userId
+			});
+
+			// Check achievements - should unlock democracy
+			const result = await asUser.mutation(api.testAchievements.checkAndUnlockAchievements, {
+				userId
+			});
+
+			expect(result).toEqual([
+				{ type: 'democracy', title: 'Democracy!' }
+			]);
+
+			// Verify the achievement was stored
+			const storedAchievements = await t.run(async (ctx) => {
+				return ctx.db
+					.query('testAchievementTable')
+					.withIndex('by_userId', q => q.eq('userId', userId))
+					.collect();
+			});
+
+			expect(storedAchievements).toHaveLength(1);
+			expect(storedAchievements[0].type).toBe('democracy');
+		});
 	});
 });

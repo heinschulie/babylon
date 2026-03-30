@@ -1,14 +1,18 @@
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
+import type { Doc } from './_generated/dataModel';
 
-// Achievement type constants
-const ACHIEVEMENT_DEFS: Record<string, { title: string; threshold: number; table: 'testTable' | 'testPollTable'; filter?: (entry: any) => boolean }> = {
-  emoji_starter:    { title: 'Emoji Starter',    threshold: 5,  table: 'testTable', filter: (e) => !e.parentId && !e.pollId },
-  emoji_pro:        { title: 'Emoji Pro',        threshold: 25, table: 'testTable', filter: (e) => !e.parentId && !e.pollId },
-  democracy:        { title: 'Democracy!',       threshold: 1,  table: 'testTable', filter: (e) => !!e.pollId },
-  social_butterfly: { title: 'Social Butterfly',  threshold: 5,  table: 'testTable', filter: (e) => !!e.parentId },
-  poll_creator:     { title: 'Poll Creator',      threshold: 3,  table: 'testPollTable' },
-};
+type TestEntry = Doc<'testTable'>;
+
+/** Achievement definitions — each entry defines how to count qualifying actions. */
+const ACHIEVEMENT_DEFS = {
+  emoji_starter:    { title: 'Emoji Starter',    threshold: 5,  count: (e: TestEntry[]) => e.filter(x => !x.parentId && !x.pollId).length },
+  emoji_pro:        { title: 'Emoji Pro',        threshold: 25, count: (e: TestEntry[]) => e.filter(x => !x.parentId && !x.pollId).length },
+  democracy:        { title: 'Democracy!',       threshold: 1,  count: (e: TestEntry[]) => e.filter(x => !!x.pollId).length },
+  social_butterfly: { title: 'Social Butterfly',  threshold: 5,  count: (e: TestEntry[]) => e.filter(x => !!x.parentId).length },
+} satisfies Record<string, { title: string; threshold: number; count: (entries: TestEntry[]) => number }>;
+
+type AchievementType = keyof typeof ACHIEVEMENT_DEFS;
 
 // Mutation: check thresholds and unlock any newly earned achievements
 export const checkAndUnlockAchievements = mutation({
@@ -17,52 +21,33 @@ export const checkAndUnlockAchievements = mutation({
   },
   handler: async (ctx, args): Promise<Array<{ type: string; title: string }>> => {
     const { userId } = args;
+
+    // Single query: get all existing achievements for this user
+    const existingAchievements = await ctx.db
+      .query('testAchievementTable')
+      .withIndex('by_userId', q => q.eq('userId', userId))
+      .collect();
+    const unlockedTypes = new Set(existingAchievements.map(a => a.type));
+
+    // Single query: fetch all testTable entries for this user once
+    const entries = await ctx.db
+      .query('testTable')
+      .withIndex('by_userId_createdAt', q => q.eq('userId', userId))
+      .collect();
+
+    // Evaluate all thresholds against cached data
     const newlyUnlocked: Array<{ type: string; title: string }> = [];
+    for (const [type, def] of Object.entries(ACHIEVEMENT_DEFS) as [AchievementType, typeof ACHIEVEMENT_DEFS[AchievementType]][]) {
+      if (unlockedTypes.has(type)) continue;
+      if (def.count(entries) < def.threshold) continue;
 
-    // Check each achievement type
-    for (const [type, def] of Object.entries(ACHIEVEMENT_DEFS)) {
-      // Check if already unlocked using by_type_userId index
-      const existing = await ctx.db
-        .query('testAchievementTable')
-        .withIndex('by_type_userId', q =>
-          q.eq('type', type).eq('userId', userId)
-        )
-        .unique();
-
-      // Skip if already unlocked
-      if (existing) {
-        continue;
-      }
-
-      // Count qualifying entries for this user
-      let count = 0;
-      if (def.table === 'testTable') {
-        const entries = await ctx.db
-          .query('testTable')
-          .filter(q => q.eq(q.field('userId'), userId))
-          .collect();
-
-        if (def.filter) {
-          count = entries.filter(def.filter).length;
-        } else {
-          count = entries.length;
-        }
-      } else if (def.table === 'testPollTable') {
-        // Skip poll_creator for now - testPollTable doesn't have userId field
-        continue;
-      }
-
-      // If threshold met, unlock achievement
-      if (count >= def.threshold) {
-        await ctx.db.insert('testAchievementTable', {
-          type,
-          title: def.title,
-          userId,
-          unlockedAt: Date.now()
-        });
-
-        newlyUnlocked.push({ type, title: def.title });
-      }
+      await ctx.db.insert('testAchievementTable', {
+        type,
+        title: def.title,
+        userId,
+        unlockedAt: Date.now(),
+      });
+      newlyUnlocked.push({ type, title: def.title });
     }
 
     return newlyUnlocked;
