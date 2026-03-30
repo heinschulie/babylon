@@ -137,6 +137,18 @@
 			console.error('Failed to close poll:', error);
 		}
 	}
+
+	async function handleReactionClick(parentId: Id<'testTable'>, emoji: string) {
+		try {
+			await client.mutation(api.testReactions.addReaction, {
+				parentId,
+				emoji,
+				userId: 'test-user'
+			});
+		} catch (error) {
+			console.error('Failed to add reaction:', error);
+		}
+	}
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
@@ -406,12 +418,42 @@
 			<!-- Individual timeline entries (filtered by activeMoodFilter) -->
 			<div>
 				{#each filteredEmojis as entry (entry._id)}
-					<div class="flex items-center gap-2 mb-2">
-						<span class="text-2xl">{entry.emoji}</span>
-						<Badge variant="secondary">{entry.mood}</Badge>
-						<span class="text-sm text-gray-500">
-							{formatRelativeTime(entry.createdAt)}
-						</span>
+					{@const reactionCounts = useQuery(api.testReactions.getReactionCounts, () => ({ parentId: entry._id }))}
+					<div class="mb-4">
+						<!-- Main entry info -->
+						<div class="flex items-center gap-2 mb-2">
+							<span class="text-2xl">{entry.emoji}</span>
+							<Badge variant="secondary">{entry.mood}</Badge>
+							<span class="text-sm text-gray-500">
+								{formatRelativeTime(entry.createdAt)}
+							</span>
+						</div>
+
+						<!-- Reaction bar -->
+						<div class="flex items-center gap-1 ml-1">
+							{#if reactionCounts.data && reactionCounts.data.length > 0}
+								<!-- Show Badge components for each reaction type -->
+								{#each reactionCounts.data as reaction (reaction.emoji)}
+									<button
+										onclick={() => handleReactionClick(entry._id, reaction.emoji)}
+										class="hover:bg-gray-100 rounded transition-colors"
+									>
+										<Badge variant="outline" class="text-xs">
+											{reaction.emoji} {reaction.count}
+										</Badge>
+									</button>
+								{/each}
+							{/if}
+
+							<!-- Always show the + Add Reaction button -->
+							<button
+								class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-600"
+								aria-label="Add reaction"
+								onclick={() => handleReactionClick(entry._id, '😎')}
+							>
+								+ Add Reaction
+							</button>
+						</div>
 					</div>
 				{/each}
 			</div>

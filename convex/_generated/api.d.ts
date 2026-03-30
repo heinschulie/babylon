@@ -43,6 +43,7 @@ import type * as testActivityFeed from "../testActivityFeed.js";
 import type * as testEmojiMutation from "../testEmojiMutation.js";
 import type * as testPollMutation from "../testPollMutation.js";
 import type * as testPollTags from "../testPollTags.js";
+import type * as testReactions from "../testReactions.js";
 import type * as translateNode from "../translateNode.js";
 import type * as translatePhrase from "../translatePhrase.js";
 import type * as translatePhraseData from "../translatePhraseData.js";
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   testEmojiMutation: typeof testEmojiMutation;
   testPollMutation: typeof testPollMutation;
   testPollTags: typeof testPollTags;
+  testReactions: typeof testReactions;
   translateNode: typeof translateNode;
   translatePhrase: typeof translatePhrase;
   translatePhraseData: typeof translatePhraseData;
