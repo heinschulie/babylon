@@ -29,6 +29,7 @@
 	);
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
+	const userAchievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -87,6 +88,8 @@
 	async function handleEmojiClick(emoji: string, mood: Mood) {
 		try {
 			await client.mutation(api.testEmojiMutation.submitEmoji, { emoji, mood, userId: "test-user" });
+			// Fire-and-forget achievement check after successful submission
+			client.mutation(api.testAchievements.checkAndUnlockAchievements, { userId: "test-user" });
 			dialogOpen = false;
 		} catch (error) {
 			console.error('Failed to submit emoji:', error);
@@ -125,6 +128,8 @@
 				option,
 				userId: "test-user"
 			});
+			// Fire-and-forget achievement check after successful vote
+			client.mutation(api.testAchievements.checkAndUnlockAchievements, { userId: "test-user" });
 		} catch (error) {
 			console.error('Failed to cast vote:', error);
 		}
@@ -135,6 +140,18 @@
 			await client.mutation(api.testPollMutation.closePoll, { pollId });
 		} catch (error) {
 			console.error('Failed to close poll:', error);
+		}
+	}
+
+	async function handleReactionClick(parentId: Id<'testTable'>, emoji: string) {
+		try {
+			await client.mutation(api.testReactions.addReaction, {
+				parentId,
+				emoji,
+				userId: 'test-user'
+			});
+		} catch (error) {
+			console.error('Failed to add reaction:', error);
 		}
 	}
 </script>
@@ -388,6 +405,31 @@
 		{/if}
 	</section>
 
+	<!-- Achievements section -->
+	<section class="p-4">
+		<h2>Achievements</h2>
+		{#if userAchievements.isLoading}
+			<div>Loading achievements...</div>
+		{:else if !userAchievements.data || userAchievements.data.length === 0}
+			<div>No achievements yet — keep submitting!</div>
+		{:else}
+			<div class="space-y-3">
+				{#each userAchievements.data as achievement (achievement.type)}
+					<Card.Root>
+						<Card.Content class="flex items-center justify-between p-4">
+							<div class="flex items-center gap-3">
+								<Badge variant="secondary">{achievement.title}</Badge>
+								<span class="text-sm text-gray-600">
+									{formatRelativeTime(achievement.unlockedAt)}
+								</span>
+							</div>
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
 	<!-- Sentiment Timeline section -->
 	<section>
 		<h2>Sentiment Timeline</h2>
@@ -406,12 +448,42 @@
 			<!-- Individual timeline entries (filtered by activeMoodFilter) -->
 			<div>
 				{#each filteredEmojis as entry (entry._id)}
-					<div class="flex items-center gap-2 mb-2">
-						<span class="text-2xl">{entry.emoji}</span>
-						<Badge variant="secondary">{entry.mood}</Badge>
-						<span class="text-sm text-gray-500">
-							{formatRelativeTime(entry.createdAt)}
-						</span>
+					{@const reactionCounts = useQuery(api.testReactions.getReactionCounts, () => ({ parentId: entry._id }))}
+					<div class="mb-4">
+						<!-- Main entry info -->
+						<div class="flex items-center gap-2 mb-2">
+							<span class="text-2xl">{entry.emoji}</span>
+							<Badge variant="secondary">{entry.mood}</Badge>
+							<span class="text-sm text-gray-500">
+								{formatRelativeTime(entry.createdAt)}
+							</span>
+						</div>
+
+						<!-- Reaction bar -->
+						<div class="flex items-center gap-1 ml-1">
+							{#if reactionCounts.data && reactionCounts.data.length > 0}
+								<!-- Show Badge components for each reaction type -->
+								{#each reactionCounts.data as reaction (reaction.emoji)}
+									<button
+										onclick={() => handleReactionClick(entry._id, reaction.emoji)}
+										class="hover:bg-gray-100 rounded transition-colors"
+									>
+										<Badge variant="outline" class="text-xs">
+											{reaction.emoji} {reaction.count}
+										</Badge>
+									</button>
+								{/each}
+							{/if}
+
+							<!-- Always show the + Add Reaction button -->
+							<button
+								class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-600"
+								aria-label="Add reaction"
+								onclick={() => handleReactionClick(entry._id, '😎')}
+							>
+								+ Add Reaction
+							</button>
+						</div>
 					</div>
 				{/each}
 			</div>

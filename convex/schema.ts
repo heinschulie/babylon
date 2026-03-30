@@ -304,11 +304,13 @@ export default defineSchema({
 		userId: v.string(),
 		createdAt: v.number(),
 		pollId: v.optional(v.id('testPollTable')),
-		streakDay: v.optional(v.number())
+		streakDay: v.optional(v.number()),
+		parentId: v.optional(v.id('testTable'))
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_pollId', ['pollId'])
-		.index('by_userId_createdAt', ['userId', 'createdAt']),
+		.index('by_userId_createdAt', ['userId', 'createdAt'])
+		.index('by_parentId', ['parentId']),
 
 	// Test table for polls
 	testPollTable: defineTable({
@@ -319,5 +321,15 @@ export default defineSchema({
 		tags: v.optional(v.array(v.string()))
 	})
 		.index('by_createdAt', ['createdAt'])
-		.index('by_closedAt', ['closedAt'])
+		.index('by_closedAt', ['closedAt']),
+
+	// Test table for achievements
+	testAchievementTable: defineTable({
+		type: v.string(),       // e.g. 'emoji_starter', 'emoji_pro', 'democracy', 'social_butterfly', 'poll_creator'
+		title: v.string(),      // e.g. 'Emoji Starter', 'Emoji Pro'
+		userId: v.string(),
+		unlockedAt: v.number()  // Date.now() timestamp
+	})
+		.index('by_userId', ['userId'])
+		.index('by_type_userId', ['type', 'userId'])
 });
