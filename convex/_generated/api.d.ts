@@ -31,6 +31,7 @@ import type * as lib_payfast from "../lib/payfast.js";
 import type * as lib_phraseCategories from "../lib/phraseCategories.js";
 import type * as lib_publicActionGuards from "../lib/publicActionGuards.js";
 import type * as lib_safeErrors from "../lib/safeErrors.js";
+import type * as lib_tags from "../lib/tags.js";
 import type * as lib_vocabularySets from "../lib/vocabularySets.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsNode from "../notificationsNode.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "lib/phraseCategories": typeof lib_phraseCategories;
   "lib/publicActionGuards": typeof lib_publicActionGuards;
   "lib/safeErrors": typeof lib_safeErrors;
+  "lib/tags": typeof lib_tags;
   "lib/vocabularySets": typeof lib_vocabularySets;
   notifications: typeof notifications;
   notificationsNode: typeof notificationsNode;
