@@ -1,11 +1,13 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 
+type TestEntry = { parentId?: string; pollId?: string };
+
 const ACHIEVEMENT_DEFS = {
-  emoji_starter:    { title: 'Emoji Starter',    threshold: 5,  count: (entries: any[]) => entries.filter(e => !e.parentId && !e.pollId) },
-  emoji_pro:        { title: 'Emoji Pro',        threshold: 25, count: (entries: any[]) => entries.filter(e => !e.parentId && !e.pollId) },
-  democracy:        { title: 'Democracy!',       threshold: 1,  count: (entries: any[]) => entries.filter(e => e.pollId) },
-  social_butterfly: { title: 'Social Butterfly', threshold: 5,  count: (entries: any[]) => entries.filter(e => e.parentId) },
+  emoji_starter:    { title: 'Emoji Starter',    threshold: 5,  qualify: (e: TestEntry) => !e.parentId && !e.pollId },
+  emoji_pro:        { title: 'Emoji Pro',        threshold: 25, qualify: (e: TestEntry) => !e.parentId && !e.pollId },
+  democracy:        { title: 'Democracy!',       threshold: 1,  qualify: (e: TestEntry) => !!e.pollId },
+  social_butterfly: { title: 'Social Butterfly', threshold: 5,  qualify: (e: TestEntry) => !!e.parentId },
 };
 
 export const checkAndUnlockAchievements = mutation({
@@ -19,31 +21,27 @@ export const checkAndUnlockAchievements = mutation({
       .withIndex('by_userId_createdAt', q => q.eq('userId', userId))
       .collect();
 
+    // Batch-fetch all existing achievements for this user (1 query instead of N)
+    const existing = await ctx.db
+      .query('testAchievementTable')
+      .withIndex('by_userId', q => q.eq('userId', userId))
+      .collect();
+    const unlockedTypes = new Set(existing.map(a => a.type));
+
     const newlyUnlocked: Array<{ type: string; title: string }> = [];
 
-    // Check each achievement
     for (const [type, def] of Object.entries(ACHIEVEMENT_DEFS)) {
-      // Check if already unlocked
-      const existing = await ctx.db
-        .query('testAchievementTable')
-        .withIndex('by_type_userId', q => q.eq('type', type).eq('userId', userId))
-        .unique();
+      if (unlockedTypes.has(type)) continue;
 
-      if (existing) continue; // Already unlocked
+      const count = entries.filter(def.qualify).length;
 
-      // Count qualifying entries
-      const qualifyingEntries = def.count(entries);
-
-      // Check if threshold is met
-      if (qualifyingEntries.length >= def.threshold) {
-        // Unlock achievement
+      if (count >= def.threshold) {
         await ctx.db.insert('testAchievementTable', {
           type,
           title: def.title,
           userId,
           unlockedAt: Date.now()
         });
-
         newlyUnlocked.push({ type, title: def.title });
       }
     }
@@ -57,15 +55,16 @@ export const getUserAchievements = query({
     userId: v.string(),
   },
   handler: async (ctx, { userId }): Promise<Array<{ type: string; title: string; unlockedAt: number }>> => {
-    return ctx.db
+    const achievements = await ctx.db
       .query('testAchievementTable')
       .withIndex('by_userId', q => q.eq('userId', userId))
       .order('desc')
-      .collect()
-      .then(achievements => achievements.map(a => ({
-        type: a.type,
-        title: a.title,
-        unlockedAt: a.unlockedAt
-      })));
+      .collect();
+
+    return achievements.map(a => ({
+      type: a.type,
+      title: a.title,
+      unlockedAt: a.unlockedAt,
+    }));
   },
 });
