@@ -113,6 +113,7 @@ export const listRecentEmojis = query({
 			.query('testTable')
 			.withIndex('by_createdAt')
 			.order('desc')
+			.filter((q) => q.eq(q.field('parentId'), undefined))
 			.take(MAX_RECENT_ENTRIES);
 	},
 });
