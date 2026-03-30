@@ -21,6 +21,7 @@ import type * as billingEvents from "../billingEvents.js";
 import type * as billingNode from "../billingNode.js";
 import type * as billingSubscriptions from "../billingSubscriptions.js";
 import type * as crons from "../crons.js";
+import type * as emojiConfig from "../emojiConfig.js";
 import type * as http from "../http.js";
 import type * as humanReviews from "../humanReviews.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   billingNode: typeof billingNode;
   billingSubscriptions: typeof billingSubscriptions;
   crons: typeof crons;
+  emojiConfig: typeof emojiConfig;
   http: typeof http;
   humanReviews: typeof humanReviews;
   "lib/auth": typeof lib_auth;
