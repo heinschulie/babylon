@@ -52,20 +52,32 @@ function mapAchievementEntry(entry: Doc<'testAchievementTable'>): FeedEvent {
 
 export const getActivityFeed = query({
 	args: {
-		filterType: v.optional(v.string()),
+		filterType: v.optional(
+			v.union(
+				v.literal('emoji'),
+				v.literal('vote'),
+				v.literal('poll'),
+				v.literal('reaction'),
+				v.literal('achievement'),
+			),
+		),
 	},
 	handler: async (ctx, { filterType }) => {
-		const shouldInclude = (type: FeedEventType) => !filterType || filterType === type;
+		// testTable rows produce 3 event types; skip the table only when filtering to an unrelated type
+		const testTableTypes: Set<FeedEventType> = new Set(['emoji', 'vote', 'reaction']);
+		const needsTestTable = !filterType || testTableTypes.has(filterType);
+		const needsPolls = !filterType || filterType === 'poll';
+		const needsAchievements = !filterType || filterType === 'achievement';
 
 		const [testEntries, pollEntries, achievementEntries] = await Promise.all([
-			shouldInclude('emoji') || shouldInclude('vote') || shouldInclude('reaction')
+			needsTestTable
 				? ctx.db.query('testTable').withIndex('by_createdAt').order('desc').take(FEED_LIMIT)
 				: [],
-			shouldInclude('poll')
+			needsPolls
 				? ctx.db.query('testPollTable').withIndex('by_createdAt').order('desc').take(FEED_LIMIT)
 				: [],
-			shouldInclude('achievement')
-				? ctx.db.query('testAchievementTable').withIndex('by_userId').order('desc').take(FEED_LIMIT)
+			needsAchievements
+				? ctx.db.query('testAchievementTable').order('desc').take(FEED_LIMIT)
 				: [],
 		]);
 
