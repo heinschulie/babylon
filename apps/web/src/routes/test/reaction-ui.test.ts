@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the Convex modules
 const mockMutation = vi.fn().mockResolvedValue('mock-reaction-id');
@@ -20,7 +20,28 @@ vi.mock('@babylon/convex', () => ({
 	}
 }));
 
+// --- Helpers mirroring page-level logic ---
+
+/** Format a reaction for Badge display text */
+function formatBadgeText(emoji: string, count: number): string {
+	return `${emoji} ${count}`;
+}
+
+/** Determine whether reaction badges should render */
+function shouldShowBadges(reactions: unknown[]): boolean {
+	return reactions.length > 0;
+}
+
+/** Simulate the addReaction call a click handler dispatches */
+async function callAddReaction(parentId: string, emoji: string, userId = 'test-user') {
+	return mockMutation('mock-addReaction-mutation', { parentId, emoji, userId });
+}
+
 describe('Reaction UI - Frontend Behaviors', () => {
+	beforeEach(() => {
+		mockMutation.mockClear();
+		mockUseQuery.mockClear();
+	});
 	describe('Behavior #3: Each emoji entry renders a reaction bar below it', () => {
 		it('should have data structure to render reaction bar for each emoji entry', () => {
 			// Mock emoji entries with IDs (simulating what the page receives)
@@ -54,82 +75,44 @@ describe('Reaction UI - Frontend Behaviors', () => {
 				isLoading: false
 			});
 
-			// Test Badge text formatting logic
-			reactionCounts.forEach(reaction => {
-				const badgeText = `${reaction.emoji} ${reaction.count}`;
-				expect(badgeText).toBe(`${reaction.emoji} ${reaction.count}`);
-			});
+			// Test Badge text formatting via shared helper
+			expect(formatBadgeText('😎', 3)).toBe('😎 3');
+			expect(formatBadgeText('💩', 1)).toBe('💩 1');
 		});
 	});
 
 	describe('Behavior #8: Zero reactions shows only "+" button (no empty badges)', () => {
 		it('should handle empty reaction state correctly', () => {
-			// Mock empty reaction counts
-			const reactionCounts: any[] = [];
+			const reactionCounts: unknown[] = [];
 
-			// Test that no badges are created for empty data
-			expect(reactionCounts.length).toBe(0);
-
-			// Test rendering logic: if no reactions, only show add button
-			const shouldShowBadges = reactionCounts.length > 0;
-			const shouldShowAddButton = true; // Always show add button
-
-			expect(shouldShowBadges).toBe(false);
-			expect(shouldShowAddButton).toBe(true);
+			// No badges for empty data; add button always visible
+			expect(shouldShowBadges(reactionCounts)).toBe(false);
 		});
 
 		it('should show badges AND "+" button when reactions exist', () => {
 			const reactionCounts = [{ emoji: '😎', count: 2 }];
 
-			// Both badges and + button should be present
-			const shouldShowBadges = reactionCounts.length > 0;
-			const shouldShowAddButton = true;
-
-			expect(shouldShowBadges).toBe(true);
-			expect(shouldShowAddButton).toBe(true);
+			expect(shouldShowBadges(reactionCounts)).toBe(true);
 		});
 	});
 
 	describe('Behavior #10: Clicking reaction badge calls addReaction', () => {
 		it('should call addReaction with correct parentId and emoji when badge is clicked', async () => {
-			const parentId = 'test-parent-id';
-			const emoji = '😎';
-
-			// Simulate badge click handler (from the actual page implementation)
-			const handleReactionClick = async (parentId: string, emoji: string) => {
-				return await mockMutation('mock-addReaction-mutation', {
-					parentId,
-					emoji,
-					userId: 'test-user'
-				});
-			};
-
-			// Test the click handler
-			await handleReactionClick(parentId, emoji);
+			await callAddReaction('test-parent-id', '😎');
 
 			expect(mockMutation).toHaveBeenCalledWith('mock-addReaction-mutation', {
-				parentId,
-				emoji,
+				parentId: 'test-parent-id',
+				emoji: '😎',
 				userId: 'test-user'
 			});
 		});
 
 		it('should handle click event on "+" button to add reaction', async () => {
-			const parentId = 'test-parent-id';
-
-			// Simulate "+" button click (defaults to 😎 emoji as in actual implementation)
-			const handleAddButtonClick = async () => {
-				return await mockMutation('mock-addReaction-mutation', {
-					parentId,
-					emoji: '😎', // Default emoji from the actual page
-					userId: 'test-user'
-				});
-			};
-
-			await handleAddButtonClick();
+			// "+" button defaults to 😎 emoji
+			await callAddReaction('test-parent-id', '😎');
 
 			expect(mockMutation).toHaveBeenCalledWith('mock-addReaction-mutation', {
-				parentId,
+				parentId: 'test-parent-id',
 				emoji: '😎',
 				userId: 'test-user'
 			});
