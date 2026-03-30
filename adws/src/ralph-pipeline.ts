@@ -29,7 +29,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     onFail: "skip-issue",
     produces: ["preTddSha"],
     consumes: ["issue", "expertAdvice"],
-    modelMap: { trivial: "research", standard: "default", complex: "opus" },
+    modelMap: { trivial: "default", standard: "default", complex: "opus" },
     commitAfter: true,
     timeout: 600_000,
     postcondition: ["head-must-advance", "code-must-compile"],
