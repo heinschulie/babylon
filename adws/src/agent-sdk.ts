@@ -285,8 +285,13 @@ export async function runSkillStep(
   } else if (logDir && stepName) {
     currentStepDir = join(logDir, "steps", stepName);
     mkdirSync(currentStepDir, { recursive: true });
-    writeFileSync(join(currentStepDir, "prompt.txt"), prompt);
     outputFile = join(currentStepDir, "raw_output.jsonl");
+  }
+
+  // Always save prompt to disk when we have a step directory
+  if (currentStepDir) {
+    mkdirSync(currentStepDir, { recursive: true });
+    writeFileSync(join(currentStepDir, "prompt.txt"), prompt);
   }
 
   try {

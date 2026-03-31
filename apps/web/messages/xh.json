@@ -221,5 +221,12 @@
   "test_streak_label": "[TODO] Streak",
   "test_clear_tag_filter": "[TODO] Clear filter",
   "test_tag_cloud_title": "[TODO] Tag Cloud",
-  "test_no_tags_yet": "[TODO] No tags yet"
+  "test_no_tags_yet": "[TODO] No tags yet",
+  "test_achievements_title": "[TODO] Achievements",
+  "test_no_achievements": "[TODO] No achievements unlocked yet",
+  "test_achievement_emoji_starter": "[TODO] Emoji Starter",
+  "test_achievement_emoji_pro": "[TODO] Emoji Pro",
+  "test_achievement_democracy": "[TODO] Democracy",
+  "test_achievement_social_butterfly": "[TODO] Social Butterfly",
+  "test_achievement_poll_creator": "[TODO] Poll Creator"
 }

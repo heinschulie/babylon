@@ -10,6 +10,7 @@
 	import { Flame } from '@lucide/svelte';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
+	import AchievementCard from '$lib/components/AchievementCard.svelte';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -30,6 +31,7 @@
 	);
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
+	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -465,6 +467,22 @@
 							</div>
 						{/if}
 					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<!-- Achievements section -->
+	<section class="p-4">
+		<h2 class="text-xl font-semibold mb-4">{m.test_achievements_title()}</h2>
+		{#if achievements.isLoading}
+			<div>Loading achievements...</div>
+		{:else if !achievements.data || achievements.data.length === 0}
+			<p class="text-gray-600">{m.test_no_achievements()}</p>
+		{:else}
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				{#each achievements.data as achievement (achievement._id)}
+					<AchievementCard {achievement} />
 				{/each}
 			</div>
 		{/if}

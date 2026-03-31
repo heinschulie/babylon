@@ -221,5 +221,12 @@
   "test_streak_label": "Streak",
   "test_clear_tag_filter": "Clear filter",
   "test_tag_cloud_title": "Tag Cloud",
-  "test_no_tags_yet": "No tags yet"
+  "test_no_tags_yet": "No tags yet",
+  "test_achievements_title": "Achievements",
+  "test_no_achievements": "No achievements unlocked yet",
+  "test_achievement_emoji_starter": "Emoji Starter",
+  "test_achievement_emoji_pro": "Emoji Pro",
+  "test_achievement_democracy": "Democracy",
+  "test_achievement_social_butterfly": "Social Butterfly",
+  "test_achievement_poll_creator": "Poll Creator"
 }
