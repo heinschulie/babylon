@@ -3,12 +3,48 @@
 	import { api } from '@babylon/convex';
 	import * as Card from '@babylon/ui/card';
 	import { Smile, BarChart3, Vote, Heart, Trophy } from '@lucide/svelte';
+	import type { Component } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import { formatRelativeTime } from '$lib/format';
 
 	const activityFeed = useQuery(api.testActivityFeed.getActivityFeed, {});
 
+	type FeedEvent = NonNullable<typeof activityFeed.data>[number];
+	type EventType = FeedEvent['type'];
 	type FilterType = 'all' | 'emoji' | 'poll' | 'reaction' | 'achievement';
+
+	/** Central registry: add a new event type here and everything (icon, description, filtering) just works. */
+	const EVENT_TYPE_CONFIG: Record<EventType, {
+		icon: Component;
+		describe: (e: FeedEvent) => string;
+		filterGroup: FilterType;
+	}> = {
+		emoji: {
+			icon: Smile,
+			describe: (e) => `${e.data.emoji} ${m.test_emoji_submitted()} (${e.data.mood})`,
+			filterGroup: 'emoji',
+		},
+		vote: {
+			icon: Vote,
+			describe: () => `${m.test_vote_cast()}`,
+			filterGroup: 'emoji',
+		},
+		poll: {
+			icon: BarChart3,
+			describe: (e) => `${m.test_new_poll()}: ${e.data.question}`,
+			filterGroup: 'poll',
+		},
+		reaction: {
+			icon: Heart,
+			describe: (e) => `${e.data.emoji} ${m.test_reaction_on()}`,
+			filterGroup: 'reaction',
+		},
+		achievement: {
+			icon: Trophy,
+			describe: (e) => `${m.test_achievement_unlocked()}: ${e.data.title}`,
+			filterGroup: 'achievement',
+		},
+	};
 
 	const tabs: { id: FilterType; label: () => string }[] = [
 		{ id: 'all', label: () => m.test_filter_all() },
@@ -20,44 +56,19 @@
 
 	let selectedFilter = $state<FilterType>('all');
 
-	type FeedEvent = NonNullable<typeof activityFeed.data>[number];
-
 	let filtered = $derived.by(() => {
 		const data = activityFeed.data;
 		if (!data) return [];
 		if (selectedFilter === 'all') return data;
-		return data.filter((e) => {
-			if (selectedFilter === 'emoji') return e.type === 'emoji' || e.type === 'vote';
-			return e.type === selectedFilter;
-		});
+		return data.filter((e) => EVENT_TYPE_CONFIG[e.type].filterGroup === selectedFilter);
 	});
 
-	function getEventIcon(eventType: string) {
-		switch (eventType) {
-			case 'emoji': return Smile;
-			case 'poll': return BarChart3;
-			case 'vote': return Vote;
-			case 'reaction': return Heart;
-			case 'achievement': return Trophy;
-			default: return Smile;
-		}
+	function getEventIcon(eventType: EventType) {
+		return EVENT_TYPE_CONFIG[eventType]?.icon ?? Smile;
 	}
 
 	function getEventDescription(event: FeedEvent): string {
-		switch (event.type) {
-			case 'emoji':
-				return `${event.data.emoji} ${m.test_emoji_submitted()} (${event.data.mood})`;
-			case 'poll':
-				return `${m.test_new_poll()}: ${event.data.question}`;
-			case 'vote':
-				return `${m.test_vote_cast()}`;
-			case 'reaction':
-				return `${event.data.emoji} ${m.test_reaction_on()}`;
-			case 'achievement':
-				return `${m.test_achievement_unlocked()}: ${event.data.title}`;
-			default:
-				return 'Unknown activity';
-		}
+		return EVENT_TYPE_CONFIG[event.type]?.describe(event) ?? 'Unknown activity';
 	}
 </script>
 
