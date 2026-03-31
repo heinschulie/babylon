@@ -238,5 +238,8 @@
   "test_achievement_unlocked": "Achievement unlocked",
   "test_empty_filtered": "No matching activity",
   "test_pin_emoji": "Pin",
-  "test_unpin_emoji": "Unpin"
+  "test_unpin_emoji": "Unpin",
+  "test_poll_add_expiry": "Add expiry",
+  "test_poll_expires_in": "Expires in {time}",
+  "test_poll_expired": "Expired"
 }

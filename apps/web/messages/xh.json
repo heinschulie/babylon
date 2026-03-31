@@ -238,5 +238,8 @@
   "test_achievement_unlocked": "[TODO] Achievement unlocked",
   "test_empty_filtered": "[TODO] No matching activity",
   "test_pin_emoji": "[TODO] Pin",
-  "test_unpin_emoji": "[TODO] Unpin"
+  "test_unpin_emoji": "[TODO] Unpin",
+  "test_poll_add_expiry": "[TODO] Add expiry",
+  "test_poll_expires_in": "[TODO] Expires in {time}",
+  "test_poll_expired": "[TODO] Expired"
 }
