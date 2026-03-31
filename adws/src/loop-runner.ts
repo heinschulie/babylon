@@ -38,6 +38,7 @@ import {
   assertStableBranch,
 } from "./git-ops";
 import { openStep } from "./step-recorder";
+import { spawnTimekeeper, type TimekeeperConfig } from "./timekeeper-agent";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -249,15 +250,29 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
       };
 
       // ─── Execute pipeline ───────────────────────────────────────────
-      const pipelineResult = await runPipeline(pipeline, baseContext, {
-        logger,
-        workingDir,
-        models,
-        executeStep,
-        commentStep,
-        baseBranch,
+
+      // Spawn timekeeper to monitor this issue's steps
+      const timekeeper = spawnTimekeeper({
+        logDir: logger.logDir,
         adwId,
+        issueNumber: selectedIssue.number,
       });
+
+      let pipelineResult;
+      try {
+        pipelineResult = await runPipeline(pipeline, baseContext, {
+          logger,
+          workingDir,
+          models,
+          executeStep,
+          commentStep,
+          baseBranch,
+          adwId,
+        });
+      } finally {
+        // Always terminate timekeeper when pipeline completes
+        timekeeper.terminate();
+      }
 
       // Collect step usages
       for (const sr of pipelineResult.stepResults) {

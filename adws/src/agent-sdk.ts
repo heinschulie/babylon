@@ -5,12 +5,13 @@
  */
 
 import { join } from "path";
-import { appendFileSync, mkdirSync, writeFileSync } from "fs";
+import { appendFileSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "fs";
 import type { Logger, StepSummary } from "./logger";
 import { taggedLogger, type TaggedLogger } from "./logger";
 import { createStepBanner, createDefaultStepUsage, fmtDuration } from "./utils";
 import { openStep } from "./step-recorder";
 import { STEP_COMMANDS, type StepCommand } from "./step-commands";
+import type { KillFilePayload } from "./timekeeper-agent";
 
 export interface StepUsage {
   input_tokens: number;
@@ -38,6 +39,7 @@ interface RunStepOptions {
   logDir?: string;
   stepName?: string;
   timeout?: number;
+  stepDir?: string;
 }
 
 /** Summarize a BetaMessage content array into a compact log line. */
@@ -86,6 +88,56 @@ export function extractStepSummary(text: string): StepSummary | null {
     ...(expert_consulted && { expert_consulted }),
     ...(expert_advice_summary && { expert_advice_summary }),
   };
+}
+
+/**
+ * Check if a kill file exists in the step directory.
+ */
+function checkKillFile(stepDir?: string): KillFilePayload | null {
+  if (!stepDir) return null;
+
+  const killFilePath = join(stepDir, ".kill");
+  if (!existsSync(killFilePath)) return null;
+
+  try {
+    const content = readFileSync(killFilePath, "utf-8");
+    return JSON.parse(content) as KillFilePayload;
+  } catch {
+    return {
+      reason: "stalling",
+      description: "Kill file found but could not parse",
+      state: "stalling",
+      last_tool_calls: [],
+      lines_at_kill: 0,
+      killed_at: new Date().toISOString()
+    };
+  }
+}
+
+/**
+ * Create a promise that rejects when a kill file is detected.
+ */
+function createKillFileWatcher(stepDir?: string): Promise<never> {
+  return new Promise((_, reject) => {
+    if (!stepDir) {
+      // No step directory provided, never trigger
+      return;
+    }
+
+    const checkInterval = 5000; // Check every 5 seconds
+    const intervalId = setInterval(() => {
+      const killPayload = checkKillFile(stepDir);
+      if (killPayload) {
+        clearInterval(intervalId);
+        reject(new Error(`Step killed by timekeeper: ${killPayload.reason} - ${killPayload.description}`));
+      }
+    }, checkInterval);
+
+    // Clean up interval if this promise is never resolved (shouldn't happen)
+    setTimeout(() => {
+      clearInterval(intervalId);
+    }, 30 * 60 * 1000); // 30 minutes max
+  });
 }
 
 /** Extract usage data from a result message. */
@@ -224,11 +276,17 @@ export async function runSkillStep(
 
   // Save prompt and set up output capture if step dir provided
   let outputFile: string | undefined;
-  if (logDir && stepName) {
-    const stepDir = join(logDir, "steps", stepName);
-    mkdirSync(stepDir, { recursive: true });
-    writeFileSync(join(stepDir, "prompt.txt"), prompt);
-    outputFile = join(stepDir, "raw_output.jsonl");
+  let currentStepDir: string | undefined;
+
+  // Use provided stepDir or construct from logDir/stepName
+  if (options.stepDir) {
+    currentStepDir = options.stepDir;
+    outputFile = join(currentStepDir, "raw_output.jsonl");
+  } else if (logDir && stepName) {
+    currentStepDir = join(logDir, "steps", stepName);
+    mkdirSync(currentStepDir, { recursive: true });
+    writeFileSync(join(currentStepDir, "prompt.txt"), prompt);
+    outputFile = join(currentStepDir, "raw_output.jsonl");
   }
 
   try {
@@ -237,7 +295,7 @@ export async function runSkillStep(
     const sdk = await createSDK({ model: options.model, cwd: options.cwd });
     const query = sdk.query(prompt);
 
-    return await consumeQuery(query, logger, outputFile, options.timeout);
+    return await consumeQuery(query, logger, outputFile, options.timeout, currentStepDir);
   } catch (e) {
     logger?.error(`Skill step failed: ${e}`);
     return { success: false, error: String(e) };
@@ -310,40 +368,56 @@ async function consumeQuery(
   query: AsyncGenerator<any, void>,
   logger?: Logger,
   outputFile?: string,
-  timeout?: number
+  timeout?: number,
+  stepDir?: string
 ): Promise<QueryResult> {
   let resultPromise = findFinalResult(query, logger, outputFile);
 
-  // Enforce per-step timeout if specified
+  // Create promises for timeout and kill file watching
+  const promises: Promise<any>[] = [resultPromise];
+
+  // Add timeout promise if specified
   if (timeout && timeout > 0) {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Step timed out after ${timeout}ms`)), timeout);
     });
-    try {
-      const { finalResult, summary } = await Promise.race([resultPromise, timeoutPromise]);
+    promises.push(timeoutPromise);
+  }
 
-      if (!finalResult) {
-        return { success: false };
-      }
+  // Add kill file watcher if stepDir is provided
+  if (stepDir) {
+    promises.push(createKillFileWatcher(stepDir));
+  }
 
-      const usage = extractUsage(finalResult);
-      if (usage) {
-        logger?.info(`[usage] ${formatUsage(usage)}`);
-      }
+  try {
+    const { finalResult, summary } = await Promise.race(promises);
 
-      return {
-        success: finalResult.subtype === "success",
-        session_id: finalResult.session_id,
-        result: finalResult.result,
-        usage,
-        summary: summary ?? undefined,
-      };
-    } catch (e) {
-      logger?.error(`Timeout: ${e}`);
-      // Try to close the generator to free resources
-      try { await query.return(undefined as any); } catch { /* ignore */ }
-      return { success: false, error: String(e) };
+    if (!finalResult) {
+      return { success: false };
     }
+
+    const usage = extractUsage(finalResult);
+    if (usage) {
+      logger?.info(`[usage] ${formatUsage(usage)}`);
+    }
+
+    return {
+      success: finalResult.subtype === "success",
+      session_id: finalResult.session_id,
+      result: finalResult.result,
+      usage,
+      summary: summary ?? undefined,
+    };
+  } catch (e) {
+    const errorMessage = String(e);
+    if (errorMessage.includes("killed by timekeeper")) {
+      logger?.error(`Kill file detected: ${errorMessage}`);
+    } else {
+      logger?.error(`Step error: ${errorMessage}`);
+    }
+    // Try to close the generator to free resources
+    try { await query.return(undefined as any); } catch { /* ignore */ }
+    return { success: false, error: errorMessage };
   }
 
   const { finalResult, summary } = await resultPromise;

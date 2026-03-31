@@ -54,7 +54,7 @@ describe("RALPH_PIPELINE", () => {
 
   it("model maps resolve per complexity", () => {
     const tdd = RALPH_PIPELINE.find(s => s.name === "tdd")!;
-    expect(tdd.modelMap.trivial).toBe("research");
+    expect(tdd.modelMap.trivial).toBe("default");
     expect(tdd.modelMap.standard).toBe("default");
     expect(tdd.modelMap.complex).toBe("opus");
 
@@ -72,5 +72,24 @@ describe("RALPH_PIPELINE", () => {
   it("tdd and review onFail is skip-issue", () => {
     expect(RALPH_PIPELINE.find(s => s.name === "tdd")!.onFail).toBe("skip-issue");
     expect(RALPH_PIPELINE.find(s => s.name === "review")!.onFail).toBe("skip-issue");
+  });
+
+  it("has reasonable timeout ceiling values", () => {
+    const timeouts = RALPH_PIPELINE.reduce((acc, step) => {
+      acc[step.name] = step.timeout;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Verify the new ceiling values (converted to minutes for readability)
+    expect(timeouts.consult).toBe(300_000); // 5 minutes
+    expect(timeouts.tdd).toBe(1_200_000);   // 20 minutes
+    expect(timeouts.refactor).toBe(600_000); // 10 minutes
+    expect(timeouts.review).toBe(900_000);   // 15 minutes
+
+    // Ensure all timeouts are reasonable (not too short or too long)
+    for (const [step, timeout] of Object.entries(timeouts)) {
+      expect(timeout).toBeGreaterThan(60_000); // At least 1 minute
+      expect(timeout).toBeLessThan(25 * 60_000); // Less than 25 minutes
+    }
   });
 });

@@ -14,6 +14,7 @@ import { openStep } from "./step-recorder";
 import { getHeadSha, commitChanges } from "./git-ops";
 import { parseReviewResult } from "./review-utils";
 import { createDefaultStepUsage } from "./utils";
+import { makeIssueComment } from "./github";
 
 /** Extended QueryResult with produces map for generic context threading. */
 export interface StepExecutorResult extends QueryResult {
@@ -244,7 +245,27 @@ export async function runPipeline(
         preSha,
       });
     } catch (e) {
-      result = { success: false, error: String(e) };
+      const errorMessage = String(e);
+
+      // Check if this was a kill file termination
+      if (errorMessage.includes("killed by timekeeper")) {
+        logger.warn(`Step "${step.name}" terminated by timekeeper: ${errorMessage}`);
+
+        // Post GitHub comment about the termination
+        try {
+          const killReason = errorMessage.includes("looping") ? "looping behavior" : "stalling";
+          await makeIssueComment(
+            ctx.issue.number,
+            `⚠️ Step \`${step.name}\` terminated by timekeeper due to ${killReason}.\n\n` +
+            `**Reason:** ${errorMessage.replace(/^.*killed by timekeeper:\s*/, '')}\n\n` +
+            `The step will be retried if the pipeline retry logic is enabled.`
+          );
+        } catch (commentError) {
+          logger.warn(`Failed to post kill comment: ${commentError}`);
+        }
+      }
+
+      result = { success: false, error: errorMessage };
     }
 
     const usage = result.usage ?? createDefaultStepUsage();

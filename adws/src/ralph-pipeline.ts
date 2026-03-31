@@ -20,7 +20,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     consumes: ["issue"],
     modelMap: { trivial: "research", standard: "research", complex: "research" },
     commitAfter: false,
-    timeout: 120_000,
+    timeout: 300_000,
     postcondition: null,
   },
   {
@@ -31,7 +31,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     consumes: ["issue", "expertAdvice"],
     modelMap: { trivial: "default", standard: "default", complex: "opus" },
     commitAfter: true,
-    timeout: 600_000,
+    timeout: 1_200_000,
     postcondition: ["head-must-advance", "code-must-compile"],
   },
   {
@@ -42,7 +42,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     consumes: ["issue", "expertAdvice", "preTddSha"],
     modelMap: { trivial: "default", standard: "default", complex: "opus" },
     commitAfter: true,
-    timeout: 300_000,
+    timeout: 600_000,
     postcondition: null,
     skipWhen: { complexity: ["trivial"] },
   },
@@ -54,7 +54,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     consumes: ["issue", "expertAdvice"],
     modelMap: { trivial: "default", standard: "default", complex: "opus" },
     commitAfter: false,
-    timeout: 300_000,
+    timeout: 900_000,
     postcondition: "result-must-parse",
   },
 ];

@@ -7,7 +7,7 @@ Follow the `Instructions` below to **review work done against a specification** 
 adw_id: $1
 spec_or_issue: $2 — one of three formats: (a) `INLINE_SPEC::` prefix followed by the full spec text inline, (b) a file path to a spec file (temp/specs/*.md), or (c) a GitHub issue number (numeric). When numeric, fetch the issue via `gh issue view <number> --json body,title` and use the issue title + body as the review spec.
 agent_name: $3 if provided, otherwise use 'review_agent'
-review_image_dir: $4 if provided, otherwise `<absolute path to codebase>/agents/<adw_id>/<agent_name>/review_img/`
+review_image_dir: $4 if provided, otherwise the step's build directory at `temp/builds/{prd}_{adw_id}/steps/{issue}_{step}_review/screenshots/`
 
 ## Instructions
 

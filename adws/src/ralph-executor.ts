@@ -34,7 +34,8 @@ export function createRalphExecutor(adwId: string): StepExecutor {
     opts: StepExecutorOpts,
   ): Promise<StepExecutorResult> => {
     const { model, cwd, logger, logDir, stepName, timeout, preSha } = opts;
-    const baseOpts = { model, cwd, logger, logDir, stepName, timeout };
+    const stepDir = join(logDir, "steps", stepName);
+    const baseOpts = { model, cwd, logger, logDir, stepName, timeout, stepDir };
 
     switch (step.name) {
       case "consult": {
@@ -86,7 +87,7 @@ export function createRalphExecutor(adwId: string): StepExecutor {
 
       case "review": {
         // Review step — capture structured learnings from output
-        const reviewImageDir = join(cwd, "agents", adwId, "review", `${context.issue.number}_review_img`);
+        const reviewImageDir = join(logDir, "steps", stepName, "screenshots");
         mkdirSync(reviewImageDir, { recursive: true });
 
         const reviewResult = await runReviewStep(adwId, "", {
