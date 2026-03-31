@@ -47,9 +47,9 @@ describe("RALPH_PIPELINE", () => {
     expect(review.postcondition).toBe("result-must-parse");
   });
 
-  it("refactor skips when complexity is trivial", () => {
+  it("refactor does not skip any complexity level", () => {
     const refactor = RALPH_PIPELINE.find(s => s.name === "refactor")!;
-    expect(refactor.skipWhen).toEqual({ complexity: ["trivial"] });
+    expect(refactor.skipWhen).toBeUndefined();
   });
 
   it("model maps resolve per complexity", () => {
@@ -59,9 +59,9 @@ describe("RALPH_PIPELINE", () => {
     expect(tdd.modelMap.complex).toBe("opus");
 
     const consult = RALPH_PIPELINE.find(s => s.name === "consult")!;
-    expect(consult.modelMap.trivial).toBe("research");
-    expect(consult.modelMap.standard).toBe("research");
-    expect(consult.modelMap.complex).toBe("research");
+    expect(consult.modelMap.trivial).toBe("opus");
+    expect(consult.modelMap.standard).toBe("opus");
+    expect(consult.modelMap.complex).toBe("opus");
   });
 
   it("consult onFail is continue (non-fatal)", () => {
