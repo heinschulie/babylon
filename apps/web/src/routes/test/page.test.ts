@@ -29,6 +29,30 @@ describe('/test route', () => {
 		expect(content).toContain('100vh');
 	});
 
+	it('should have MoodHeatmap section between leaderboard and sentiment timeline', () => {
+		// Behavior #10: Frontend Heatmap section appears between leaderboard and activity feed on test page
+
+		// Check that MoodHeatmap component is imported
+		expect(content).toContain("import MoodHeatmap from '$lib/components/MoodHeatmap.svelte'");
+
+		// Check that MoodHeatmap component is used
+		expect(content).toContain('<MoodHeatmap />');
+
+		// Find positions of the sections to verify order
+		const leaderboardIndex = content.indexOf('<!-- Emoji Leaderboard section -->');
+		const heatmapIndex = content.indexOf('<!-- Mood Heatmap section -->');
+		const timelineIndex = content.indexOf('<!-- Sentiment Timeline section -->');
+
+		// Verify all sections exist
+		expect(leaderboardIndex).toBeGreaterThan(-1);
+		expect(heatmapIndex).toBeGreaterThan(-1);
+		expect(timelineIndex).toBeGreaterThan(-1);
+
+		// Verify correct order: leaderboard < heatmap < timeline
+		expect(heatmapIndex).toBeGreaterThan(leaderboardIndex);
+		expect(timelineIndex).toBeGreaterThan(heatmapIndex);
+	});
+
 	it('should have an H1 containing "christ on a pogostick"', () => {
 		expect(content).toContain('<h1');
 		expect(content).toContain('christ on a pogostick');

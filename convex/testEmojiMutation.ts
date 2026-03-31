@@ -82,6 +82,13 @@ export const submitEmoji = mutation({
 			streakDay,
 		});
 
+		// Record mood entry for heatmap
+		const today = new Date(Date.now()).toISOString().slice(0, 10);
+		await ctx.runMutation(internal.testMoodHeatmap.recordMoodEntry, {
+			date: today,
+			mood
+		});
+
 		// Then check and unlock achievements
 		await ctx.runMutation(internal.testAchievements.checkAndUnlockAchievements, { userId });
 

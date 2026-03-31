@@ -336,4 +336,13 @@ export default defineSchema({
 		.index('by_userId', ['userId'])
 		.index('by_type_userId', ['type', 'userId'])  // uniqueness check
 		.index('by_unlockedAt', ['unlockedAt']),
+
+	// Test mood heatmap table for daily mood tracking
+	testMoodHeatmapTable: defineTable({
+		date: v.string(),     // YYYY-MM-DD
+		mood: v.string(),     // chill | angry | happy
+		count: v.number()     // number of entries for this date+mood
+	})
+		.index('by_date', ['date'])
+		.index('by_date_mood', ['date', 'mood']),
 });
