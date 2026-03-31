@@ -587,6 +587,84 @@ describe('/test route', () => {
 		});
 	});
 
+	// Pinboard feature tests
+	describe('pinboard feature', () => {
+		it('should have Pinboard section above sentiment timeline with header showing pin count', () => {
+			// Behavior 3: Pinboard renders with header showing pin count badge
+			expect(content).toContain('<!-- Pinboard section -->');
+			expect(content).toContain('test_pinboard_title');
+
+			// Pinboard should be above sentiment timeline
+			const pinboardIndex = content.indexOf('<!-- Pinboard section -->');
+			const timelineIndex = content.indexOf('<!-- Sentiment Timeline section -->');
+			expect(pinboardIndex).toBeGreaterThan(-1);
+			expect(pinboardIndex).toBeLessThan(timelineIndex);
+		});
+
+		it('should query listPinnedEmojis and getPinStats', () => {
+			// Behavior 3+7: Queries for pinboard data
+			expect(content).toContain('listPinnedEmojis');
+			expect(content).toContain('getPinStats');
+		});
+
+		it('should display stats card with totalPinned, topMood, and oldest pin age', () => {
+			// Behavior 7: Stats card
+			expect(content).toContain('test_pinboard_stats_total');
+			expect(content).toContain('test_pinboard_stats_top_mood');
+			expect(content).toContain('test_pinboard_stats_oldest');
+		});
+
+		it('should be collapsed when no pinned emojis and expanded when pinned exist', () => {
+			// Behaviors 8+9: Collapse/expand based on pinned count
+			expect(content).toContain('pinboardExpanded');
+		});
+
+		it('should show emoji, sentence, mood badge, relative time, and unpin button per card', () => {
+			// Behavior 10: Pinned card content
+			expect(content).toContain('pinnedEntry.emoji');
+			expect(content).toContain('pinnedEntry.sentence');
+			expect(content).toContain('pinnedEntry.mood');
+			expect(content).toContain('formatRelativeTime(pinnedEntry.createdAt)');
+			expect(content).toContain('test_unpin_emoji');
+		});
+
+		it('should have individual unpin button calling togglePin', () => {
+			// Behavior 11: Unpin calls togglePin
+			expect(content).toContain('handleTogglePin(pinnedEntry._id)');
+		});
+
+		it('should have sort dropdown with three options', () => {
+			// Behaviors 12-14: Sort dropdown
+			expect(content).toContain('pinboardSortMode');
+			expect(content).toContain('test_pinboard_sort_newest');
+			expect(content).toContain('test_pinboard_sort_oldest');
+			expect(content).toContain('test_pinboard_sort_mood');
+		});
+
+		it('should have client-side sort via $derived', () => {
+			// Behaviors 13-14: Client-side sorting
+			expect(content).toContain('sortedPinnedEmojis');
+		});
+
+		it('should have unpin all button with confirmation dialog', () => {
+			// Behaviors 17-18: Unpin all with confirmation
+			expect(content).toContain('test_pinboard_unpin_all');
+			expect(content).toContain('test_pinboard_unpin_confirm');
+			expect(content).toContain('unpinAllDialogOpen');
+			expect(content).toContain('handleUnpinAll');
+		});
+
+		it('should call unpinAll mutation on confirm', () => {
+			// Behavior 18: Confirming calls unpinAll
+			expect(content).toContain('testEmojiMutation.unpinAll');
+		});
+
+		it('should use slide transition for expand/collapse animation', () => {
+			// Behavior 19 + smooth animation
+			expect(content).toContain('slide');
+		});
+	});
+
 	// ReactionSummaryBar integration tests
 	describe('ReactionSummaryBar Integration', () => {
 		it('should appear beneath emoji entries in sentiment timeline that have reactions', () => {

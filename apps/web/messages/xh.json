@@ -245,5 +245,15 @@
   "test_mood_heatmap_title": "[TODO] Mood Heatmap",
   "test_mood_heatmap_empty": "[TODO] No mood data yet",
   "test_reactions_summary": "[TODO] Reaction summary",
-  "test_reactions_none": "[TODO] No reactions"
+  "test_reactions_none": "[TODO] No reactions",
+  "test_pinboard_title": "[TODO] Pinboard ({count})",
+  "test_pinboard_empty": "[TODO] No pinned emojis",
+  "test_pinboard_sort_newest": "[TODO] Newest first",
+  "test_pinboard_sort_oldest": "[TODO] Oldest first",
+  "test_pinboard_sort_mood": "[TODO] By mood",
+  "test_pinboard_unpin_all": "[TODO] Unpin all",
+  "test_pinboard_unpin_confirm": "[TODO] Are you sure you want to unpin all emojis?",
+  "test_pinboard_stats_total": "[TODO] Total pinned",
+  "test_pinboard_stats_top_mood": "[TODO] Top mood",
+  "test_pinboard_stats_oldest": "[TODO] Oldest pin"
 }

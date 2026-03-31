@@ -7,7 +7,8 @@
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
-	import { Flame, Pin } from '@lucide/svelte';
+	import { Flame, Pin, ChevronDown } from '@lucide/svelte';
+	import { slide } from 'svelte/transition';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
@@ -17,6 +18,8 @@
 	import { browser } from '$app/environment';
 
 	let dialogOpen = $state(false);
+	let unpinAllDialogOpen = $state(false);
+	let pinboardSortMode = $state<'newest' | 'oldest' | 'mood'>('newest');
 	let pollQuestion = $state('');
 	let pollOptions = $state(['', '']);
 	let pollTagsInput = $state('');
@@ -39,6 +42,8 @@
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
 	const activePollsCount = useQuery(api.testPollMutation.getActivePollsCount, {});
+	const pinnedEmojis = useQuery(api.testEmojiMutation.listPinnedEmojis, {});
+	const pinStats = useQuery(api.testEmojiMutation.getPinStats, {});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
@@ -81,6 +86,23 @@
 			},
 			{ chill: 0, angry: 0, happy: 0 }
 		);
+	});
+
+	const pinboardExpanded = $derived(
+		(pinnedEmojis.data && pinnedEmojis.data.length > 0) ?? false
+	);
+
+	const sortedPinnedEmojis = $derived.by(() => {
+		if (!pinnedEmojis.data) return [];
+		const items = [...pinnedEmojis.data];
+		if (pinboardSortMode === 'oldest') {
+			return items.sort((a: any, b: any) => a.createdAt - b.createdAt);
+		}
+		if (pinboardSortMode === 'mood') {
+			return items.sort((a: any, b: any) => a.mood.localeCompare(b.mood));
+		}
+		// newest (default) — already sorted desc from query
+		return items;
 	});
 
 	const filteredEmojis = $derived.by(() => {
@@ -188,6 +210,15 @@
 			});
 		} catch (error) {
 			console.error('Failed to add reaction:', error);
+		}
+	}
+
+	async function handleUnpinAll() {
+		try {
+			await client.mutation(api.testEmojiMutation.unpinAll, {});
+			unpinAllDialogOpen = false;
+		} catch (error) {
+			console.error('Failed to unpin all:', error);
 		}
 	}
 
@@ -509,6 +540,98 @@
 
 	<!-- Mood Heatmap section -->
 	<MoodHeatmap />
+
+	<!-- Pinboard section -->
+	<section class="p-4">
+		<button
+			class="flex items-center gap-2 text-lg font-semibold w-full text-left"
+			onclick={() => {}}
+		>
+			<ChevronDown size={20} class="transition-transform {pinboardExpanded ? '' : '-rotate-90'}" />
+			{m.test_pinboard_title({ count: pinnedEmojis.data?.length ?? 0 })}
+		</button>
+
+		{#if pinboardExpanded}
+			<div transition:slide={{ duration: 200 }}>
+				<!-- Stats card -->
+				{#if pinStats.data}
+					<Card.Root class="mt-3 mb-3">
+						<Card.Content class="flex gap-4 py-3">
+							<div>
+								<span class="text-sm text-gray-500">{m.test_pinboard_stats_total()}</span>
+								<span class="font-medium ml-1">{pinStats.data.totalPinned}</span>
+							</div>
+							{#if pinStats.data.topMood}
+								<div>
+									<span class="text-sm text-gray-500">{m.test_pinboard_stats_top_mood()}</span>
+									<Badge variant="secondary" class="ml-1">{pinStats.data.topMood}</Badge>
+								</div>
+							{/if}
+							{#if pinStats.data.oldestPinDate}
+								<div>
+									<span class="text-sm text-gray-500">{m.test_pinboard_stats_oldest()}</span>
+									<span class="text-sm ml-1">{formatRelativeTime(pinStats.data.oldestPinDate)}</span>
+								</div>
+							{/if}
+						</Card.Content>
+					</Card.Root>
+				{/if}
+
+				<!-- Sort + Unpin all controls -->
+				<div class="flex items-center gap-2 mb-3">
+					<select
+						bind:value={pinboardSortMode}
+						class="text-sm border border-gray-300 rounded px-2 py-1"
+					>
+						<option value="newest">{m.test_pinboard_sort_newest()}</option>
+						<option value="oldest">{m.test_pinboard_sort_oldest()}</option>
+						<option value="mood">{m.test_pinboard_sort_mood()}</option>
+					</select>
+					<Button variant="outline" size="sm" onclick={() => unpinAllDialogOpen = true}>
+						{m.test_pinboard_unpin_all()}
+					</Button>
+				</div>
+
+				<!-- Pinned emoji cards -->
+				{#if sortedPinnedEmojis.length === 0}
+					<p class="text-gray-500">{m.test_pinboard_empty()}</p>
+				{:else}
+					<div class="space-y-2">
+						{#each sortedPinnedEmojis as pinnedEntry (pinnedEntry._id)}
+							<Card.Root class="border-yellow-300 bg-yellow-50">
+								<Card.Content class="flex items-center gap-3 py-2">
+									<span class="text-2xl">{pinnedEntry.emoji}</span>
+									<span class="text-sm flex-1">{pinnedEntry.sentence}</span>
+									<Badge variant="secondary">{pinnedEntry.mood}</Badge>
+									<span class="text-xs text-gray-500">{formatRelativeTime(pinnedEntry.createdAt)}</span>
+									<Button
+										variant="ghost"
+										size="sm"
+										onclick={() => handleTogglePin(pinnedEntry._id)}
+										title={m.test_unpin_emoji()}
+									>
+										<Pin size={14} class="fill-current text-yellow-600" />
+									</Button>
+								</Card.Content>
+							</Card.Root>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</section>
+
+	<!-- Unpin all confirmation dialog -->
+	<Dialog.Root open={unpinAllDialogOpen} onOpenChange={(open) => unpinAllDialogOpen = open}>
+		<Dialog.Content>
+			<Dialog.Title>{m.test_pinboard_unpin_all()}</Dialog.Title>
+			<p>{m.test_pinboard_unpin_confirm()}</p>
+			<div class="flex gap-2 mt-4 justify-end">
+				<Button variant="outline" onclick={() => unpinAllDialogOpen = false}>Cancel</Button>
+				<Button variant="default" onclick={handleUnpinAll}>{m.test_pinboard_unpin_all()}</Button>
+			</div>
+		</Dialog.Content>
+	</Dialog.Root>
 
 	<!-- Sentiment Timeline section -->
 	<section>

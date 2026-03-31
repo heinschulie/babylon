@@ -151,6 +151,65 @@ export const listRecentEmojis = query({
 	},
 });
 
+export const listPinnedEmojis = query({
+	args: {},
+	handler: async (ctx) => {
+		return await ctx.db
+			.query('testTable')
+			.withIndex('by_pinned_createdAt', (q) => q.eq('pinned', true))
+			.order('desc')
+			.collect();
+	},
+});
+
+export const getPinStats = query({
+	args: {},
+	handler: async (ctx) => {
+		const pinned = await ctx.db
+			.query('testTable')
+			.withIndex('by_pinned_createdAt', (q) => q.eq('pinned', true))
+			.collect();
+
+		if (pinned.length === 0) {
+			return { totalPinned: 0, topMood: null, oldestPinDate: null };
+		}
+
+		// Count moods
+		const moodCounts = new Map<string, number>();
+		let oldestCreatedAt = Infinity;
+		for (const doc of pinned) {
+			moodCounts.set(doc.mood, (moodCounts.get(doc.mood) ?? 0) + 1);
+			if (doc.createdAt < oldestCreatedAt) oldestCreatedAt = doc.createdAt;
+		}
+
+		// Find most frequent mood
+		let topMood: string | null = null;
+		let maxCount = 0;
+		for (const [mood, count] of moodCounts) {
+			if (count > maxCount) {
+				maxCount = count;
+				topMood = mood;
+			}
+		}
+
+		return { totalPinned: pinned.length, topMood, oldestPinDate: oldestCreatedAt };
+	},
+});
+
+export const unpinAll = mutation({
+	args: {},
+	handler: async (ctx) => {
+		await getAuthUserId(ctx);
+		const pinned = await ctx.db
+			.query('testTable')
+			.withIndex('by_pinned_createdAt', (q) => q.eq('pinned', true))
+			.collect();
+		for (const doc of pinned) {
+			await ctx.db.patch(doc._id, { pinned: false });
+		}
+	},
+});
+
 export const togglePin = mutation({
 	args: { id: v.id('testTable') },
 	handler: async (ctx, { id }) => {
