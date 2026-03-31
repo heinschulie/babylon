@@ -1,6 +1,8 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { validateAndNormalizeTags } from './lib/tags';
+import { internal } from './_generated/api';
+import { getAuthUserId } from './lib/auth';
 
 const MOOD_BY_INDEX = ['chill', 'angry', 'happy'] as const;
 const MAX_TAG_LENGTH = 20;
@@ -69,6 +71,9 @@ export const castVote = mutation({
 		userId: v.string(),
 	},
 	handler: async (ctx, { pollId, option, userId }) => {
+		// Auth check first (expert guidance)
+		await getAuthUserId(ctx);
+
 		const poll = await ctx.db.get(pollId);
 		if (!poll) {
 			throw new Error('Poll not found');
@@ -84,7 +89,8 @@ export const castVote = mutation({
 			throw new Error(`Invalid option: ${option}. Must be one of: ${poll.options.join(', ')}`);
 		}
 
-		return ctx.db.insert('testTable', {
+		// Insert entry first
+		const entryId = await ctx.db.insert('testTable', {
 			emoji: option,
 			sentence: poll.question,
 			mood: deriveMood(optionIndex),
@@ -92,6 +98,11 @@ export const castVote = mutation({
 			pollId,
 			createdAt: Date.now()
 		});
+
+		// Then check and unlock achievements
+		await ctx.runMutation(internal.testAchievements.checkAndUnlockAchievements, { userId });
+
+		return entryId;
 	},
 });
 

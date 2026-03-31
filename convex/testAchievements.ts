@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { mutation, query, internalMutation } from './_generated/server';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
 
@@ -71,7 +71,7 @@ const ACHIEVEMENTS: AchievementDef[] = [
 
 // --- Mutations & Queries ---
 
-export const checkAndUnlockAchievements = mutation({
+export const checkAndUnlockAchievements = internalMutation({
 	args: { userId: v.string() },
 	handler: async (ctx, { userId }) => {
 		for (const achievement of ACHIEVEMENTS) {

@@ -1,5 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import { internal } from './_generated/api';
+import { getAuthUserId } from './lib/auth';
 
 const EMOJI_CONFIG: Record<string, { sentence: string; mood: string }> = {
 	'😎': { sentence: 'The cat wore sunglasses to the job interview', mood: 'chill' },
@@ -47,6 +49,9 @@ export const submitEmoji = mutation({
 		userId: v.string(),
 	},
 	handler: async (ctx, { emoji, mood, userId }) => {
+		// Auth check first (expert guidance)
+		await getAuthUserId(ctx);
+
 		const config = EMOJI_CONFIG[emoji];
 		if (!config) {
 			throw new Error(`Invalid emoji: ${emoji}. Must be one of: ${VALID_EMOJIS.join(', ')}`);
@@ -67,7 +72,8 @@ export const submitEmoji = mutation({
 		const now = Date.now();
 		const streakDay = computeStreakDay(priorSubmission, now);
 
-		return ctx.db.insert('testTable', {
+		// Insert entry first
+		const entryId = await ctx.db.insert('testTable', {
 			emoji,
 			mood,
 			sentence: config.sentence,
@@ -75,6 +81,11 @@ export const submitEmoji = mutation({
 			createdAt: Date.now(),
 			streakDay,
 		});
+
+		// Then check and unlock achievements
+		await ctx.runMutation(internal.testAchievements.checkAndUnlockAchievements, { userId });
+
+		return entryId;
 	},
 });
 

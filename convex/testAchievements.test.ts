@@ -1,7 +1,7 @@
 import { convexTest } from 'convex-test';
 import { describe, it, expect } from 'vitest';
 import schema from './schema';
-import { api } from './_generated/api';
+import { api, internal } from './_generated/api';
 
 const modules = import.meta.glob('./**/*.ts');
 
@@ -23,7 +23,7 @@ describe('testAchievements', () => {
 			}
 
 			// Check achievements should unlock emoji_starter
-			await t.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			await t.mutation(internal.testAchievements.checkAndUnlockAchievements, {
 				userId,
 			});
 
@@ -57,7 +57,7 @@ describe('testAchievements', () => {
 			}
 
 			// First call - should unlock achievement
-			await t.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			await t.mutation(internal.testAchievements.checkAndUnlockAchievements, {
 				userId,
 			});
 
@@ -69,7 +69,7 @@ describe('testAchievements', () => {
 			expect(achievementsAfterFirst).toHaveLength(1);
 
 			// Second call - should NOT create duplicate
-			await t.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			await t.mutation(internal.testAchievements.checkAndUnlockAchievements, {
 				userId,
 			});
 
@@ -107,7 +107,7 @@ describe('testAchievements', () => {
 			});
 
 			// Check achievements should unlock democracy
-			await t.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			await t.mutation(internal.testAchievements.checkAndUnlockAchievements, {
 				userId,
 			});
 
@@ -141,7 +141,7 @@ describe('testAchievements', () => {
 			}
 
 			// Check achievements - should NOT unlock emoji_starter
-			await t.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			await t.mutation(internal.testAchievements.checkAndUnlockAchievements, {
 				userId,
 			});
 
@@ -195,7 +195,7 @@ describe('testAchievements', () => {
 			}
 
 			// Check achievements
-			await t.mutation(api.testAchievements.checkAndUnlockAchievements, {
+			await t.mutation(internal.testAchievements.checkAndUnlockAchievements, {
 				userId,
 			});
 

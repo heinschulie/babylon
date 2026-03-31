@@ -144,5 +144,35 @@ describe('testReactions', () => {
 			expect(counts).toEqual([]);
 			expect(counts).toHaveLength(0);
 		});
+
+		it('should call checkAndUnlockAchievements after creating reaction entry', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// First, create a parent entry
+			const parentId = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Add reactions to reach social_butterfly threshold (5 reactions)
+			for (let i = 0; i < 5; i++) {
+				await asUser.mutation(api.testReactions.addReaction, {
+					parentId,
+					emoji: '🔥',
+					userId: 'social-butterfly-user'
+				});
+			}
+
+			// Verify achievement check was triggered by checking if social_butterfly achievement was unlocked
+			// Since we have 5 reactions with parentId, it should unlock social_butterfly (threshold=5)
+			const achievements = await asUser.query(api.testAchievements.getUserAchievements, {
+				userId: 'social-butterfly-user'
+			});
+			expect(achievements).toHaveLength(1);
+			expect(achievements[0].type).toBe('social_butterfly');
+			expect(achievements[0].title).toBe('Social Butterfly');
+		});
 	});
 });

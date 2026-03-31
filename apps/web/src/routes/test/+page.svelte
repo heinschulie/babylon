@@ -11,6 +11,8 @@
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
+	import { toast, Toaster } from 'sonner';
+	import { browser } from '$app/environment';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -32,6 +34,23 @@
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+
+	// Track achievement count for toast notifications
+	let previousCount = $state(0);
+
+	// Watch for new achievements and show toast
+	$effect(() => {
+		if (achievements.data && achievements.data.length > previousCount) {
+			// Only show toast if we have more achievements than before
+			if (previousCount > 0) {
+				const newAchievement = achievements.data[0]; // Achievements are sorted newest first
+				toast('Achievement Unlocked!', {
+					description: newAchievement.title
+				});
+			}
+			previousCount = achievements.data.length;
+		}
+	});
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -155,6 +174,11 @@
 </script>
 
 <div class="bg-[#E1261C] min-h-[100vh]">
+	<!-- Sonner Toast Provider -->
+	{#if browser}
+		<Toaster />
+	{/if}
+
 	<div class="flex items-center gap-3 p-4">
 		<button onclick={() => dialogOpen = true}>Test Emoji</button>
 

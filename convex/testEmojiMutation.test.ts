@@ -538,5 +538,45 @@ describe('testEmojiMutation', () => {
 			expect(user1Streak).toEqual({ streak: 1 });
 			expect(user2Streak).toEqual({ streak: 1 });
 		});
+
+		it('should call checkAndUnlockAchievements after creating emoji entry', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Submit an emoji
+			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'achievement-test-user'
+			});
+
+			// Verify entry was created
+			const record = await t.run(async (ctx) => ctx.db.get(id));
+			expect(record).toBeDefined();
+
+			// Verify achievement check was triggered by checking if any achievements were unlocked
+			// Since this is the first emoji (count=1), it shouldn't unlock emoji_starter (threshold=5)
+			const achievements = await asUser.query(api.testAchievements.getUserAchievements, {
+				userId: 'achievement-test-user'
+			});
+			expect(achievements).toEqual([]); // No achievements unlocked yet
+
+			// Submit 4 more emojis to reach threshold=5 for emoji_starter
+			for (let i = 0; i < 4; i++) {
+				await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+					emoji: '😎',
+					mood: 'chill',
+					userId: 'achievement-test-user'
+				});
+			}
+
+			// Now check if emoji_starter achievement was unlocked
+			const achievementsAfter = await asUser.query(api.testAchievements.getUserAchievements, {
+				userId: 'achievement-test-user'
+			});
+			expect(achievementsAfter).toHaveLength(1);
+			expect(achievementsAfter[0].type).toBe('emoji_starter');
+			expect(achievementsAfter[0].title).toBe('Emoji Starter');
+		});
 	});
 });

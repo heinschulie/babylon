@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
+import { internal } from './_generated/api';
 const EMOJI_MOOD_MAP: Record<string, string> = {
 	'😎': 'chill',
 	'💩': 'angry',
@@ -26,7 +27,8 @@ export const addReaction = mutation({
 		const mood = args.mood ?? EMOJI_MOOD_MAP[args.emoji] ?? 'happy';
 		const sentence = args.sentence ?? `Reaction to entry`;
 
-		return await ctx.db.insert('testTable', {
+		// Insert entry first
+		const entryId = await ctx.db.insert('testTable', {
 			emoji: args.emoji,
 			sentence,
 			mood,
@@ -34,6 +36,11 @@ export const addReaction = mutation({
 			createdAt: Date.now(),
 			parentId: args.parentId
 		});
+
+		// Then check and unlock achievements
+		await ctx.runMutation(internal.testAchievements.checkAndUnlockAchievements, { userId: args.userId });
+
+		return entryId;
 	}
 });
 

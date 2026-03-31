@@ -653,5 +653,37 @@ describe('testPollMutation', () => {
 				createdAt: expect.any(Number)
 			});
 		});
+
+		it('should call checkAndUnlockAchievements after creating vote entry', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll first
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Democracy test?',
+				options: ['yes', 'no']
+			});
+
+			// Cast a vote
+			const voteId = await asUser.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option: 'yes',
+				userId: 'democracy-achievement-user'
+			});
+
+			// Verify entry was created
+			const record = await t.run(async (ctx) => ctx.db.get(voteId));
+			expect(record).toBeDefined();
+			expect(record?.pollId).toBe(pollId);
+
+			// Verify achievement check was triggered by checking if democracy achievement was unlocked
+			// Since this is the first vote (count=1), it should unlock democracy (threshold=1)
+			const achievements = await asUser.query(api.testAchievements.getUserAchievements, {
+				userId: 'democracy-achievement-user'
+			});
+			expect(achievements).toHaveLength(1);
+			expect(achievements[0].type).toBe('democracy');
+			expect(achievements[0].title).toBe('Democracy');
+		});
 	});
 });
