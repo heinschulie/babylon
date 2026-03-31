@@ -12,6 +12,7 @@
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
 	import MoodHeatmap from '$lib/components/MoodHeatmap.svelte';
+	import ReactionSummaryBar from '$lib/components/ReactionSummaryBar.svelte';
 	import { toast, Toaster } from 'sonner';
 	import { browser } from '$app/environment';
 
@@ -586,6 +587,10 @@
 										{reaction.emoji} {reaction.count}
 									</Badge>
 								{/each}
+							</div>
+							<!-- Reaction Summary Bar -->
+							<div class="ml-8 mt-2 max-w-[300px]">
+								<ReactionSummaryBar reactionData={reactionCounts.data || []} />
 							</div>
 						{/if}
 					</div>

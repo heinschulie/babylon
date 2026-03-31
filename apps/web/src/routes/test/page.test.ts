@@ -586,4 +586,30 @@ describe('/test route', () => {
 			expect(content).toContain("import * as m from '$lib/paraglide/messages.js'");
 		});
 	});
+
+	// ReactionSummaryBar integration tests
+	describe('ReactionSummaryBar Integration', () => {
+		it('should appear beneath emoji entries in sentiment timeline that have reactions', () => {
+			// Behavior 9: Bar appears beneath emoji entries in sentiment timeline that have reactions
+
+			// Should import ReactionSummaryBar component
+			expect(content).toContain('import ReactionSummaryBar');
+
+			// Should be placed after reaction count badges
+			expect(content).toContain('<!-- Reaction Summary Bar -->');
+
+			// Should pass reactionCounts.data as reactionData prop
+			expect(content).toContain('<ReactionSummaryBar reactionData={reactionCounts.data || []} />');
+		});
+
+		it('should have max-width matching emoji card width', () => {
+			// Behavior 10: Bar max-width matches emoji card width
+
+			// Should have max-width constraint on the wrapper div
+			expect(content).toContain('max-w-[300px]');
+
+			// Should be positioned with same left margin as reaction badges
+			expect(content).toContain('ml-8');
+		});
+	});
 });

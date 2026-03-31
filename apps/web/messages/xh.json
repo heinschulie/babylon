@@ -243,5 +243,7 @@
   "test_poll_expires_in": "[TODO] Expires in {time}",
   "test_poll_expired": "[TODO] Expired",
   "test_mood_heatmap_title": "[TODO] Mood Heatmap",
-  "test_mood_heatmap_empty": "[TODO] No mood data yet"
+  "test_mood_heatmap_empty": "[TODO] No mood data yet",
+  "test_reactions_summary": "[TODO] Reaction summary",
+  "test_reactions_none": "[TODO] No reactions"
 }

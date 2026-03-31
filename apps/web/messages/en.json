@@ -243,5 +243,7 @@
   "test_poll_expires_in": "Expires in {time}",
   "test_poll_expired": "Expired",
   "test_mood_heatmap_title": "Mood Heatmap",
-  "test_mood_heatmap_empty": "No mood data yet"
+  "test_mood_heatmap_empty": "No mood data yet",
+  "test_reactions_summary": "Reaction summary",
+  "test_reactions_none": "No reactions"
 }

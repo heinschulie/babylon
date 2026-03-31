@@ -175,4 +175,33 @@ describe('testReactions', () => {
 			expect(achievements[0].title).toBe('Social Butterfly');
 		});
 	});
+
+	describe('getReactionDistribution', () => {
+		it('should be an alias for getReactionCounts with same behavior', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a parent entry
+			const parentId = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Add reactions
+			await asUser.mutation(api.testReactions.addReaction, {
+				parentId,
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'user1'
+			});
+
+			// Both functions should return same result
+			const countResult = await asUser.query(api.testReactions.getReactionCounts, { parentId });
+			const distributionResult = await asUser.query(api.testReactions.getReactionDistribution, { parentId });
+
+			expect(distributionResult).toEqual(countResult);
+			expect(distributionResult).toEqual([{ emoji: '🔥', count: 1 }]);
+		});
+	});
 });
