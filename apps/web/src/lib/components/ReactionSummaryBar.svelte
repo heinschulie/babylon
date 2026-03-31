@@ -12,7 +12,7 @@
 			<div
 				data-testid="reaction-segment"
 				class="segment"
-				style="width: {totalCount > 0 ? (reaction.count / totalCount * 100) : 0}%; background-color: {colors[index % colors.length]}"
+				style="width: {(reaction.count / totalCount * 100)}%; background-color: {colors[index % colors.length]}"
 				title="{reaction.emoji} {reaction.count}"
 			>
 				{reaction.emoji}: {reaction.count}
