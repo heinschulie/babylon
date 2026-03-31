@@ -1,0 +1,27 @@
+---
+# Database Expert Metadata — Babylon
+# Used by consult.md for expert matching (lightweight, fast to read)
+# Full knowledge in expertise.yaml
+
+name: database
+
+file_patterns:
+  - "convex/**"
+  - "packages/convex/**"
+
+domain_tags:
+  - convex
+  - database
+  - schema
+  - queries
+  - mutations
+  - actions
+  - indexes
+  - validators
+  - billing
+  - auth
+  - crons
+  - file-storage
+  - scheduling
+
+overview: "Convex serverless DB + functions. Schema in convex/schema.ts. Auth via getAuthUserId(ctx). Typed IDs v.id('table'). Epoch millis timestamps."

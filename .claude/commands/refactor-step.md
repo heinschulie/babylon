@@ -1,7 +1,7 @@
 ---
 allowed-tools: Read, Edit, Write, Bash, Grep, Glob
 description: Scoped refactor step for the red-green-refactor loop — redesigns a naive TDD green-pass into an optimal solution for a single issue while keeping all tests green
-argument-hint: [adw_id] [issue_number] [issue_body] [pre_tdd_sha]
+argument-hint: [adw_id] [issue_number] [issue_body] [pre_tdd_sha] [changed_files]
 model: opus
 ---
 
@@ -14,40 +14,42 @@ Redesign the naive TDD green-pass implementation into an optimal solution for th
 adw_id: $1
 issue_number: $2
 issue_body: $3
-pre_tdd_sha: $4
-deep_modules_ref: `.claude/skills/tdd/deep-modules.md`
-interface_design_ref: `.claude/skills/tdd/interface-design.md`
-refactoring_ref: `.claude/skills/tdd/refactoring.md`
+**pre_tdd_sha: $4**
+**changed_files: $5**
+
+## Design Principles
+
+Apply these when evaluating refactor opportunities:
+
+**Deep modules** — small interface + deep implementation. Reduce method count, simplify parameters, hide complexity inside. Avoid shallow modules (large interface, thin implementation that just passes through).
+
+**Interface design for testability** — accept dependencies (don't create them internally), return results (don't produce side effects), minimize surface area (fewer methods = fewer tests needed).
+
+**Refactor candidates** — duplication (extract function/class), long methods (break into private helpers, keep tests on public interface), shallow modules (combine or deepen), feature envy (move logic to where data lives), primitive obsession (introduce value objects).
 
 ## Instructions
 
 - IMPORTANT: This is a scoped refactor for issue #$2 only. You are NOT scanning for general code quality improvements across the codebase.
+- **Only refactor files in the changed files list above.** Do not explore or modify files outside this set.
 - The green-pass was intentionally minimal — your job is to implement the *right* design for this issue.
-- You may touch any files necessary, but every change must directly serve a better implementation of issue #$2.
 - IMPORTANT: Do NOT fix unrelated code quality issues you encounter along the way. If you see duplication, poor naming, or structural problems in code unrelated to issue #$2, leave them alone.
 - Do NOT add new features or functionality beyond the issue scope.
-- Do NOT write new tests.
+- Do NOT write new tests. Do NOT modify existing tests. The test contract is sacrosanct.
 - Do NOT change observable behavior.
 - All existing tests must continue to pass after each change. If a change breaks a test, revert it.
-- Apply changes one at a time. After EACH change, run the test suite.
-- Ultra think about the optimal design before making changes. Consider:
-  - Deepen modules (move complexity behind simple interfaces)
-  - Extract meaningful abstractions (not premature ones)
-  - Apply SOLID principles where natural
-  - Simplify complex conditionals
-  - Improve naming
+- Apply changes one at a time. After EACH change, run `bun run test`.
+- **If after reading the changed files you determine no design improvement is warranted, report that immediately and exit. Do not explore unrelated code.**
 - IMPORTANT: For every file you modify, you must be able to justify how it serves issue #$2. If you cannot justify a change, do not make it.
+- Do not run `git diff` — the changed files are listed above.
 
 ## Workflow
 
 1. Read the `issue_body` carefully. This is the design goal — internalize what problem is being solved.
-2. Run `git diff --name-only $4 HEAD` to see exactly which files the TDD green-pass touched. These are your starting point.
-3. Read the files identified in step 2 and their corresponding tests to understand the naive implementation.
-4. Read the reference docs for design guidance: `deep_modules_ref`, `interface_design_ref`, `refactoring_ref`.
-5. Run the test suite to establish a green baseline. If tests fail, STOP and report the failure — do not refactor broken code.
-6. Think hard about the optimal solution for issue #$2. The green-pass gave you working code — now redesign it properly. Start from the files the TDD step touched and follow the design wherever it leads, but every change must trace back to this issue.
-7. Apply changes one at a time. After EACH change, run the test suite. If a change breaks a test, revert it immediately.
-8. Once all changes are complete, produce the `Report`.
+2. Read the files listed in `changed_files` and their corresponding tests to understand the naive implementation.
+3. Run `bun run test` to establish a green baseline. If tests fail, STOP and report the failure — do not refactor broken code.
+4. Think hard about the optimal solution for issue #$2 using the Design Principles above. The green-pass gave you working code — now redesign it properly. If no design improvement is warranted, report "no changes needed" and exit.
+5. Apply changes one at a time. After EACH change, run `bun run test`. If a change breaks a test, revert it immediately.
+6. Once all changes are complete, produce the `Report`.
 
 ## Report
 

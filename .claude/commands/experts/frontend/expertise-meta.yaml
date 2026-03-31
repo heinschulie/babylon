@@ -1,0 +1,29 @@
+---
+# Frontend Expert Metadata — Babylon
+# Used by consult.md for expert matching (lightweight, fast to read)
+# Full knowledge in expertise.yaml
+
+name: frontend
+
+file_patterns:
+  - "apps/web/**"
+  - "apps/verifier/**"
+  - "packages/ui/**"
+  - "packages/shared/**"
+
+domain_tags:
+  - svelte
+  - sveltekit
+  - components
+  - routing
+  - layout
+  - tailwind
+  - shadcn
+  - i18n
+  - paraglide
+  - stores
+  - runes
+  - ui
+  - frontend
+
+overview: "SvelteKit 2 (Svelte 5) + Tailwind CSS 4 + shadcn-svelte. Two apps (web, verifier). Svelte 5 runes only. Convex-first data layer. Paraglide i18n."

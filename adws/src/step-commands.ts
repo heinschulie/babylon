@@ -77,8 +77,11 @@ export const STEP_COMMANDS: Record<string, StepCommand> = {
   },
   refactorStep: {
     command: "/refactor-step",
-    buildArgs: (adwId: string, issueNumber: number, issueBody: string, preTddSha: string) =>
-      [adwId, String(issueNumber), issueBody, preTddSha],
+    buildArgs: (adwId: string, issueNumber: number, issueBody: string, preTddSha: string, changedFiles?: string) => {
+      const args = [adwId, String(issueNumber), issueBody, preTddSha];
+      if (changedFiles) args.push(changedFiles);
+      return args;
+    },
   },
   selfImprove: {
     command: "/experts:database:self-improve",

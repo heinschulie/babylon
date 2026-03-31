@@ -72,6 +72,8 @@ export const PipelineContextSchema = z.object({
   // Step outputs (optional — filled as pipeline progresses)
   expertAdvice: z.string().optional(),
   preTddSha: z.string().optional(),
+  primeContext: z.string().optional(),
+  localUrl: z.string().optional(),
   reviewResult: z.object({
     success: z.boolean(),
     verdict: z.enum(["PASS", "PASS_WITH_ISSUES", "FAIL"]).optional(),

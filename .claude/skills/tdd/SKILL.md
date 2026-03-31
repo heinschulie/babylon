@@ -61,24 +61,30 @@ Also consider:
 
 **Frontend behaviors are real work.** A behavior like "[Frontend] Reaction bar renders below each emoji entry" means you write the Svelte component code, wire the query, and verify it renders. It does not mean "acknowledge it exists and move on." Frontend behaviors require the same RED→GREEN cycle as backend behaviors: write a test (or verify visually via page load), then write the component code to make it pass.
 
-### 2. Tracer Bullet
+### 2. Context First
+
+Before exploring the codebase, consult the expert advice and prime context provided in this prompt. These contain stack conventions, patterns, and constraints. If you need to explore further and spawn an Explore agent, **use its findings directly — do not re-read the same files yourself.**
+
+### 3. Tracer Bullet
 
 Write ONE test that confirms ONE thing about the system:
 
 ```
-RED:   Write test for first behavior → test fails
-GREEN: Write minimal code to pass → ALL validations pass (see below)
+RED:   Write test for first behavior → run bun run test → test FAILS
+GREEN: Write minimal code to pass → run bun run test → ALL tests pass
 ```
 
-This is your tracer bullet - proves the path works end-to-end.
+**You MUST see the test fail before writing implementation.** If you write implementation first, delete it, write the test, confirm RED, then rewrite. This is non-negotiable — RED-first validates that the test actually tests something.
 
-### 3. Incremental Loop
+This is your tracer bullet — proves the path works end-to-end.
+
+### 4. Incremental Loop
 
 For each remaining behavior:
 
 ```
-RED:   Write next test → fails
-GREEN: Minimal code to pass → ALL validations pass (see below)
+RED:   Write next test → run bun run test → FAILS
+GREEN: Minimal code to pass → run bun run test → ALL tests pass
 ```
 
 Rules:
@@ -87,29 +93,36 @@ Rules:
 - Only enough code to pass current test
 - Don't anticipate future tests
 - Keep tests focused on observable behavior
+- **Frontend behaviors**: Use `@testing-library/svelte` for component tests. Mock the Convex client at the boundary. These are real RED→GREEN cycles, same as backend.
 
 ### GREEN Validation Gate
 
-GREEN means ALL of these pass — not just the test:
+**Per-cycle validation** (after every RED→GREEN):
 
-1. **Tests pass** — the new test and all existing tests
-2. **Run `bun run adws/scripts/health-check.ts`** — this runs `bun run check` (types) + `bun run build` (Vite/SSR). Exit 0 = pass, exit 1 = fail. ALL must pass.
+1. **Tests pass** — run `bun run test`. The new test and all existing tests must pass.
+
+**End-of-implementation validation** (after all behaviors complete):
+
+1. **Tests pass** — `bun run test`
+2. **Health check** — `bun run check` (types + build). Must exit 0.
 3. **Convex sync** — if any files under `convex/` were modified, run `npx convex dev --once` and confirm it succeeds
-4. **Page loads** — read `DEV_TUNNEL_URL` from `.env.local`, fetch affected page route(s), confirm HTTP 200
 
-**IMPORTANT: If the health check or any validation fails, fix the issue before proceeding to the next cycle. Do NOT report success until all validations pass.**
+**Exception**: If a behavior touches `convex/` schema files, run `npx convex dev --once` immediately after that cycle — schema errors compound and become undiagnosable if stacked.
+
+**IMPORTANT: Do not search for or discover test/build commands. Use exactly: `bun run test` and `bun run check`.**
+
+**IMPORTANT: Do not read `.env.local` or `.ports.env`. Do not curl pages. These are not part of validation.**
 
 ## Checklist Per Cycle
 
 ```
+[ ] You saw the test FAIL before writing implementation (RED-first)
 [ ] Test describes behavior, not implementation
 [ ] Test uses public interface only
 [ ] Test would survive internal refactor
 [ ] Code is minimal for this test
 [ ] No speculative features added
-[ ] bun run adws/scripts/health-check.ts exits 0 (types + build)
-[ ] If convex/ files changed, npx convex dev --once succeeds
-[ ] Affected page(s) return 200 via DEV_TUNNEL_URL
+[ ] bun run test passes (all tests)
 ```
 
 ## Completion Gate

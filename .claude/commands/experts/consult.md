@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Glob, Grep, Bash(ls*), Task
+allowed-tools: Read, Glob, Grep, Bash(ls*), Task, Agent, Skill
 description: Route questions to matched experts, synthesize answers, debate contradictions
 argument-hint: [question] [context] [changed_files]
 ---
@@ -24,9 +24,10 @@ CHANGED_FILES: $3
 
 ### 1. Discover Experts
 
-- Glob `.claude/commands/experts/*/expertise.yaml`
-- For each expertise.yaml, read `domain_tags` and `file_patterns`
+- Glob `.claude/commands/experts/*/expertise-meta.yaml`
+- For each expertise-meta.yaml, read `domain_tags` and `file_patterns` (these are small metadata-only files, ~50 lines)
 - Build a registry: `{ name, domainTags[], filePatterns[] }`
+- NOTE: Do NOT read the full `expertise.yaml` files at this stage — only read metadata for matching
 
 ### 2. Match Experts
 

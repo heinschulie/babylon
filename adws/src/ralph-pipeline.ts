@@ -18,7 +18,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     onFail: "continue",
     produces: ["expertAdvice"],
     consumes: ["issue"],
-    modelMap: { trivial: "research", standard: "research", complex: "research" },
+    modelMap: { trivial: "opus", standard: "opus", complex: "opus" },
     commitAfter: false,
     timeout: 300_000,
     postcondition: null,
@@ -43,8 +43,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     modelMap: { trivial: "default", standard: "default", complex: "opus" },
     commitAfter: true,
     timeout: 600_000,
-    postcondition: null,
-    skipWhen: { complexity: ["trivial"] },
+    postcondition: ["head-must-advance", "code-must-compile"],
   },
   {
     name: "review",

@@ -65,35 +65,45 @@ export function createRalphExecutor(adwId: string): StepExecutor {
       }
 
       case "tdd": {
-        // TDD step — include expert advice if available
-        const tddBody = context.expertAdvice
-          ? `${context.issue.body}\n\n## Expert Guidance\n${context.expertAdvice}`
-          : context.issue.body;
+        // TDD step — include expert advice, prime context, and local URL
+        let tddBody = context.issue.body;
+        if (context.primeContext) {
+          tddBody = `## Stack Context\n${context.primeContext}\n\n${tddBody}`;
+        }
+        if (context.expertAdvice) {
+          tddBody = `${tddBody}\n\n## Expert Guidance\n${context.expertAdvice}`;
+        }
+        if (context.localUrl) {
+          tddBody = `${tddBody}\n\n## Environment\nLocal dev server: ${context.localUrl}\nDo not read .env.local or .ports.env.`;
+        }
         const tddResult = await runTddStep(tddBody, baseOpts);
         return { ...tddResult, produces: { preTddSha: preSha } };
       }
 
       case "refactor": {
-        // Scoped refactor step
+        // Scoped refactor step — compute changed files and pass as arg
+        const refactorSha = context.preTddSha ?? context.baseSha;
+        let changedFiles: string | undefined;
+        try {
+          const files = await diffFileList(refactorSha, "HEAD", cwd);
+          if (files.length > 0) changedFiles = files.join(", ");
+        } catch { /* ignore */ }
+
         const refactorResult = await runRefactorStep(
           adwId,
           context.issue.number,
           context.issue.body,
-          context.preTddSha ?? context.baseSha,
-          baseOpts,
+          refactorSha,
+          { ...baseOpts, changedFiles },
         );
         return { ...refactorResult, produces: {} };
       }
 
       case "review": {
-        // Review step — capture structured learnings from output
-        const reviewImageDir = join(logDir, "steps", stepName, "screenshots");
-        mkdirSync(reviewImageDir, { recursive: true });
-
+        // Review step — code-analysis only (no visual validation)
         const reviewResult = await runReviewStep(adwId, "", {
           ...baseOpts,
           issueBody: `# #${context.issue.number}: ${context.issue.title}\n\n${context.issue.body}`,
-          reviewImageDir,
         });
 
         const parsed = reviewResult.result ? parseReviewResult(reviewResult.result) : undefined;
@@ -124,6 +134,24 @@ export function createRalphExecutor(adwId: string): StepExecutor {
 
         // Create sub-issues for review FAIL verdicts with blockers
         const reviewSubIssues: number[] = [];
+
+        // Handle PASS_WITH_ISSUES: save issues to build log folder
+        if (parsed?.verdict === "PASS_WITH_ISSUES" && parsed.review_issues.length > 0) {
+          try {
+            const issuesLogPath = join(logDir, "pass_with_issues.json");
+            const { writeFileSync } = await import("fs");
+            writeFileSync(issuesLogPath, JSON.stringify({
+              verdict: "PASS_WITH_ISSUES",
+              issue_number: context.issue.number,
+              review_issues: parsed.review_issues,
+              timestamp: new Date().toISOString(),
+            }, null, 2));
+            logger.info(`Saved PASS_WITH_ISSUES details to ${issuesLogPath}`);
+          } catch (e) {
+            logger.warn(`Failed to save PASS_WITH_ISSUES log: ${e}`);
+          }
+        }
+
         if (parsed?.verdict === "FAIL") {
           const blockerIssues = parsed.review_issues.filter(i => i.issue_severity === "blocker");
           const toCreate = blockerIssues.slice(0, 2); // cap at 2 sub-issues per review

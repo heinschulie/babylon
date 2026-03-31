@@ -561,9 +561,9 @@ export function runRefactorStep(
   issueNumber: number,
   issueBody: string,
   preTddSha: string,
-  options: RunStepOptions = {}
+  options: RunStepOptions & { changedFiles?: string } = {}
 ): Promise<QueryResult> {
-  return runConfigurableStep("refactorStep", [adwId, issueNumber, issueBody, preTddSha], options);
+  return runConfigurableStep("refactorStep", [adwId, issueNumber, issueBody, preTddSha, options.changedFiles], options);
 }
 
 /** Run a self-improve step — `/experts:database:self-improve <checkGitDiff> [focusArea]`. */

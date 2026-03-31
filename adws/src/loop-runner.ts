@@ -148,6 +148,39 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
       return false;
     }
 
+    // ─── Resolve LOCAL_URL once — thread to all steps ───────────────────
+    let localUrl = "http://localhost:5173";
+    try {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const portsEnvPath = pathJoin(workingDir, ".ports.env");
+      const portsContent = readFileSync(portsEnvPath, "utf-8");
+      const portMatch = portsContent.match(/^FRONTEND_PORT=(\d+)$/m);
+      if (portMatch) {
+        localUrl = `http://localhost:${portMatch[1]}`;
+      }
+    } catch { /* no .ports.env — use default */ }
+    logger.info(`Local URL resolved: ${localUrl}`);
+
+    // ─── Prime context — run /prime once at loop start, thread to all steps ─────
+    let primeContext = "";
+    try {
+      logger.info("Running /prime to establish context for all steps");
+      const primeStepName = logger.nextStep("prime");
+      const primeResult = await quickPrompt(
+        "/prime",
+        { model: models.default, cwd: workingDir, logger, logDir: logger.logDir, stepName: primeStepName },
+      );
+      if (primeResult.success && primeResult.result) {
+        primeContext = primeResult.result.trim();
+        logger.info(`Prime context established (${primeContext.length} chars)`);
+      } else {
+        logger.warn(`Prime command failed or returned empty: ${primeResult.error}`);
+      }
+    } catch (e) {
+      logger.warn(`Failed to run prime context: ${e}`);
+    }
+
     // ─── Main iteration loop ──────────────────────────────────────────
     for (let iteration = 1; iteration <= maxIterations; iteration++) {
       logger.info(`\n${"═".repeat(60)}`);
@@ -247,6 +280,8 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
         complexity,
         baseSha,
         parentIssueNumber,
+        ...(primeContext && { primeContext }),
+        localUrl,
       };
 
       // ─── Execute pipeline ───────────────────────────────────────────
@@ -349,6 +384,37 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
       await state.save("quality-summary");
     }
 
+    // ─── End-of-loop screenshot pass ─────────────────────────────────
+    if (completedIssues.length > 0) {
+      try {
+        logger.info("Taking end-of-loop screenshots for parent issue");
+        const screenshotStepName = logger.nextStep("screenshots");
+        const screenshotPrompt = [
+          `Take screenshots of the application at ${localUrl} to document the completed work.`,
+          `Use firecrawl_scrape with formats: ["screenshot"] and screenshotOptions: { fullPage: true }.`,
+          `Capture 3-5 screenshots of the key pages affected by issues: ${completedIssues.map(n => `#${n}`).join(", ")}.`,
+          `Save screenshots to ${logger.logDir}/screenshots/ with descriptive names.`,
+          `Output a markdown summary with embedded screenshot paths.`,
+        ].join("\n");
+        const screenshotResult = await quickPrompt(screenshotPrompt, {
+          model: models.default,
+          cwd: workingDir,
+          logger,
+          logDir: logger.logDir,
+          stepName: screenshotStepName,
+          timeout: 120_000,
+        });
+        if (screenshotResult.success && screenshotResult.result) {
+          state.update({ screenshots_summary: screenshotResult.result } as any);
+          logger.info("Screenshots captured successfully");
+        } else {
+          logger.warn(`Screenshot pass failed: ${screenshotResult.error ?? "no result"}`);
+        }
+      } catch (e) {
+        logger.warn(`Screenshot pass failed: ${e}`);
+      }
+    }
+
     // ─── Finalization ───────────────────────────────────────────────
     const totalUsage = allStepUsages.length > 0
       ? sumUsage(allStepUsages.map(s => s.usage))
@@ -365,6 +431,30 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
 
         const prBase = baseBranchName ?? "main";
         const prTitle = `feat(#${parentIssueNumber}): ${completedIssues.map(n => `#${n}`).join(", ")} completed`;
+        // Collect PASS_WITH_ISSUES from build logs
+        let passWithIssuesSection = "";
+        try {
+          const { readdirSync, readFileSync: readFs } = await import("fs");
+          const { join: pathJoin } = await import("path");
+          const logFiles = readdirSync(logger.logDir).filter(f => f === "pass_with_issues.json");
+          const allIssues: { issue_number: number; review_issues: { issue_description: string; issue_severity: string }[] }[] = [];
+          for (const f of logFiles) {
+            try {
+              const data = JSON.parse(readFs(pathJoin(logger.logDir, f), "utf-8"));
+              allIssues.push(data);
+            } catch { /* skip malformed */ }
+          }
+          if (allIssues.length > 0) {
+            const lines = [``, `## Non-blocking Issues`, ``];
+            for (const entry of allIssues) {
+              for (const ri of entry.review_issues) {
+                lines.push(`- **[${ri.issue_severity.toUpperCase()}]** #${entry.issue_number}: ${ri.issue_description}`);
+              }
+            }
+            passWithIssuesSection = lines.join("\n");
+          }
+        } catch { /* ignore */ }
+
         const prBody = [
           `## Summary`,
           ``,
@@ -383,7 +473,38 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
             { cwd: workingDir }
           );
           if (prExit === 0) {
-            logger.info(`Created PR: ${prUrl.trim()}`);
+            const prUrlTrimmed = prUrl.trim();
+            logger.info(`Created PR: ${prUrlTrimmed}`);
+
+            // Post PASS_WITH_ISSUES as PR comment
+            if (passWithIssuesSection) {
+              try {
+                const prNumber = prUrlTrimmed.match(/\/pull\/(\d+)/)?.[1];
+                if (prNumber) {
+                  await makeIssueComment(prNumber, passWithIssuesSection.trim());
+                  logger.info(`Posted PASS_WITH_ISSUES comment to PR #${prNumber}`);
+                }
+              } catch (e) {
+                logger.warn(`Failed to post PASS_WITH_ISSUES PR comment: ${e}`);
+              }
+            }
+
+            // Post screenshots + PR link to parent issue
+            try {
+              const screenshotsSummary = state.get("screenshots_summary") as string | undefined;
+              const commentBody = [
+                `## ${workflowName} workflow complete`,
+                ``,
+                `**PR:** ${prUrlTrimmed}`,
+                `**Completed:** ${completedIssues.map(n => `#${n}`).join(", ")}`,
+                ...(skippedIssues.length > 0 ? [`**Skipped:** ${skippedIssues.map(n => `#${n}`).join(", ")}`] : []),
+                ...(screenshotsSummary ? [``, `### Screenshots`, ``, screenshotsSummary] : []),
+              ].join("\n");
+              await makeIssueComment(parentIssueNumber, commentBody);
+              logger.info(`Posted completion summary to #${parentIssueNumber}`);
+            } catch (e) {
+              logger.warn(`Failed to post completion comment: ${e}`);
+            }
           } else {
             logger.warn(`PR creation returned non-zero (may already exist): ${prUrl}`);
           }
