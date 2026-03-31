@@ -228,5 +228,13 @@
   "test_achievement_emoji_pro": "[TODO] Emoji Pro",
   "test_achievement_democracy": "[TODO] Democracy",
   "test_achievement_social_butterfly": "[TODO] Social Butterfly",
-  "test_achievement_poll_creator": "[TODO] Poll Creator"
+  "test_achievement_poll_creator": "[TODO] Poll Creator",
+  "test_filter_all": "[TODO] All",
+  "test_filter_emojis": "[TODO] Emojis",
+  "test_filter_polls": "[TODO] Polls",
+  "test_filter_reactions": "[TODO] Reactions",
+  "test_filter_achievements": "[TODO] Achievements",
+  "test_reaction_on": "[TODO] Reaction on",
+  "test_achievement_unlocked": "[TODO] Achievement unlocked",
+  "test_empty_filtered": "[TODO] No matching activity"
 }

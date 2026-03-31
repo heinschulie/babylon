@@ -228,5 +228,13 @@
   "test_achievement_emoji_pro": "Emoji Pro",
   "test_achievement_democracy": "Democracy",
   "test_achievement_social_butterfly": "Social Butterfly",
-  "test_achievement_poll_creator": "Poll Creator"
+  "test_achievement_poll_creator": "Poll Creator",
+  "test_filter_all": "All",
+  "test_filter_emojis": "Emojis",
+  "test_filter_polls": "Polls",
+  "test_filter_reactions": "Reactions",
+  "test_filter_achievements": "Achievements",
+  "test_reaction_on": "Reaction on",
+  "test_achievement_unlocked": "Achievement unlocked",
+  "test_empty_filtered": "No matching activity"
 }

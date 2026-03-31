@@ -4,12 +4,19 @@ import type { Doc } from './_generated/dataModel';
 const FEED_LIMIT = 30;
 
 type FeedEvent = {
-	type: 'emoji' | 'vote' | 'poll';
+	type: 'emoji' | 'vote' | 'poll' | 'reaction' | 'achievement';
 	timestamp: number;
 	data: Record<string, unknown>;
 };
 
 function mapTestEntry(entry: Doc<'testTable'>): FeedEvent {
+	if (entry.parentId) {
+		return {
+			type: 'reaction',
+			timestamp: entry.createdAt,
+			data: { emoji: entry.emoji, mood: entry.mood, parentId: entry.parentId, userId: entry.userId },
+		};
+	}
 	if (entry.pollId) {
 		return {
 			type: 'vote',
@@ -32,17 +39,27 @@ function mapPollEntry(entry: Doc<'testPollTable'>): FeedEvent {
 	};
 }
 
+function mapAchievementEntry(entry: Doc<'testAchievementTable'>): FeedEvent {
+	return {
+		type: 'achievement',
+		timestamp: entry.unlockedAt,
+		data: { type: entry.type, title: entry.title, userId: entry.userId },
+	};
+}
+
 export const getActivityFeed = query({
 	args: {},
 	handler: async (ctx) => {
-		const [testEntries, pollEntries] = await Promise.all([
+		const [testEntries, pollEntries, achievementEntries] = await Promise.all([
 			ctx.db.query('testTable').withIndex('by_createdAt').order('desc').take(FEED_LIMIT),
 			ctx.db.query('testPollTable').withIndex('by_createdAt').order('desc').take(FEED_LIMIT),
+			ctx.db.query('testAchievementTable').withIndex('by_unlockedAt').order('desc').take(FEED_LIMIT),
 		]);
 
 		const allEvents = [
 			...testEntries.map(mapTestEntry),
 			...pollEntries.map(mapPollEntry),
+			...achievementEntries.map(mapAchievementEntry),
 		];
 		allEvents.sort((a, b) => b.timestamp - a.timestamp);
 

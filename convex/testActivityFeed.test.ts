@@ -275,6 +275,155 @@ describe('testActivityFeed', () => {
 			expect(result).toHaveLength(0);
 		});
 
+		it('should classify testTable entries with parentId as reaction type', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Create a parent emoji entry
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎',
+					sentence: 'Parent emoji',
+					mood: 'chill',
+					userId: 'user1',
+					createdAt: now - 2000,
+				});
+			});
+
+			// Create a reaction entry (has parentId)
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '❤️',
+					sentence: 'Reaction',
+					mood: 'happy',
+					userId: 'user2',
+					createdAt: now,
+					parentId,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+
+			expect(result).toHaveLength(2);
+			// Newest first: reaction, then emoji
+			expect(result[0].type).toBe('reaction');
+			expect(result[1].type).toBe('emoji');
+		});
+
+		it('should maintain correct timestamp sort across all 3 source tables', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Interleave entries from all 3 tables
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎', sentence: 'Oldest', mood: 'chill', userId: 'u1', createdAt: now - 4000,
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter', title: 'Emoji Starter', userId: 'u1', unlockedAt: now - 3000,
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Middle poll', options: ['a', 'b'], createdAt: now - 2000,
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_pro', title: 'Emoji Pro', userId: 'u1', unlockedAt: now - 1000,
+				});
+			});
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '🔥', sentence: 'Newest', mood: 'happy', userId: 'u2', createdAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+
+			expect(result).toHaveLength(5);
+			// Verify descending order across all 3 tables
+			expect(result[0]).toMatchObject({ type: 'emoji', timestamp: now });
+			expect(result[1]).toMatchObject({ type: 'achievement', timestamp: now - 1000 });
+			expect(result[2]).toMatchObject({ type: 'poll', timestamp: now - 2000 });
+			expect(result[3]).toMatchObject({ type: 'achievement', timestamp: now - 3000 });
+			expect(result[4]).toMatchObject({ type: 'emoji', timestamp: now - 4000 });
+
+			for (let i = 0; i < result.length - 1; i++) {
+				expect(result[i].timestamp).toBeGreaterThan(result[i + 1].timestamp);
+			}
+		});
+
+		it('should return correct event data shape for reaction events', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			const parentId = await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '😎', sentence: 'Parent', mood: 'chill', userId: 'user1', createdAt: now - 1000,
+				});
+			});
+
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testTable', {
+					emoji: '❤️', sentence: 'Reaction', mood: 'happy', userId: 'user2', createdAt: now, parentId,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+			const reaction = result.find((e: any) => e.type === 'reaction');
+
+			expect(reaction).toBeDefined();
+			expect(reaction!.data).toMatchObject({
+				emoji: '❤️',
+				parentId,
+				userId: 'user2',
+			});
+		});
+
+		it('should return correct event data shape for achievement events', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'democracy', title: 'Democracy', userId: 'user1', unlockedAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+			const achievement = result.find((e: any) => e.type === 'achievement');
+
+			expect(achievement).toBeDefined();
+			expect(achievement!.data).toMatchObject({
+				type: 'democracy',
+				title: 'Democracy',
+				userId: 'user1',
+			});
+		});
+
+		it('should include testAchievementTable entries as achievement type', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testAchievementTable', {
+					type: 'emoji_starter',
+					title: 'Emoji Starter',
+					userId: 'user1',
+					unlockedAt: now,
+				});
+			});
+
+			const result = await t.query(api.testActivityFeed.getActivityFeed, {});
+
+			expect(result).toHaveLength(1);
+			expect(result[0].type).toBe('achievement');
+			expect(result[0].timestamp).toBe(now);
+		});
+
 		it('should handle case where one table is empty and other has data', async () => {
 			const t = convexTest(schema, modules);
 

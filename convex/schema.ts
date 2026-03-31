@@ -332,4 +332,5 @@ export default defineSchema({
 	})
 		.index('by_userId', ['userId'])
 		.index('by_type_userId', ['type', 'userId'])  // uniqueness check
+		.index('by_unlockedAt', ['unlockedAt']),
 });
