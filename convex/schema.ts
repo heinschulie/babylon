@@ -305,12 +305,14 @@ export default defineSchema({
 		createdAt: v.number(),
 		pollId: v.optional(v.id('testPollTable')),
 		streakDay: v.optional(v.number()),
-		parentId: v.optional(v.id('testTable'))
+		parentId: v.optional(v.id('testTable')),
+		pinned: v.optional(v.boolean())
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_pollId', ['pollId'])
 		.index('by_userId_createdAt', ['userId', 'createdAt'])
-		.index('by_parentId', ['parentId']),
+		.index('by_parentId', ['parentId'])
+		.index('by_pinned_createdAt', ['pinned', 'createdAt']),
 
 	// Test table for polls
 	testPollTable: defineTable({
@@ -318,6 +320,7 @@ export default defineSchema({
 		options: v.array(v.string()),
 		createdAt: v.number(),
 		closedAt: v.optional(v.number()),
+		expiresAt: v.optional(v.number()),
 		tags: v.optional(v.array(v.string()))
 	})
 		.index('by_createdAt', ['createdAt'])
@@ -333,4 +336,13 @@ export default defineSchema({
 		.index('by_userId', ['userId'])
 		.index('by_type_userId', ['type', 'userId'])  // uniqueness check
 		.index('by_unlockedAt', ['unlockedAt']),
+
+	// Test mood heatmap table for daily mood tracking
+	testMoodHeatmapTable: defineTable({
+		date: v.string(),     // YYYY-MM-DD
+		mood: v.string(),     // chill | angry | happy
+		count: v.number()     // number of entries for this date+mood
+	})
+		.index('by_date', ['date'])
+		.index('by_date_mood', ['date', 'mood']),
 });

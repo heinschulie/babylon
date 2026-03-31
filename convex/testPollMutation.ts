@@ -25,8 +25,9 @@ export const createPoll = mutation({
 		question: v.string(),
 		options: v.array(v.string()),
 		tags: v.optional(v.array(v.string())),
+		expiresAt: v.optional(v.number()),
 	},
-	handler: async (ctx, { question, options, tags }) => {
+	handler: async (ctx, { question, options, tags, expiresAt }) => {
 		// Validate question is non-empty
 		if (!question.trim()) {
 			throw new Error('Question must not be empty');
@@ -49,6 +50,7 @@ export const createPoll = mutation({
 			options,
 			createdAt: Date.now(),
 			...(processedTags && { tags: processedTags }),
+			...(expiresAt !== undefined && { expiresAt }),
 		});
 	},
 });
@@ -82,6 +84,11 @@ export const castVote = mutation({
 		// Check if poll is closed
 		if (poll.closedAt) {
 			throw new Error('Poll is closed');
+		}
+
+		// Check if poll has expired
+		if (poll.expiresAt && poll.expiresAt < Date.now()) {
+			throw new Error('Poll has expired');
 		}
 
 		const optionIndex = poll.options.indexOf(option);
@@ -142,5 +149,16 @@ export const getPollResults = query({
 		return Array.from(counts.entries())
 			.map(([option, count]) => ({ option, count }))
 			.sort((a, b) => b.count - a.count);
+	},
+});
+
+export const getActivePollsCount = query({
+	args: {},
+	handler: async (ctx) => {
+		const polls = await ctx.db.query('testPollTable').collect();
+		const activePolls = polls.filter(poll =>
+			!poll.closedAt && (!poll.expiresAt || poll.expiresAt > Date.now())
+		);
+		return activePolls.length;
 	},
 });

@@ -42,6 +42,7 @@ import type * as sessions from "../sessions.js";
 import type * as testAchievements from "../testAchievements.js";
 import type * as testActivityFeed from "../testActivityFeed.js";
 import type * as testEmojiMutation from "../testEmojiMutation.js";
+import type * as testMoodHeatmap from "../testMoodHeatmap.js";
 import type * as testPollMutation from "../testPollMutation.js";
 import type * as testPollTags from "../testPollTags.js";
 import type * as testReactions from "../testReactions.js";
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   testAchievements: typeof testAchievements;
   testActivityFeed: typeof testActivityFeed;
   testEmojiMutation: typeof testEmojiMutation;
+  testMoodHeatmap: typeof testMoodHeatmap;
   testPollMutation: typeof testPollMutation;
   testPollTags: typeof testPollTags;
   testReactions: typeof testReactions;

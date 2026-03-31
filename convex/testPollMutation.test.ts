@@ -160,6 +160,45 @@ describe('testPollMutation', () => {
 				})
 			).rejects.toThrow();
 		});
+
+		it('should store expiresAt when provided', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const futureTime = Date.now() + 3600000; // 1 hour from now
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Expiring poll?',
+				options: ['yes', 'no'],
+				expiresAt: futureTime
+			});
+
+			expect(pollId).toBeDefined();
+
+			// Verify expiresAt was stored correctly
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.expiresAt).toBe(futureTime);
+		});
+
+		it('should work without expiresAt (backwards compatible)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Non-expiring poll?',
+				options: ['yes', 'no']
+			});
+
+			expect(pollId).toBeDefined();
+
+			// Verify expiresAt is undefined when not provided
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.expiresAt).toBeUndefined();
+			expect(poll).toMatchObject({
+				question: 'Non-expiring poll?',
+				options: ['yes', 'no'],
+				createdAt: expect.any(Number)
+			});
+		});
 	});
 
 	describe('listPolls', () => {
@@ -468,6 +507,57 @@ describe('testPollMutation', () => {
 			const record4 = await t.run(async (ctx) => ctx.db.get(vote4));
 			expect(record4?.mood).toBe('happy');
 		});
+
+		it('should succeed when voting on poll with future expiresAt', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const futureTime = Date.now() + 3600000; // 1 hour from now
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Future expiring poll?',
+				options: ['yes', 'no'],
+				expiresAt: futureTime
+			});
+
+			// Vote should succeed on unexpired poll
+			const voteId = await asUser.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option: 'yes',
+				userId: 'test-user'
+			});
+
+			expect(voteId).toBeDefined();
+
+			// Verify vote was recorded
+			const vote = await t.run(async (ctx) => ctx.db.get(voteId));
+			expect(vote?.emoji).toBe('yes');
+			expect(vote?.pollId).toBe(pollId);
+		});
+
+		it('should throw when voting on poll with past expiresAt', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const pastTime = Date.now() - 3600000; // 1 hour ago
+			// Directly insert expired poll to control timing precisely
+			const pollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Expired poll?',
+					options: ['yes', 'no'],
+					createdAt: Date.now(),
+					expiresAt: pastTime
+				});
+			});
+
+			// Vote should fail on expired poll
+			await expect(
+				asUser.mutation(api.testPollMutation.castVote, {
+					pollId,
+					option: 'yes',
+					userId: 'test-user'
+				})
+			).rejects.toThrow('Poll has expired');
+		});
 	});
 
 	describe('closePoll', () => {
@@ -684,6 +774,57 @@ describe('testPollMutation', () => {
 			expect(achievements).toHaveLength(1);
 			expect(achievements[0].type).toBe('democracy');
 			expect(achievements[0].title).toBe('Democracy');
+		});
+	});
+
+	describe('getActivePollsCount', () => {
+		it('should return correct count excluding expired and closed polls', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create active poll (no expiry, not closed)
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Active poll?',
+				options: ['yes', 'no']
+			});
+
+			// Create future expiring poll (still active)
+			const futureTime = Date.now() + 3600000; // 1 hour from now
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Future expiring poll?',
+				options: ['yes', 'no'],
+				expiresAt: futureTime
+			});
+
+			// Create closed poll
+			const closedPollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Closed poll?',
+				options: ['yes', 'no']
+			});
+			await asUser.mutation(api.testPollMutation.closePoll, { pollId: closedPollId });
+
+			// Create expired poll (directly insert to control timing)
+			const pastTime = Date.now() - 3600000; // 1 hour ago
+			await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Expired poll?',
+					options: ['yes', 'no'],
+					createdAt: Date.now(),
+					expiresAt: pastTime
+				});
+			});
+
+			// Query active polls count - should return 2 (active + future expiring)
+			const count = await asUser.query(api.testPollMutation.getActivePollsCount, {});
+			expect(count).toBe(2);
+		});
+
+		it('should return 0 when no active polls exist', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const count = await asUser.query(api.testPollMutation.getActivePollsCount, {});
+			expect(count).toBe(0);
 		});
 	});
 });

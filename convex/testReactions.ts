@@ -68,3 +68,6 @@ export const getReactionCounts = query({
 		}));
 	}
 });
+
+// Alias for interface spec compatibility
+export const getReactionDistribution = getReactionCounts;
