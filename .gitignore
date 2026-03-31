@@ -13,6 +13,7 @@ node_modules
 /temp/builds
 temp/
 .claude/hooks/*.log
+.claude/scheduled_tasks.lock
 
 # OS
 .DS_Store
