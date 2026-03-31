@@ -1,31 +1,35 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
-import type { Id } from './_generated/dataModel';
+const EMOJI_MOOD_MAP: Record<string, string> = {
+	'😎': 'chill',
+	'💩': 'angry',
+	'🔥': 'happy'
+};
 
 export const addReaction = mutation({
 	args: {
 		parentId: v.id('testTable'),
 		emoji: v.string(),
-		mood: v.string(),
-		sentence: v.string(),
+		mood: v.optional(v.string()),
+		sentence: v.optional(v.string()),
 		userId: v.string()
 	},
 	handler: async (ctx, args) => {
-		// Verify user is authenticated
 		await getAuthUserId(ctx);
 
-		// Validate that parentId references an existing testTable entry
 		const parentEntry = await ctx.db.get(args.parentId);
 		if (!parentEntry) {
 			throw new Error('Parent entry not found');
 		}
 
-		// Create the reaction entry
+		const mood = args.mood ?? EMOJI_MOOD_MAP[args.emoji] ?? 'happy';
+		const sentence = args.sentence ?? `Reaction to entry`;
+
 		return await ctx.db.insert('testTable', {
 			emoji: args.emoji,
-			sentence: args.sentence,
-			mood: args.mood,
+			sentence,
+			mood,
 			userId: args.userId,
 			createdAt: Date.now(),
 			parentId: args.parentId

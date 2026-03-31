@@ -141,15 +141,9 @@
 
 	async function handleReaction(parentId: Id<'testTable'>, emoji: string) {
 		try {
-			// Use mood mapping similar to emoji submission
-			const moodMap = { '😎': 'chill', '💩': 'angry', '🔥': 'happy' } as const;
-			const mood = moodMap[emoji as keyof typeof moodMap] || 'happy';
-
 			await client.mutation(api.testReactions.addReaction, {
 				parentId,
 				emoji,
-				mood,
-				sentence: `Reaction to entry`,
 				userId: 'test-user'
 			});
 		} catch (error) {
