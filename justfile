@@ -7,7 +7,7 @@ default:
 
 # Dev: web app + Convex backend + webhook server + Cloudflare Tunnel
 dev:
-  bun run dev & bun run convex:dev & bun run adws/triggers/webhook.ts & cloudflared tunnel run babylon-dev
+  trap 'kill 0' EXIT; bun run dev & bun run convex:dev & bun run adws/triggers/webhook.ts & cloudflared tunnel run babylon-dev & wait
 
 # Dev: web app only
 web:
