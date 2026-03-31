@@ -8,7 +8,7 @@
 		"packages/*"
 	],
 	"scripts": {
-		"dev": "turbo run dev --filter=@babylon/web",
+		"dev": "lsof -ti :5173 | xargs kill 2>/dev/null; turbo run dev --filter=@babylon/web",
 		"dev:verifier": "turbo run dev --filter=@babylon/verifier",
 		"build": "turbo run build",
 		"build:web": "turbo run build --filter=@babylon/web",
