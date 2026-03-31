@@ -17,6 +17,7 @@
 	let pollTagsInput = $state('');
 	let activeMoodFilter = $state<string | null>(null);
 	let activeTagFilter = $state<string | null>(null);
+	let reactionPickerOpen = $state<Id<'testTable'> | null>(null);
 
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
@@ -135,6 +136,24 @@
 			await client.mutation(api.testPollMutation.closePoll, { pollId });
 		} catch (error) {
 			console.error('Failed to close poll:', error);
+		}
+	}
+
+	async function handleReaction(parentId: Id<'testTable'>, emoji: string) {
+		try {
+			// Use mood mapping similar to emoji submission
+			const moodMap = { '😎': 'chill', '💩': 'angry', '🔥': 'happy' } as const;
+			const mood = moodMap[emoji as keyof typeof moodMap] || 'happy';
+
+			await client.mutation(api.testReactions.addReaction, {
+				parentId,
+				emoji,
+				mood,
+				sentence: `Reaction to entry`,
+				userId: 'test-user'
+			});
+		} catch (error) {
+			console.error('Failed to add reaction:', error);
 		}
 	}
 </script>
@@ -406,12 +425,51 @@
 			<!-- Individual timeline entries (filtered by activeMoodFilter) -->
 			<div>
 				{#each filteredEmojis as entry (entry._id)}
-					<div class="flex items-center gap-2 mb-2">
-						<span class="text-2xl">{entry.emoji}</span>
-						<Badge variant="secondary">{entry.mood}</Badge>
-						<span class="text-sm text-gray-500">
-							{formatRelativeTime(entry.createdAt)}
-						</span>
+					{@const reactionCounts = useQuery(api.testReactions.getReactionCounts, { parentId: entry._id })}
+					<div class="mb-4">
+						<div class="flex items-center gap-2 mb-2">
+							<span class="text-2xl">{entry.emoji}</span>
+							<Badge variant="secondary">{entry.mood}</Badge>
+							<span class="text-sm text-gray-500">
+								{formatRelativeTime(entry.createdAt)}
+							</span>
+							<div class="relative">
+								<Button
+									variant="ghost"
+									size="sm"
+									data-testid="reaction-button"
+									onclick={() => reactionPickerOpen = reactionPickerOpen === entry._id ? null : entry._id}
+								>
+									React
+								</Button>
+								{#if reactionPickerOpen === entry._id}
+									<div class="absolute top-8 left-0 bg-white border border-gray-200 rounded shadow-lg p-2 flex gap-2 z-10">
+										<button
+											class="text-2xl hover:bg-gray-100 p-1 rounded"
+											onclick={() => { handleReaction(entry._id, '😎'); reactionPickerOpen = null; }}
+										>😎</button>
+										<button
+											class="text-2xl hover:bg-gray-100 p-1 rounded"
+											onclick={() => { handleReaction(entry._id, '💩'); reactionPickerOpen = null; }}
+										>💩</button>
+										<button
+											class="text-2xl hover:bg-gray-100 p-1 rounded"
+											onclick={() => { handleReaction(entry._id, '🔥'); reactionPickerOpen = null; }}
+										>🔥</button>
+									</div>
+								{/if}
+							</div>
+						</div>
+						<!-- Reaction count badges -->
+						{#if reactionCounts.data && reactionCounts.data.length > 0}
+							<div class="flex gap-1 ml-8">
+								{#each reactionCounts.data as reaction (reaction.emoji)}
+									<Badge variant="outline" class="text-sm">
+										{reaction.emoji} {reaction.count}
+									</Badge>
+								{/each}
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
