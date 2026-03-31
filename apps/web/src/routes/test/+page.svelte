@@ -7,7 +7,7 @@
 	import type { Id } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
-	import { Flame } from '@lucide/svelte';
+	import { Flame, Pin } from '@lucide/svelte';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
@@ -169,6 +169,14 @@
 			});
 		} catch (error) {
 			console.error('Failed to add reaction:', error);
+		}
+	}
+
+	async function handleTogglePin(id: Id<'testTable'>) {
+		try {
+			await client.mutation(api.testEmojiMutation.togglePin, { id });
+		} catch (error) {
+			console.error('Failed to toggle pin:', error);
 		}
 	}
 </script>
@@ -446,9 +454,14 @@
 			<div>
 				{#each filteredEmojis as entry (entry._id)}
 					{@const reactionCounts = useQuery(api.testReactions.getReactionCounts, { parentId: entry._id })}
-					<div class="mb-4">
+					<div class="mb-4 {entry.pinned ? 'border border-yellow-300 bg-yellow-50 rounded-lg p-3' : ''}">
 						<div class="flex items-center gap-2 mb-2">
-							<span class="text-2xl">{entry.emoji}</span>
+							<div class="flex items-center gap-1">
+								<span class="text-2xl">{entry.emoji}</span>
+								{#if entry.pinned}
+									<Pin size={14} class="text-yellow-600 fill-current" />
+								{/if}
+							</div>
 							<Badge variant="secondary">{entry.mood}</Badge>
 							<span class="text-sm text-gray-500">
 								{formatRelativeTime(entry.createdAt)}
@@ -479,6 +492,17 @@
 									</div>
 								{/if}
 							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								data-testid="pin-button"
+								onclick={() => handleTogglePin(entry._id)}
+								class={entry.pinned ? 'text-yellow-600' : 'text-gray-500'}
+								title={entry.pinned ? m.test_unpin_emoji() : m.test_pin_emoji()}
+							>
+								<Pin size={16} class={entry.pinned ? 'fill-current' : ''} />
+								{entry.pinned ? m.test_unpin_emoji() : m.test_pin_emoji()}
+							</Button>
 						</div>
 						<!-- Reaction count badges -->
 						{#if reactionCounts.data && reactionCounts.data.length > 0}

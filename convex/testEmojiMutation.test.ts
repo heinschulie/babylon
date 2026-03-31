@@ -579,4 +579,169 @@ describe('testEmojiMutation', () => {
 			expect(achievementsAfter[0].title).toBe('Emoji Starter');
 		});
 	});
+
+	describe('togglePin', () => {
+		it('should set pinned=true on an unpinned emoji doc', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create an emoji entry first
+			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Verify it starts unpinned
+			const before = await t.run(async (ctx) => ctx.db.get(id));
+			expect(before?.pinned).toBeUndefined();
+
+			// Toggle pin
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id });
+
+			// Verify it's now pinned
+			const after = await t.run(async (ctx) => ctx.db.get(id));
+			expect(after?.pinned).toBe(true);
+		});
+
+		it('should set pinned=false on a pinned emoji doc', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create an emoji entry first
+			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Pin it first
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id });
+			const pinned = await t.run(async (ctx) => ctx.db.get(id));
+			expect(pinned?.pinned).toBe(true);
+
+			// Toggle pin again - should unpin
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id });
+
+			// Verify it's now unpinned
+			const after = await t.run(async (ctx) => ctx.db.get(id));
+			expect(after?.pinned).toBe(false);
+		});
+
+		it('should set pinned=true on doc with no pinned field (undefined)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create an emoji entry first
+			const id = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Verify it starts with no pinned field (undefined)
+			const before = await t.run(async (ctx) => ctx.db.get(id));
+			expect(before?.pinned).toBeUndefined();
+			expect(before).not.toHaveProperty('pinned');
+
+			// Toggle pin - should set to true
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id });
+
+			// Verify it's now pinned=true
+			const after = await t.run(async (ctx) => ctx.db.get(id));
+			expect(after?.pinned).toBe(true);
+		});
+	});
+
+	describe('listRecentEmojis with pinning', () => {
+		it('should return pinned items before unpinned items', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create three emoji entries
+			const id1 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			const id2 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩',
+				mood: 'angry',
+				userId: 'test-user'
+			});
+
+			const id3 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'test-user'
+			});
+
+			// Pin the first one (oldest)
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id: id1 });
+
+			// Get list - pinned item should come first regardless of creation order
+			const result = await asUser.query(api.testEmojiMutation.listRecentEmojis);
+
+			// Should have pinned item first, then unpinned by creation order (newest first)
+			expect(result).toHaveLength(3);
+			expect(result[0]._id).toBe(id1); // pinned item first
+			expect(result[0].pinned).toBe(true);
+			expect(result[1]._id).toBe(id3); // most recent unpinned
+			expect(result[1].pinned).toBeUndefined();
+			expect(result[2]._id).toBe(id2); // older unpinned
+			expect(result[2].pinned).toBeUndefined();
+		});
+
+		it('should preserve createdAt desc order within pinned and unpinned groups', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create four emoji entries
+			const id1 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			const id2 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩',
+				mood: 'angry',
+				userId: 'test-user'
+			});
+
+			const id3 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'test-user'
+			});
+
+			const id4 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Pin id1 (oldest) and id3 (second newest)
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id: id1 });
+			await asUser.mutation(api.testEmojiMutation.togglePin, { id: id3 });
+
+			// Get list
+			const result = await asUser.query(api.testEmojiMutation.listRecentEmojis);
+
+			expect(result).toHaveLength(4);
+
+			// Pinned items should come first, ordered by createdAt desc
+			expect(result[0]._id).toBe(id3); // newer pinned
+			expect(result[0].pinned).toBe(true);
+			expect(result[1]._id).toBe(id1); // older pinned
+			expect(result[1].pinned).toBe(true);
+
+			// Unpinned items should come after, ordered by createdAt desc
+			expect(result[2]._id).toBe(id4); // newest unpinned
+			expect(result[2].pinned).toBeUndefined();
+			expect(result[3]._id).toBe(id2); // older unpinned
+			expect(result[3].pinned).toBeUndefined();
+		});
+	});
 });

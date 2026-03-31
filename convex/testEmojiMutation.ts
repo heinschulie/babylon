@@ -120,10 +120,36 @@ export const getUserStreak = query({
 export const listRecentEmojis = query({
 	args: {},
 	handler: async (ctx) => {
-		return ctx.db
+		// Fetch pinned items first, ordered by createdAt desc
+		const pinned = await ctx.db
 			.query('testTable')
-			.withIndex('by_createdAt')
+			.withIndex('by_pinned_createdAt', q => q.eq('pinned', true))
 			.order('desc')
 			.take(MAX_RECENT_ENTRIES);
+
+		// Fetch all by createdAt (includes unpinned + undefined), take remainder
+		const remaining = MAX_RECENT_ENTRIES - pinned.length;
+		const all = remaining > 0
+			? await ctx.db
+				.query('testTable')
+				.withIndex('by_createdAt')
+				.order('desc')
+				.take(MAX_RECENT_ENTRIES)
+			: [];
+
+		// Merge: pinned first, then non-pinned from `all`, deduped
+		const pinnedIds = new Set(pinned.map(p => p._id));
+		const unpinned = all.filter(e => !pinnedIds.has(e._id)).slice(0, remaining);
+		return [...pinned, ...unpinned];
+	},
+});
+
+export const togglePin = mutation({
+	args: { id: v.id('testTable') },
+	handler: async (ctx, { id }) => {
+		await getAuthUserId(ctx);
+		const doc = await ctx.db.get(id);
+		if (!doc) throw new Error('Emoji entry not found');
+		await ctx.db.patch(id, { pinned: !doc.pinned });
 	},
 });

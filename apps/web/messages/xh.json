@@ -236,5 +236,7 @@
   "test_filter_achievements": "[TODO] Achievements",
   "test_reaction_on": "[TODO] Reaction on",
   "test_achievement_unlocked": "[TODO] Achievement unlocked",
-  "test_empty_filtered": "[TODO] No matching activity"
+  "test_empty_filtered": "[TODO] No matching activity",
+  "test_pin_emoji": "[TODO] Pin",
+  "test_unpin_emoji": "[TODO] Unpin"
 }
