@@ -562,4 +562,50 @@ describe('/test route', () => {
 			expect(content).toContain("import * as m from '$lib/paraglide/messages.js'");
 		});
 	});
+
+	// Mood Distribution functionality tests
+	describe('mood distribution card', () => {
+		it('should render Mood Distribution card above the emoji leaderboard', () => {
+			// Check that Mood Distribution section exists
+			expect(content).toContain('<!-- Mood Distribution section -->');
+			expect(content).toContain('<Card.Title>Mood Distribution</Card.Title>');
+
+			// Check that it appears before Emoji Leaderboard section
+			const moodDistributionIndex = content.indexOf('<!-- Mood Distribution section -->');
+			const emojiLeaderboardIndex = content.indexOf('<!-- Emoji Leaderboard section -->');
+			expect(moodDistributionIndex).toBeLessThan(emojiLeaderboardIndex);
+		});
+
+		it('should display progress bars with correct width percentages matching query data', () => {
+			// Check that progress bars use percentage width from data
+			expect(content).toContain('style="width: {moodData.percentage}%"');
+
+			// Check that mood colors are mapped correctly
+			expect(content).toContain("moodData.mood === 'chill' ? 'bg-blue-500'");
+			expect(content).toContain("moodData.mood === 'angry' ? 'bg-red-500'");
+			expect(content).toContain("'bg-amber-500'"); // for happy mood
+		});
+
+		it('should show mood label, count, and percentage text', () => {
+			// Check that each progress bar shows mood name
+			expect(content).toContain('{moodData.mood}');
+
+			// Check that count and percentage are displayed
+			expect(content).toContain('{moodData.count} ({moodData.percentage}%)');
+		});
+
+		it('should show empty state "No data yet" message when no entries exist', () => {
+			// Check empty state condition
+			expect(content).toContain('!moodDistribution.data || moodDistribution.data.length === 0');
+
+			// Check empty state message
+			expect(content).toContain('No data yet');
+			expect(content).toContain('text-center text-gray-500');
+		});
+
+		it('should query getMoodSummary from testEmojiMutation', () => {
+			// Check that the query is imported and used
+			expect(content).toContain('const moodDistribution = useQuery(api.testEmojiMutation.getMoodSummary, {})');
+		});
+	});
 });

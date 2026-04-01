@@ -4,7 +4,7 @@
 	import { Button } from '@babylon/ui/button';
 	import { Badge } from '@babylon/ui';
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import type { Id } from '@babylon/convex';
+	import type { Id, Doc } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Flame } from '@lucide/svelte';
@@ -21,11 +21,20 @@
 	let activeMoodFilter = $state<string | null>(null);
 	let activeTagFilter = $state<string | null>(null);
 	let reactionPickerOpen = $state<Id<'testTable'> | null>(null);
+	let now = $state(Date.now());
+	let searchTerm = $state('');
 
 	const client = useConvexClient();
-	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+
+	// Pagination state for emoji timeline
+	let entries = $state<Doc<'testTable'>[]>([]);
+	let currentCursor = $state<string | null>(null);
+	let hasMore = $state(true);
+	let isLoadingInitial = $state(true);
+	let isLoadingMore = $state(false);
 	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
-		mood: activeMoodFilter ?? undefined
+		mood: activeMoodFilter ?? undefined,
+		searchTerm: searchTerm || undefined
 	}));
 	const polls = useQuery(
 		(() => activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls) as any,
@@ -34,6 +43,7 @@
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+	const moodDistribution = useQuery(api.testEmojiMutation.getMoodSummary, {});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
@@ -52,15 +62,60 @@
 		}
 	});
 
+	// Initial load of emoji entries
+	$effect(() => {
+		loadInitialEntries();
+	});
+
+	// Update `now` every second for countdown timer
+	$effect(() => {
+		const id = setInterval(() => {
+			now = Date.now();
+		}, 1000);
+		return () => clearInterval(id);
+	});
+
+	async function loadInitialEntries() {
+		isLoadingInitial = true;
+		try {
+			const result = await client.query(api.testEmojiMutation.listRecentEmojisPaginated, {});
+			entries = result.entries;
+			currentCursor = result.cursor;
+			hasMore = result.hasMore;
+		} catch (error) {
+			console.error('Failed to load initial entries:', error);
+		} finally {
+			isLoadingInitial = false;
+		}
+	}
+
+	async function loadMoreEntries() {
+		if (!hasMore || isLoadingMore) return;
+
+		isLoadingMore = true;
+		try {
+			const result = await client.query(api.testEmojiMutation.listRecentEmojisPaginated, {
+				cursor: currentCursor ?? undefined
+			});
+			entries = [...entries, ...result.entries];
+			currentCursor = result.cursor;
+			hasMore = result.hasMore;
+		} catch (error) {
+			console.error('Failed to load more entries:', error);
+		} finally {
+			isLoadingMore = false;
+		}
+	}
+
 	type Mood = 'chill' | 'angry' | 'happy';
 
 	const moods: Mood[] = ['chill', 'angry', 'happy'] as const;
 
 	// $derived computations for mood analysis
 	const moodCounts = $derived.by(() => {
-		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
+		if (!entries) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
 
-		return recentEmojis.data.reduce(
+		return entries.reduce(
 			(acc: Record<Mood, number>, entry: any) => {
 				acc[entry.mood as Mood]++;
 				return acc;
@@ -70,9 +125,9 @@
 	});
 
 	const filteredEmojis = $derived.by(() => {
-		if (!recentEmojis.data) return [];
-		if (!activeMoodFilter) return recentEmojis.data;
-		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
+		if (!entries) return [];
+		if (!activeMoodFilter) return entries;
+		return entries.filter((e: any) => e.mood === activeMoodFilter);
 	});
 
 	function toggleMoodFilter(mood: string | null) {
@@ -160,6 +215,17 @@
 		}
 	}
 
+	async function handleSetExpiry(pollId: Id<'testPollTable'>) {
+		try {
+			await client.mutation(api.testPollMutation.setExpiry, {
+				pollId,
+				expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes from now
+			});
+		} catch (error) {
+			console.error('Failed to set expiry:', error);
+		}
+	}
+
 	async function handleReaction(parentId: Id<'testTable'>, emoji: string) {
 		try {
 			await client.mutation(api.testReactions.addReaction, {
@@ -170,6 +236,12 @@
 		} catch (error) {
 			console.error('Failed to add reaction:', error);
 		}
+	}
+
+	function formatCountdown(remaining: number): string {
+		const mins = Math.floor(remaining / 60000);
+		const secs = Math.floor((remaining % 60000) / 1000);
+		return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 	}
 </script>
 
@@ -278,6 +350,8 @@
 				<div class="space-y-3">
 					{#each polls.data as poll (poll._id)}
 						{@const pollResults = useQuery(api.testPollMutation.getPollResults, { pollId: poll._id })}
+						{@const isExpired = poll.expiresAt != null && now > poll.expiresAt}
+						{@const remaining = poll.expiresAt ? poll.expiresAt - now : null}
 						<Card.Root>
 							<Card.Header>
 								<Card.Title>{poll.question}</Card.Title>
@@ -299,18 +373,23 @@
 									{/each}
 								</ol>
 
-								<!-- Vote buttons (hidden when poll is closed) -->
+								<!-- Vote buttons (disabled when expired) -->
 								{#if !poll.closedAt}
 									<div class="mt-4 flex flex-wrap gap-2">
 										{#each poll.options as option}
-											<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
+											<Button disabled={isExpired} onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
 										{/each}
 									</div>
+								{/if}
 
-									<!-- Close button (open polls only) -->
-									<div class="mt-3">
+								<!-- Control buttons (open polls only) -->
+								{#if !poll.closedAt && !isExpired}
+									<div class="mt-3 flex gap-2">
 										<Button variant="outline" size="sm" onclick={() => handleClosePoll(poll._id)}>
 											{m.test_poll_close()}
+										</Button>
+										<Button variant="outline" size="sm" onclick={() => handleSetExpiry(poll._id)}>
+											{m.test_poll_set_expiry()}
 										</Button>
 									</div>
 								{/if}
@@ -321,6 +400,24 @@
 										<Badge variant="secondary">
 											{m.test_poll_closed()}
 										</Badge>
+									</div>
+								{/if}
+
+								<!-- Expired badge -->
+								{#if isExpired}
+									<div class="mt-3">
+										<Badge variant="secondary">
+											{m.test_poll_expired()}
+										</Badge>
+									</div>
+								{/if}
+
+								<!-- Countdown timer -->
+								{#if poll.expiresAt && !poll.closedAt && !isExpired && remaining !== null}
+									<div class="mt-3">
+										<span class="text-sm text-gray-600">
+											Expires in: {formatCountdown(remaining)}
+										</span>
 									</div>
 								{/if}
 
@@ -408,13 +505,57 @@
 		</div>
 	</section>
 
+	<!-- Mood Distribution section -->
+	<section class="p-4">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Mood Distribution</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				{#if moodDistribution.isLoading}
+					<div>Loading mood summary...</div>
+				{:else if !moodDistribution.data || moodDistribution.data.length === 0}
+					<div class="text-center text-gray-500">No data yet</div>
+				{:else}
+					<div class="space-y-3">
+						{#each moodDistribution.data as moodData}
+							<div class="flex items-center gap-3">
+								<span class="text-sm font-medium w-12">{moodData.mood}</span>
+								<div class="flex-1 bg-gray-200 h-4 rounded">
+									<div
+										class="h-4 rounded {moodData.mood === 'chill' ? 'bg-blue-500' : moodData.mood === 'angry' ? 'bg-red-500' : 'bg-amber-500'}"
+										style="width: {moodData.percentage}%"
+									></div>
+								</div>
+								<span class="text-sm text-gray-600 w-16">{moodData.count} ({moodData.percentage}%)</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+	</section>
+
 	<!-- Emoji Leaderboard section -->
 	<section class="p-4">
 		<h2>Emoji Leaderboard</h2>
+
+		<!-- Search input above leaderboard -->
+		<input
+			type="text"
+			placeholder={m.test_leaderboard_search_placeholder()}
+			bind:value={searchTerm}
+			class="w-full px-3 py-2 mb-4 border border-gray-300 rounded"
+		/>
+
 		{#if leaderboardData.isLoading}
 			<div>Loading leaderboard...</div>
 		{:else if !leaderboardData.data || leaderboardData.data.length === 0}
-			<div>No emoji data available</div>
+			{#if searchTerm && searchTerm.trim().length > 0}
+				<div>{m.test_leaderboard_no_results()}</div>
+			{:else}
+				<div>No emoji data available</div>
+			{/if}
 		{:else}
 			<ol class="list-decimal list-inside space-y-1">
 				{#each leaderboardData.data as entry}
@@ -430,9 +571,9 @@
 	<!-- Sentiment Timeline section -->
 	<section>
 		<h2>Sentiment Timeline</h2>
-		{#if recentEmojis.isLoading}
+		{#if isLoadingInitial}
 			<div>Loading timeline...</div>
-		{:else if !recentEmojis.data || recentEmojis.data.length === 0}
+		{:else if !entries || entries.length === 0}
 			<div>No emoji submissions yet</div>
 		{:else}
 			<div>{moodSummary}</div>
@@ -492,6 +633,19 @@
 						{/if}
 					</div>
 				{/each}
+
+				<!-- Load More button -->
+				{#if hasMore}
+					<div class="mt-4 text-center">
+						<Button
+							variant="outline"
+							disabled={isLoadingMore}
+							onclick={loadMoreEntries}
+						>
+							{isLoadingMore ? m.test_loading_more() : m.test_load_more()}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</section>

@@ -236,5 +236,11 @@
   "test_filter_achievements": "[TODO] Achievements",
   "test_reaction_on": "[TODO] Reaction on",
   "test_achievement_unlocked": "[TODO] Achievement unlocked",
-  "test_empty_filtered": "[TODO] No matching activity"
+  "test_empty_filtered": "[TODO] No matching activity",
+  "test_poll_set_expiry": "[TODO] Set Expiry",
+  "test_poll_expired": "[TODO] Expired",
+  "test_leaderboard_search_placeholder": "[TODO] Search emojis or moods...",
+  "test_leaderboard_no_results": "[TODO] No results",
+  "test_load_more": "[TODO] Load More",
+  "test_loading_more": "[TODO] Loading..."
 }

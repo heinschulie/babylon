@@ -92,13 +92,33 @@ export const submitEmoji = mutation({
 export const getEmojiLeaderboard = query({
 	args: {
 		mood: v.optional(v.string()),
+		searchTerm: v.optional(v.string()),
 	},
-	handler: async (ctx, { mood }) => {
+	handler: async (ctx, { mood, searchTerm }) => {
 		const query = ctx.db.query('testTable');
 		const entries = mood
 			? await query.filter((q) => q.eq(q.field('mood'), mood)).collect()
 			: await query.collect();
-		return countByEmoji(entries);
+
+		const aggregated = countByEmoji(entries);
+
+		// If no searchTerm, return all aggregated results
+		if (!searchTerm) {
+			return aggregated;
+		}
+
+		// Filter aggregated results by searchTerm (case-insensitive)
+		const searchLower = searchTerm.toLowerCase();
+		return aggregated.filter(({ emoji }) => {
+			// Match emoji character directly
+			if (emoji === searchTerm) {
+				return true;
+			}
+
+			// Match mood keyword from EMOJI_CONFIG
+			const config = EMOJI_CONFIG[emoji];
+			return config && config.mood.toLowerCase().includes(searchLower);
+		});
 	},
 });
 
@@ -125,5 +145,65 @@ export const listRecentEmojis = query({
 			.withIndex('by_createdAt')
 			.order('desc')
 			.take(MAX_RECENT_ENTRIES);
+	},
+});
+
+export const listRecentEmojisPaginated = query({
+	args: {
+		cursor: v.optional(v.string()),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, { cursor, limit }) => {
+		const numItems = limit ?? 10;
+
+		const paginationOpts = cursor ? { numItems, cursor } : { numItems, cursor: null };
+
+		const result = await ctx.db
+			.query('testTable')
+			.withIndex('by_createdAt')
+			.order('desc')
+			.paginate(paginationOpts);
+
+		return {
+			entries: result.page,
+			hasMore: !result.isDone,
+			cursor: result.isDone ? null : result.continueCursor,
+		};
+	},
+});
+
+export const getMoodSummary = query({
+	args: {},
+	handler: async (ctx) => {
+		// Collect all entries
+		const allEntries = await ctx.db.query('testTable').collect();
+
+		// Filter out reactions (entries with parentId)
+		const mainEntries = allEntries.filter(entry => entry.parentId === undefined);
+
+		// Handle empty case
+		if (mainEntries.length === 0) {
+			return [];
+		}
+
+		// Group by mood and count
+		const moodCounts = new Map<string, number>();
+		for (const entry of mainEntries) {
+			moodCounts.set(entry.mood, (moodCounts.get(entry.mood) ?? 0) + 1);
+		}
+
+		const total = mainEntries.length;
+
+		// Convert to array with percentages
+		const result = Array.from(moodCounts.entries()).map(([mood, count]) => ({
+			mood,
+			count,
+			percentage: Math.round(count / total * 1000) / 10 // 1 decimal place
+		}));
+
+		// Sort by count descending
+		result.sort((a, b) => b.count - a.count);
+
+		return result;
 	},
 });
