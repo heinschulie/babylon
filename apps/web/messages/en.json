@@ -237,5 +237,10 @@
   "test_reaction_on": "Reaction on",
   "test_achievement_unlocked": "Achievement unlocked",
   "test_empty_filtered": "No matching activity",
-  "test_timer_toggle": "5 min timer"
+  "test_timer_toggle": "5 min timer",
+  "test_mood_heatmap_title": "Mood Heatmap",
+  "test_mood_heatmap_empty": "No data yet",
+  "test_mood_chill": "Chill",
+  "test_mood_angry": "Angry",
+  "test_mood_happy": "Happy"
 }

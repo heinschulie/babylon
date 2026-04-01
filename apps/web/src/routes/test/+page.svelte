@@ -36,6 +36,24 @@
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+	const moodHeatmapData = useQuery(api.testEmojiMutation.getMoodHeatmap, {});
+
+	// Transform heatmap data for grid rendering
+	const heatmapGrid = $derived.by(() => {
+		if (!moodHeatmapData.data) return { maxCount: 0, grid: new Map() };
+
+		const grid = new Map<string, number>();
+		let maxCount = 0;
+
+		// Populate grid from sparse data
+		for (const item of moodHeatmapData.data) {
+			const key = `${item.hour}-${item.mood}`;
+			grid.set(key, item.count);
+			maxCount = Math.max(maxCount, item.count);
+		}
+
+		return { maxCount, grid };
+	});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
@@ -490,6 +508,54 @@
 					</li>
 				{/each}
 			</ol>
+		{/if}
+	</section>
+
+	<!-- Mood Heatmap section -->
+	<section>
+		<h2>{m.test_mood_heatmap_title()}</h2>
+		{#if moodHeatmapData.isLoading}
+			<div>Loading heatmap...</div>
+		{:else if !moodHeatmapData.data || moodHeatmapData.data.length === 0}
+			<div>{m.test_mood_heatmap_empty()}</div>
+		{:else}
+			<div class="space-y-4">
+				<!-- Column headers (hours 0-23) -->
+				<div class="grid gap-1" style="grid-template-columns: auto repeat(24, minmax(0, 1fr))">
+					<div></div> <!-- Empty corner -->
+					{#each Array(24) as _, hour}
+						<div class="text-xs text-center text-gray-500">{hour}</div>
+					{/each}
+				</div>
+
+				<!-- Grid rows (one for each mood) -->
+				{#each ['chill', 'angry', 'happy'] as mood}
+					<div class="grid gap-1" style="grid-template-columns: auto repeat(24, minmax(0, 1fr))">
+						<!-- Row label -->
+						<div class="text-sm text-gray-700 pr-2 flex items-center">
+							{#if mood === 'chill'}
+								{m.test_mood_chill()}
+							{:else if mood === 'angry'}
+								{m.test_mood_angry()}
+							{:else}
+								{m.test_mood_happy()}
+							{/if}
+						</div>
+
+						<!-- Grid cells for each hour -->
+						{#each Array(24) as _, hour}
+							{@const count = heatmapGrid.grid.get(`${hour}-${mood}`) ?? 0}
+							{@const opacity = heatmapGrid.maxCount > 0 ? count / heatmapGrid.maxCount : 0}
+							{@const baseColor = mood === 'chill' ? '#3B82F6' : mood === 'angry' ? '#EF4444' : '#F97316'}
+							<div
+								class="w-6 h-6 border border-gray-200"
+								style="background-color: {baseColor}; opacity: {opacity}"
+								title="{mood} at hour {hour}: {count} entries"
+							></div>
+						{/each}
+					</div>
+				{/each}
+			</div>
 		{/if}
 	</section>
 
