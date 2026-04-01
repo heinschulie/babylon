@@ -99,7 +99,7 @@
 				<div class="text-sm text-gray-500">{m.test_empty_filtered()}</div>
 			{:else}
 				<div class="max-h-96 overflow-y-auto space-y-3">
-					{#each filtered as event (event.timestamp)}
+					{#each filtered as event, i (`${event.timestamp}_${event.type}_${i}`)}
 						{@const Icon = getEventIcon(event.type)}
 						<div class="flex items-center gap-3 p-2 border-b border-gray-100 last:border-b-0">
 							<div class="flex-shrink-0">
