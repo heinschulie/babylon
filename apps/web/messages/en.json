@@ -240,5 +240,7 @@
   "test_achievement_unlocked": "Achievement unlocked",
   "test_empty_filtered": "No matching activity",
   "test_poll_set_expiry": "Set Expiry",
-  "test_poll_expired": "Expired"
+  "test_poll_expired": "Expired",
+  "test_leaderboard_search_placeholder": "Search emojis or moods...",
+  "test_leaderboard_no_results": "No results"
 }

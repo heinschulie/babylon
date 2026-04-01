@@ -92,13 +92,33 @@ export const submitEmoji = mutation({
 export const getEmojiLeaderboard = query({
 	args: {
 		mood: v.optional(v.string()),
+		searchTerm: v.optional(v.string()),
 	},
-	handler: async (ctx, { mood }) => {
+	handler: async (ctx, { mood, searchTerm }) => {
 		const query = ctx.db.query('testTable');
 		const entries = mood
 			? await query.filter((q) => q.eq(q.field('mood'), mood)).collect()
 			: await query.collect();
-		return countByEmoji(entries);
+
+		const aggregated = countByEmoji(entries);
+
+		// If no searchTerm, return all aggregated results
+		if (!searchTerm) {
+			return aggregated;
+		}
+
+		// Filter aggregated results by searchTerm (case-insensitive)
+		const searchLower = searchTerm.toLowerCase();
+		return aggregated.filter(({ emoji }) => {
+			// Match emoji character directly
+			if (emoji === searchTerm) {
+				return true;
+			}
+
+			// Match mood keyword from EMOJI_CONFIG
+			const config = EMOJI_CONFIG[emoji];
+			return config && config.mood.toLowerCase().includes(searchLower);
+		});
 	},
 });
 

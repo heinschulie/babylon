@@ -480,6 +480,119 @@ describe('testEmojiMutation', () => {
 			expect(result[1]).toEqual({ emoji: '💩', count: 2 });
 			expect(result[2]).toEqual({ emoji: '🔥', count: 1 });
 		});
+
+		// Search functionality tests
+		it('should return full leaderboard when searchTerm is undefined (behavior 1)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert test data: 😎 x2, 💩 x1
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				mood: undefined,
+				searchTerm: undefined
+			});
+
+			expect(result).toHaveLength(2);
+			expect(result[0]).toEqual({ emoji: '😎', count: 2 });
+			expect(result[1]).toEqual({ emoji: '💩', count: 1 });
+		});
+
+		it('should filter by emoji character when searchTerm matches (behavior 2)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert test data with different emojis
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: '😎'
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ emoji: '😎', count: 1 });
+		});
+
+		it('should filter by mood keyword when searchTerm matches (behavior 3)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert test data with different moods
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'chill'
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ emoji: '😎', count: 1 });
+		});
+
+		it('should return empty array when searchTerm matches nothing (behavior 4)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'nonexistent'
+			});
+
+			expect(result).toEqual([]);
+		});
+
+		it('should be case-insensitive for searchTerm (behavior 5)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+
+			// Test uppercase search for mood
+			const result1 = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'CHILL'
+			});
+			expect(result1).toHaveLength(1);
+			expect(result1[0]).toEqual({ emoji: '😎', count: 1 });
+
+			// Test mixed case
+			const result2 = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'ChIlL'
+			});
+			expect(result2).toHaveLength(1);
+			expect(result2[0]).toEqual({ emoji: '😎', count: 1 });
+		});
 	});
 
 	describe('getUserStreak', () => {

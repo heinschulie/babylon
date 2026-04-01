@@ -22,6 +22,7 @@
 	let activeTagFilter = $state<string | null>(null);
 	let reactionPickerOpen = $state<Id<'testTable'> | null>(null);
 	let now = $state(Date.now());
+	let searchTerm = $state('');
 
 	const client = useConvexClient();
 
@@ -32,7 +33,8 @@
 	let isLoadingInitial = $state(true);
 	let isLoadingMore = $state(false);
 	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
-		mood: activeMoodFilter ?? undefined
+		mood: activeMoodFilter ?? undefined,
+		searchTerm: searchTerm || undefined
 	}));
 	const polls = useQuery(
 		(() => activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls) as any,
@@ -537,10 +539,23 @@
 	<!-- Emoji Leaderboard section -->
 	<section class="p-4">
 		<h2>Emoji Leaderboard</h2>
+
+		<!-- Search input above leaderboard -->
+		<input
+			type="text"
+			placeholder={m.test_leaderboard_search_placeholder()}
+			bind:value={searchTerm}
+			class="w-full px-3 py-2 mb-4 border border-gray-300 rounded"
+		/>
+
 		{#if leaderboardData.isLoading}
 			<div>Loading leaderboard...</div>
 		{:else if !leaderboardData.data || leaderboardData.data.length === 0}
-			<div>No emoji data available</div>
+			{#if searchTerm && searchTerm.trim().length > 0}
+				<div>{m.test_leaderboard_no_results()}</div>
+			{:else}
+				<div>No emoji data available</div>
+			{/if}
 		{:else}
 			<ol class="list-decimal list-inside space-y-1">
 				{#each leaderboardData.data as entry}
