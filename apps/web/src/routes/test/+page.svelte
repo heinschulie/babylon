@@ -41,6 +41,7 @@
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+	const moodDistribution = useQuery(api.testEmojiMutation.getMoodSummary, {});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
@@ -500,6 +501,37 @@
 				>{mood}</Button>
 			{/each}
 		</div>
+	</section>
+
+	<!-- Mood Distribution section -->
+	<section class="p-4">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Mood Distribution</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				{#if moodDistribution.isLoading}
+					<div>Loading mood summary...</div>
+				{:else if !moodDistribution.data || moodDistribution.data.length === 0}
+					<div class="text-center text-gray-500">No data yet</div>
+				{:else}
+					<div class="space-y-3">
+						{#each moodDistribution.data as moodData}
+							<div class="flex items-center gap-3">
+								<span class="text-sm font-medium w-12">{moodData.mood}</span>
+								<div class="flex-1 bg-gray-200 h-4 rounded">
+									<div
+										class="h-4 rounded {moodData.mood === 'chill' ? 'bg-blue-500' : moodData.mood === 'angry' ? 'bg-red-500' : 'bg-amber-500'}"
+										style="width: {moodData.percentage}%"
+									></div>
+								</div>
+								<span class="text-sm text-gray-600 w-16">{moodData.count} ({moodData.percentage}%)</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</Card.Content>
+		</Card.Root>
 	</section>
 
 	<!-- Emoji Leaderboard section -->

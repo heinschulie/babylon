@@ -151,3 +151,39 @@ export const listRecentEmojisPaginated = query({
 		};
 	},
 });
+
+export const getMoodSummary = query({
+	args: {},
+	handler: async (ctx) => {
+		// Collect all entries
+		const allEntries = await ctx.db.query('testTable').collect();
+
+		// Filter out reactions (entries with parentId)
+		const mainEntries = allEntries.filter(entry => entry.parentId === undefined);
+
+		// Handle empty case
+		if (mainEntries.length === 0) {
+			return [];
+		}
+
+		// Group by mood and count
+		const moodCounts = new Map<string, number>();
+		for (const entry of mainEntries) {
+			moodCounts.set(entry.mood, (moodCounts.get(entry.mood) ?? 0) + 1);
+		}
+
+		const total = mainEntries.length;
+
+		// Convert to array with percentages
+		const result = Array.from(moodCounts.entries()).map(([mood, count]) => ({
+			mood,
+			count,
+			percentage: Math.round(count / total * 1000) / 10 // 1 decimal place
+		}));
+
+		// Sort by count descending
+		result.sort((a, b) => b.count - a.count);
+
+		return result;
+	},
+});

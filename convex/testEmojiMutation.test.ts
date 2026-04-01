@@ -630,4 +630,127 @@ describe('testEmojiMutation', () => {
 			expect(result.cursor === null || typeof result.cursor === 'string').toBe(true);
 		});
 	});
+
+	describe('getMoodSummary', () => {
+		it('should return correct counts for each mood when entries exist', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert entries with different moods
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			// Query mood summary - no auth needed per expert guidance
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Should have correct structure and counts
+			expect(result).toHaveLength(3);
+			expect(result).toEqual([
+				{ mood: 'chill', count: 2, percentage: 50.0 },
+				{ mood: 'angry', count: 1, percentage: 25.0 },
+				{ mood: 'happy', count: 1, percentage: 25.0 }
+			]);
+		});
+
+		it('should calculate correct percentages rounded to 1 decimal', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert entries to test percentage rounding: 2/7, 3/7, 2/7
+			// Should be 28.6%, 42.9%, 28.6%
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Check percentage rounding is correct
+			expect(result).toEqual([
+				{ mood: 'angry', count: 3, percentage: 42.9 },
+				{ mood: 'chill', count: 2, percentage: 28.6 },
+				{ mood: 'happy', count: 2, percentage: 28.6 }
+			]);
+		});
+
+		it('should exclude reactions (entries with parentId) from counts', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create 2 main emoji entries
+			const id1 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			const id2 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+
+			// Directly insert reaction entries with parentId (simulate reactions)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					mood: 'happy',
+					sentence: 'Reaction to chill entry',
+					userId: 'test-user',
+					createdAt: Date.now(),
+					parentId: id1 // This makes it a reaction
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					mood: 'chill',
+					sentence: 'Another reaction',
+					userId: 'test-user',
+					createdAt: Date.now(),
+					parentId: id2 // This makes it a reaction
+				});
+			});
+
+			// Query mood summary
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Should only count the main entries, not reactions
+			expect(result).toEqual([
+				{ mood: 'chill', count: 1, percentage: 50.0 },
+				{ mood: 'angry', count: 1, percentage: 50.0 }
+			]);
+		});
+
+		it('should return empty array when no entries exist', async () => {
+			const t = convexTest(schema, modules);
+
+			// Query mood summary on empty table
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Should return empty array
+			expect(result).toEqual([]);
+			expect(result).toHaveLength(0);
+		});
+	});
 });
