@@ -4,7 +4,7 @@
 	import { Button } from '@babylon/ui/button';
 	import { Badge } from '@babylon/ui';
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import type { Id } from '@babylon/convex';
+	import type { Id, Doc } from '@babylon/convex';
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Flame } from '@lucide/svelte';
@@ -24,7 +24,13 @@
 	let now = $state(Date.now());
 
 	const client = useConvexClient();
-	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
+
+	// Pagination state for emoji timeline
+	let entries = $state<Doc<'testTable'>[]>([]);
+	let currentCursor = $state<string | null>(null);
+	let hasMore = $state(true);
+	let isLoadingInitial = $state(true);
+	let isLoadingMore = $state(false);
 	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
 		mood: activeMoodFilter ?? undefined
 	}));
@@ -53,6 +59,11 @@
 		}
 	});
 
+	// Initial load of emoji entries
+	$effect(() => {
+		loadInitialEntries();
+	});
+
 	// Update `now` every second for countdown timer
 	$effect(() => {
 		const id = setInterval(() => {
@@ -61,15 +72,47 @@
 		return () => clearInterval(id);
 	});
 
+	async function loadInitialEntries() {
+		isLoadingInitial = true;
+		try {
+			const result = await client.query(api.testEmojiMutation.listRecentEmojisPaginated, {});
+			entries = result.entries;
+			currentCursor = result.cursor;
+			hasMore = result.hasMore;
+		} catch (error) {
+			console.error('Failed to load initial entries:', error);
+		} finally {
+			isLoadingInitial = false;
+		}
+	}
+
+	async function loadMoreEntries() {
+		if (!hasMore || isLoadingMore) return;
+
+		isLoadingMore = true;
+		try {
+			const result = await client.query(api.testEmojiMutation.listRecentEmojisPaginated, {
+				cursor: currentCursor ?? undefined
+			});
+			entries = [...entries, ...result.entries];
+			currentCursor = result.cursor;
+			hasMore = result.hasMore;
+		} catch (error) {
+			console.error('Failed to load more entries:', error);
+		} finally {
+			isLoadingMore = false;
+		}
+	}
+
 	type Mood = 'chill' | 'angry' | 'happy';
 
 	const moods: Mood[] = ['chill', 'angry', 'happy'] as const;
 
 	// $derived computations for mood analysis
 	const moodCounts = $derived.by(() => {
-		if (!recentEmojis.data) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
+		if (!entries) return { chill: 0, angry: 0, happy: 0 } as Record<Mood, number>;
 
-		return recentEmojis.data.reduce(
+		return entries.reduce(
 			(acc: Record<Mood, number>, entry: any) => {
 				acc[entry.mood as Mood]++;
 				return acc;
@@ -79,9 +122,9 @@
 	});
 
 	const filteredEmojis = $derived.by(() => {
-		if (!recentEmojis.data) return [];
-		if (!activeMoodFilter) return recentEmojis.data;
-		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
+		if (!entries) return [];
+		if (!activeMoodFilter) return entries;
+		return entries.filter((e: any) => e.mood === activeMoodFilter);
 	});
 
 	function toggleMoodFilter(mood: string | null) {
@@ -481,9 +524,9 @@
 	<!-- Sentiment Timeline section -->
 	<section>
 		<h2>Sentiment Timeline</h2>
-		{#if recentEmojis.isLoading}
+		{#if isLoadingInitial}
 			<div>Loading timeline...</div>
-		{:else if !recentEmojis.data || recentEmojis.data.length === 0}
+		{:else if !entries || entries.length === 0}
 			<div>No emoji submissions yet</div>
 		{:else}
 			<div>{moodSummary}</div>
@@ -543,6 +586,19 @@
 						{/if}
 					</div>
 				{/each}
+
+				<!-- Load More button -->
+				{#if hasMore}
+					<div class="mt-4 text-center">
+						<Button
+							variant="outline"
+							disabled={isLoadingMore}
+							onclick={loadMoreEntries}
+						>
+							{isLoadingMore ? m.test_loading_more() : m.test_load_more()}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</section>

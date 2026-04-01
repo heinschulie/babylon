@@ -127,3 +127,27 @@ export const listRecentEmojis = query({
 			.take(MAX_RECENT_ENTRIES);
 	},
 });
+
+export const listRecentEmojisPaginated = query({
+	args: {
+		cursor: v.optional(v.string()),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, { cursor, limit }) => {
+		const numItems = limit ?? 10;
+
+		const paginationOpts = cursor ? { numItems, cursor } : { numItems, cursor: null };
+
+		const result = await ctx.db
+			.query('testTable')
+			.withIndex('by_createdAt')
+			.order('desc')
+			.paginate(paginationOpts);
+
+		return {
+			entries: result.page,
+			hasMore: !result.isDone,
+			cursor: result.isDone ? null : result.continueCursor,
+		};
+	},
+});

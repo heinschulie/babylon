@@ -238,5 +238,7 @@
   "test_achievement_unlocked": "[TODO] Achievement unlocked",
   "test_empty_filtered": "[TODO] No matching activity",
   "test_poll_set_expiry": "[TODO] Set Expiry",
-  "test_poll_expired": "[TODO] Expired"
+  "test_poll_expired": "[TODO] Expired",
+  "test_load_more": "[TODO] Load More",
+  "test_loading_more": "[TODO] Loading..."
 }

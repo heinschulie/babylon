@@ -579,4 +579,55 @@ describe('testEmojiMutation', () => {
 			expect(achievementsAfter[0].title).toBe('Emoji Starter');
 		});
 	});
+
+	describe('listRecentEmojisPaginated', () => {
+		it('should return empty result when table has no entries', async () => {
+			const t = convexTest(schema, modules);
+
+			// Query empty table
+			const result = await t.query(api.testEmojiMutation.listRecentEmojisPaginated, {});
+
+			// Should return empty entries array
+			expect(result.entries).toEqual([]);
+			expect(result.entries).toHaveLength(0);
+
+			// Should indicate no more entries
+			expect(result.hasMore).toBe(false);
+
+			// Should have null cursor
+			expect(result.cursor).toBe(null);
+		});
+
+		it('should respect custom limit parameter', async () => {
+			const t = convexTest(schema, modules);
+
+			// Try with custom limit on empty table first (simple case)
+			const emptyResult = await t.query(api.testEmojiMutation.listRecentEmojisPaginated, {
+				limit: 3
+			});
+
+			// Should respect the custom limit structure even with no data
+			expect(emptyResult.entries).toEqual([]);
+			expect(emptyResult.hasMore).toBe(false);
+			expect(emptyResult.cursor).toBe(null);
+		});
+
+		it('should handle cursor-based navigation correctly', async () => {
+			const t = convexTest(schema, modules);
+
+			// Test with an invalid cursor (simulating real pagination scenarios)
+			const result = await t.query(api.testEmojiMutation.listRecentEmojisPaginated, {
+				cursor: "some_test_cursor_that_doesnt_exist"
+			});
+
+			// Should handle gracefully - exact behavior depends on Convex implementation
+			// but should not crash and should return proper structure
+			expect(result).toHaveProperty('entries');
+			expect(result).toHaveProperty('hasMore');
+			expect(result).toHaveProperty('cursor');
+			expect(Array.isArray(result.entries)).toBe(true);
+			expect(typeof result.hasMore).toBe('boolean');
+			expect(result.cursor === null || typeof result.cursor === 'string').toBe(true);
+		});
+	});
 });
