@@ -14,9 +14,11 @@ import {
   runTddStep,
   runRefactorStep,
   runReviewStep,
+  runSkillStep,
 } from "./agent-sdk";
-import { mkdirSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import { extractFrontendBehaviors, filterVisualBehaviors, buildVerifyPrompt } from "./verify-utils";
 import { diffFileList } from "./git-ops";
 import { recordLearning, inferTagsFromFiles } from "./learning-utils";
 import { parseReviewResult } from "./review-utils";
@@ -210,6 +212,54 @@ export function createRalphExecutor(adwId: string): StepExecutor {
             reviewResult: parsed ?? reviewResult.result,
             learningEntry: parsed?.learnings ?? [],
             ...(reviewSubIssues.length > 0 && { reviewSubIssues }),
+          },
+        };
+      }
+
+      case "verify": {
+        const behaviors = extractFrontendBehaviors(context.issue.body);
+        const visual = filterVisualBehaviors(behaviors);
+
+        if (visual.length === 0) {
+          logger.info("No visually-verifiable frontend behaviors — skipping verify");
+          return { success: true, produces: { verifyResult: { skipped: true, reason: "no visual behaviors" } } };
+        }
+
+        const screenshotDir = join(stepDir, "screenshots");
+        mkdirSync(screenshotDir, { recursive: true });
+
+        const prompt = buildVerifyPrompt(visual, context.localUrl ?? "http://localhost:5173", screenshotDir);
+
+        const verifyResult = await runSkillStep(prompt, {
+          ...baseOpts,
+          model: "claude-opus-4-20250514",
+        });
+
+        const passed = verifyResult.success && !verifyResult.result?.includes("❌ FAILURE");
+
+        if (!passed && verifyResult.result) {
+          try {
+            const issuesLogPath = join(logDir, "pass_with_issues.json");
+            writeFileSync(issuesLogPath, JSON.stringify({
+              verdict: "VERIFY_FAILED",
+              issue_number: context.issue.number,
+              visual_failures: verifyResult.result,
+              screenshot_dir: screenshotDir,
+              timestamp: new Date().toISOString(),
+            }, null, 2));
+          } catch { /* non-blocking */ }
+        }
+
+        return {
+          ...verifyResult,
+          success: passed,
+          produces: {
+            verifyResult: {
+              passed,
+              behaviors_checked: visual.length,
+              screenshot_dir: screenshotDir,
+              report: verifyResult.result,
+            },
           },
         };
       }

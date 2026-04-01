@@ -32,7 +32,7 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     modelMap: { trivial: "default", standard: "default", complex: "opus" },
     commitAfter: true,
     timeout: 1_200_000,
-    postcondition: ["head-must-advance", "code-must-compile"],
+    postcondition: ["head-must-advance", "code-must-compile", "page-must-render"],
   },
   {
     name: "refactor",
@@ -55,6 +55,17 @@ export const RALPH_PIPELINE: PipelineDefinition = [
     commitAfter: false,
     timeout: 900_000,
     postcondition: "result-must-parse",
+  },
+  {
+    name: "verify",
+    command: null,
+    onFail: "continue",
+    produces: ["verifyResult"],
+    consumes: ["issue", "reviewResult", "localUrl"],
+    modelMap: { trivial: "default", standard: "default", complex: "opus" },
+    commitAfter: false,
+    timeout: 300_000,
+    postcondition: null,
   },
 ];
 

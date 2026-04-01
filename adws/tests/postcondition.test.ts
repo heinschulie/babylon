@@ -121,6 +121,144 @@ describe("checkPostcondition", () => {
     });
   });
 
+  describe("page-must-render", () => {
+    let originalSpawn: any;
+
+    beforeEach(() => {
+      if (!(globalThis as any).Bun) {
+        (globalThis as any).Bun = {};
+      }
+      originalSpawn = (globalThis as any).Bun.spawn;
+    });
+
+    afterEach(() => {
+      if (originalSpawn) {
+        (globalThis as any).Bun.spawn = originalSpawn;
+      } else {
+        delete (globalThis as any).Bun.spawn;
+      }
+    });
+
+    it("skips gracefully when playwright-cli subprocess fails", async () => {
+      // Simulate open failing (exit code 1) — should gracefully skip
+      (globalThis as any).Bun.spawn = vi.fn(() => ({
+        exited: Promise.resolve(1),
+        stdout: new ReadableStream(),
+        stderr: new ReadableStream(),
+        kill: vi.fn(),
+      }));
+      const result = await checkPostcondition("page-must-render", preSha, cwd, baseResult);
+      expect(result.ok).toBe(true);
+    });
+
+    it("skips gracefully when Bun.spawn throws (playwright-cli not installed)", async () => {
+      (globalThis as any).Bun.spawn = vi.fn(() => {
+        throw new Error("spawn ENOENT");
+      });
+      const result = await checkPostcondition("page-must-render", preSha, cwd, baseResult);
+      expect(result.ok).toBe(true);
+    });
+
+    it("passes when page loads with non-empty DOM and no console errors", async () => {
+      let callCount = 0;
+      (globalThis as any).Bun.spawn = vi.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          // which npx
+          return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream() };
+        }
+        if (callCount === 2) {
+          // open — success
+          return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        if (callCount === 3) {
+          // snapshot — non-empty DOM
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('<div class="app"><h1>Welcome</h1><p>Content here</p></div>'));
+              controller.close();
+            },
+          });
+          return { exited: Promise.resolve(0), stdout: stream, stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        if (callCount === 4) {
+          // console — no errors
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("[info] Page loaded"));
+              controller.close();
+            },
+          });
+          return { exited: Promise.resolve(0), stdout: stream, stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        // close
+        return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream(), kill: vi.fn() };
+      });
+      const result = await checkPostcondition("page-must-render", preSha, cwd, baseResult);
+      expect(result.ok).toBe(true);
+    });
+
+    it("fails when console has error entries", async () => {
+      let callCount = 0;
+      (globalThis as any).Bun.spawn = vi.fn(() => {
+        callCount++;
+        if (callCount <= 2) {
+          // which + open
+          return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        if (callCount === 3) {
+          // snapshot — non-empty
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('<div class="app"><h1>Page</h1><p>Some content</p></div>'));
+              controller.close();
+            },
+          });
+          return { exited: Promise.resolve(0), stdout: stream, stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        if (callCount === 4) {
+          // console — has errors
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("[error] Uncaught TypeError: Cannot read property 'x' of undefined"));
+              controller.close();
+            },
+          });
+          return { exited: Promise.resolve(0), stdout: stream, stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream(), kill: vi.fn() };
+      });
+      const result = await checkPostcondition("page-must-render", preSha, cwd, baseResult);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("console errors detected");
+    });
+
+    it("fails when DOM snapshot is empty", async () => {
+      let callCount = 0;
+      (globalThis as any).Bun.spawn = vi.fn(() => {
+        callCount++;
+        if (callCount <= 2) {
+          // which + open
+          return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        if (callCount === 3) {
+          // snapshot — empty
+          const stream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(""));
+              controller.close();
+            },
+          });
+          return { exited: Promise.resolve(0), stdout: stream, stderr: new ReadableStream(), kill: vi.fn() };
+        }
+        return { exited: Promise.resolve(0), stdout: new ReadableStream(), stderr: new ReadableStream(), kill: vi.fn() };
+      });
+      const result = await checkPostcondition("page-must-render", preSha, cwd, baseResult);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("DOM snapshot is empty");
+    });
+  });
+
   describe("array postconditions", () => {
     it("passes when all postconditions pass", async () => {
       mockHeadSha = "bbb222";

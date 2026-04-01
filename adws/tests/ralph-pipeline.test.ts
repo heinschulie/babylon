@@ -9,9 +9,9 @@ describe("RALPH_PIPELINE", () => {
     expect(result.errors).toEqual([]);
   });
 
-  it("has exactly 4 steps in correct order", () => {
+  it("has exactly 5 steps in correct order", () => {
     expect(RALPH_PIPELINE.map(s => s.name)).toEqual([
-      "consult", "tdd", "refactor", "review",
+      "consult", "tdd", "refactor", "review", "verify",
     ]);
   });
 
@@ -37,9 +37,9 @@ describe("RALPH_PIPELINE", () => {
     expect(commitSteps).toEqual(["tdd", "refactor"]);
   });
 
-  it("tdd has head-must-advance + code-must-compile postconditions", () => {
+  it("tdd has head-must-advance + code-must-compile + page-must-render postconditions", () => {
     const tdd = RALPH_PIPELINE.find(s => s.name === "tdd")!;
-    expect(tdd.postcondition).toEqual(["head-must-advance", "code-must-compile"]);
+    expect(tdd.postcondition).toEqual(["head-must-advance", "code-must-compile", "page-must-render"]);
   });
 
   it("only review has result-must-parse postcondition", () => {
@@ -74,6 +74,28 @@ describe("RALPH_PIPELINE", () => {
     expect(RALPH_PIPELINE.find(s => s.name === "review")!.onFail).toBe("skip-issue");
   });
 
+  it("verify step exists with correct properties", () => {
+    const verify = RALPH_PIPELINE.find(s => s.name === "verify")!;
+    expect(verify).toBeDefined();
+    expect(verify.command).toBeNull();
+    expect(verify.onFail).toBe("continue");
+    expect(verify.commitAfter).toBe(false);
+    expect(verify.postcondition).toBeNull();
+    expect(verify.timeout).toBe(300_000);
+  });
+
+  it("verify consumes reviewResult, localUrl, and issue", () => {
+    const verify = RALPH_PIPELINE.find(s => s.name === "verify")!;
+    expect(verify.consumes).toContain("reviewResult");
+    expect(verify.consumes).toContain("localUrl");
+    expect(verify.consumes).toContain("issue");
+  });
+
+  it("verify produces verifyResult", () => {
+    const verify = RALPH_PIPELINE.find(s => s.name === "verify")!;
+    expect(verify.produces).toContain("verifyResult");
+  });
+
   it("has reasonable timeout ceiling values", () => {
     const timeouts = RALPH_PIPELINE.reduce((acc, step) => {
       acc[step.name] = step.timeout;
@@ -85,6 +107,7 @@ describe("RALPH_PIPELINE", () => {
     expect(timeouts.tdd).toBe(1_200_000);   // 20 minutes
     expect(timeouts.refactor).toBe(600_000); // 10 minutes
     expect(timeouts.review).toBe(900_000);   // 15 minutes
+    expect(timeouts.verify).toBe(300_000);   // 5 minutes
 
     // Ensure all timeouts are reasonable (not too short or too long)
     for (const [step, timeout] of Object.entries(timeouts)) {

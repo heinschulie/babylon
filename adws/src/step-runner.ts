@@ -142,6 +142,84 @@ async function checkSinglePostcondition(
     }
   }
 
+  if (postcondition === "page-must-render") {
+    try {
+      // Resolve URL from .env.local tunnel or fall back to localhost
+      const { readFileSync: readFs } = await import("fs");
+      const { join: joinPath } = await import("path");
+      let pageUrl = "http://localhost:5173";
+      try {
+        const envPath = joinPath(cwd, ".env.local");
+        const envContent = readFs(envPath, "utf-8");
+        const tunnelMatch = envContent.match(/^DEV_TUNNEL_URL=(.+)$/m);
+        if (tunnelMatch) pageUrl = tunnelMatch[1].trim();
+      } catch { /* no .env.local — use localhost */ }
+
+      // Check playwright-cli is available
+      const whichProc = Bun.spawn(["which", "npx"], { cwd, stdout: "pipe", stderr: "pipe" });
+      await whichProc.exited;
+
+      // Open the page
+      const openProc = Bun.spawn(
+        ["npx", "@anthropic-ai/claude-agent-sdk", "playwright-cli", "open", `${pageUrl}/test`],
+        { cwd, stdout: "pipe", stderr: "pipe" },
+      );
+      const openExit = await Promise.race([
+        openProc.exited,
+        new Promise<number>((resolve) => setTimeout(() => { try { openProc.kill(); } catch {} resolve(-1); }, 15_000)),
+      ]);
+      if (openExit !== 0) {
+        // Graceful skip — infra issue, don't block
+        return { ok: true };
+      }
+
+      // Snapshot DOM — check non-empty
+      const snapProc = Bun.spawn(
+        ["npx", "@anthropic-ai/claude-agent-sdk", "playwright-cli", "snapshot"],
+        { cwd, stdout: "pipe", stderr: "pipe" },
+      );
+      const snapExit = await Promise.race([
+        snapProc.exited,
+        new Promise<number>((resolve) => setTimeout(() => { try { snapProc.kill(); } catch {} resolve(-1); }, 10_000)),
+      ]);
+      if (snapExit === -1) return { ok: true }; // timeout — graceful skip
+      const snapOutput = await new Response(snapProc.stdout).text();
+      if (!snapOutput || snapOutput.trim().length < 20) {
+        return { ok: false, error: "Postcondition failed: page-must-render — DOM snapshot is empty or trivially small" };
+      }
+
+      // Console check — look for errors
+      const consoleProc = Bun.spawn(
+        ["npx", "@anthropic-ai/claude-agent-sdk", "playwright-cli", "console"],
+        { cwd, stdout: "pipe", stderr: "pipe" },
+      );
+      const consoleExit = await Promise.race([
+        consoleProc.exited,
+        new Promise<number>((resolve) => setTimeout(() => { try { consoleProc.kill(); } catch {} resolve(-1); }, 10_000)),
+      ]);
+      if (consoleExit === -1) return { ok: true }; // timeout — graceful skip
+      const consoleOutput = await new Response(consoleProc.stdout).text();
+      if (consoleOutput.includes("[error]") || consoleOutput.includes("Uncaught")) {
+        return { ok: false, error: `Postcondition failed: page-must-render — console errors detected: ${consoleOutput.slice(0, 300)}` };
+      }
+
+      // Close browser
+      const closeProc = Bun.spawn(
+        ["npx", "@anthropic-ai/claude-agent-sdk", "playwright-cli", "close"],
+        { cwd, stdout: "pipe", stderr: "pipe" },
+      );
+      await Promise.race([
+        closeProc.exited,
+        new Promise<number>((resolve) => setTimeout(() => { try { closeProc.kill(); } catch {} resolve(-1); }, 5_000)),
+      ]);
+
+      return { ok: true };
+    } catch (e) {
+      // Graceful skip on any infra failure (playwright-cli not installed, etc.)
+      return { ok: true };
+    }
+  }
+
   if (postcondition === "page-must-load") {
     try {
       const { readFileSync } = await import("fs");

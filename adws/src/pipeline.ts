@@ -25,6 +25,7 @@ export const PostconditionSchema = z.enum([
   "result-must-parse",
   "code-must-compile",
   "page-must-load",
+  "page-must-render",
 ]);
 export type Postcondition = z.infer<typeof PostconditionSchema>;
 
@@ -52,7 +53,7 @@ export const PipelineDefinitionSchema = z.array(StepDefinitionSchema);
 export type PipelineDefinition = z.infer<typeof PipelineDefinitionSchema>;
 
 /** Base context fields always available to every step (provided by the loop runner). */
-export const BASE_CONTEXT_KEYS = ["issue", "complexity", "baseSha", "parentIssueNumber"] as const;
+export const BASE_CONTEXT_KEYS = ["issue", "complexity", "baseSha", "parentIssueNumber", "localUrl"] as const;
 
 // ─── Pipeline Context ──────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ export const PipelineContextSchema = z.object({
     confidence: z.enum(["high", "medium", "low"]),
   })).optional(),
   reviewSubIssues: z.array(z.number()).optional(),
+  verifyResult: z.any().optional(),
 });
 export type PipelineContext = z.infer<typeof PipelineContextSchema>;
 
