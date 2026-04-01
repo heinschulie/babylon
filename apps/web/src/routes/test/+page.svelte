@@ -18,6 +18,7 @@
 	let pollQuestion = $state('');
 	let pollOptions = $state(['', '']);
 	let pollTagsInput = $state('');
+	let timerEnabled = $state(false);
 	let activeMoodFilter = $state<string | null>(null);
 	let activeTagFilter = $state<string | null>(null);
 	let reactionPickerOpen = $state<Id<'testTable'> | null>(null);
@@ -38,6 +39,9 @@
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
 
+	// Current time for countdown calculations (updated every second)
+	let currentTime = $state(Date.now());
+
 	// Watch for new achievements and show toast
 	$effect(() => {
 		if (achievements.data && achievements.data.length > previousCount) {
@@ -51,6 +55,28 @@
 			previousCount = achievements.data.length;
 		}
 	});
+
+	// Update currentTime every second for countdown calculations
+	$effect(() => {
+		const interval = setInterval(() => {
+			currentTime = Date.now();
+		}, 1000);
+
+		return () => clearInterval(interval);
+	});
+
+	// Helper function to check if poll is expired
+	function isExpired(poll: any): boolean {
+		return poll.expiresAt && poll.expiresAt <= currentTime;
+	}
+
+	// Helper function to format remaining time as MM:SS
+	function formatTimeRemaining(expiresAt: number): string {
+		const remaining = Math.max(0, expiresAt - currentTime);
+		const minutes = Math.floor(remaining / 60000);
+		const seconds = Math.floor((remaining % 60000) / 1000);
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -121,16 +147,19 @@
 			const tags = pollTagsInput.trim()
 				? pollTagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
 				: undefined;
+			const expiresAt = timerEnabled ? Date.now() + 5 * 60 * 1000 : undefined;
 
 			await client.mutation(api.testPollMutation.createPoll, {
 				question: pollQuestion,
 				options: nonEmptyOptions,
-				tags
+				tags,
+				expiresAt
 			});
 			// Reset form
 			pollQuestion = '';
 			pollOptions = ['', ''];
 			pollTagsInput = '';
+			timerEnabled = false;
 		} catch (error) {
 			console.error('Failed to create poll:', error);
 		}
@@ -253,6 +282,20 @@
 					/>
 				</div>
 
+				<!-- Timer Toggle -->
+				<div class="space-y-2">
+					<label class="text-sm font-medium">Options</label>
+					<div class="flex items-center gap-2">
+						<input
+							id="timer-toggle"
+							type="checkbox"
+							bind:checked={timerEnabled}
+							class="rounded"
+						/>
+						<label for="timer-toggle" class="text-sm">{m.test_timer_toggle()}</label>
+					</div>
+				</div>
+
 				<!-- Submit Button -->
 				<button onclick={handleCreatePoll} class="w-full px-4 py-2 bg-blue-600 text-white rounded">
 					Create Poll
@@ -281,16 +324,25 @@
 						<Card.Root>
 							<Card.Header>
 								<Card.Title>{poll.question}</Card.Title>
-								<!-- Tags display -->
-								{#if poll.tags && poll.tags.length > 0}
-									<div class="flex flex-wrap gap-1 mt-2">
+								<div class="flex flex-wrap gap-2 mt-2">
+									<!-- Tags display -->
+									{#if poll.tags && poll.tags.length > 0}
 										{#each poll.tags as tag (tag)}
 											<button onclick={() => handleTagClick(tag)}>
 												<Badge variant="secondary">{tag}</Badge>
 											</button>
 										{/each}
-									</div>
-								{/if}
+									{/if}
+
+									<!-- Timer/Status badges -->
+									{#if poll.expiresAt}
+										{#if isExpired(poll)}
+											<Badge variant="secondary" class="bg-red-100 text-red-800">{m.test_poll_closed()}</Badge>
+										{:else}
+											<Badge variant="outline">{formatTimeRemaining(poll.expiresAt)}</Badge>
+										{/if}
+									{/if}
+								</div>
 							</Card.Header>
 							<Card.Content>
 								<ol class="list-decimal list-inside space-y-1">
@@ -299,8 +351,8 @@
 									{/each}
 								</ol>
 
-								<!-- Vote buttons (hidden when poll is closed) -->
-								{#if !poll.closedAt}
+								<!-- Vote buttons (hidden when poll is closed or expired) -->
+								{#if !poll.closedAt && !isExpired(poll)}
 									<div class="mt-4 flex flex-wrap gap-2">
 										{#each poll.options as option}
 											<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
@@ -315,8 +367,8 @@
 									</div>
 								{/if}
 
-								<!-- Closed badge -->
-								{#if poll.closedAt}
+								<!-- Closed badge (for manually closed polls) -->
+								{#if poll.closedAt && !poll.expiresAt}
 									<div class="mt-3">
 										<Badge variant="secondary">
 											{m.test_poll_closed()}

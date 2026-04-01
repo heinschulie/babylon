@@ -236,5 +236,6 @@
   "test_filter_achievements": "[TODO] Achievements",
   "test_reaction_on": "[TODO] Reaction on",
   "test_achievement_unlocked": "[TODO] Achievement unlocked",
-  "test_empty_filtered": "[TODO] No matching activity"
+  "test_empty_filtered": "[TODO] No matching activity",
+  "test_timer_toggle": "[TODO] 5 min timer"
 }

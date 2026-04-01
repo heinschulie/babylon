@@ -318,6 +318,7 @@ export default defineSchema({
 		options: v.array(v.string()),
 		createdAt: v.number(),
 		closedAt: v.optional(v.number()),
+		expiresAt: v.optional(v.number()), // unix ms timestamp
 		tags: v.optional(v.array(v.string()))
 	})
 		.index('by_createdAt', ['createdAt'])
