@@ -13,6 +13,7 @@
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
 	import { toast, Toaster } from 'sonner';
 	import { browser } from '$app/environment';
+	import { Pin } from '@lucide/svelte';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
@@ -99,6 +100,11 @@
 		if (!recentEmojis.data) return [];
 		if (!activeMoodFilter) return recentEmojis.data;
 		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
+	});
+
+	const pinnedCount = $derived.by(() => {
+		if (!recentEmojis.data) return 0;
+		return recentEmojis.data.filter((entry: any) => entry.pinned).length;
 	});
 
 	function toggleMoodFilter(mood: string | null) {
@@ -198,6 +204,14 @@
 			});
 		} catch (error) {
 			console.error('Failed to add reaction:', error);
+		}
+	}
+
+	async function handlePinToggle(entryId: Id<'testTable'>) {
+		try {
+			await client.mutation(api.testEmojiMutation.togglePin, { entryId });
+		} catch (error) {
+			console.error('Failed to toggle pin:', error);
 		}
 	}
 </script>
@@ -498,7 +512,7 @@
 			<div>
 				{#each filteredEmojis as entry (entry._id)}
 					{@const reactionCounts = useQuery(api.testReactions.getReactionCounts, { parentId: entry._id })}
-					<div class="mb-4">
+					<div class="mb-4 {entry.pinned ? 'border-2 border-yellow-400 bg-yellow-50 p-3 rounded-lg' : ''}">
 						<div class="flex items-center gap-2 mb-2">
 							<span class="text-2xl">{entry.emoji}</span>
 							<Badge variant="secondary">{entry.mood}</Badge>
@@ -531,6 +545,16 @@
 									</div>
 								{/if}
 							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								data-testid="pin-button"
+								onclick={() => handlePinToggle(entry._id)}
+								class={entry.pinned ? 'text-yellow-600' : ''}
+								disabled={!entry.pinned && pinnedCount >= 3}
+							>
+								<Pin size={16} fill={entry.pinned ? 'currentColor' : 'none'} />
+							</Button>
 						</div>
 						<!-- Reaction count badges -->
 						{#if reactionCounts.data && reactionCounts.data.length > 0}
