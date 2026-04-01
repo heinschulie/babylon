@@ -27,10 +27,11 @@
 	const leaderboardData = useQuery(api.testEmojiMutation.getEmojiLeaderboard, () => ({
 		mood: activeMoodFilter ?? undefined
 	}));
-	const polls = useQuery(
-		(() => activeTagFilter ? api.testPollTags.listPollsByTag : api.testPollMutation.listPolls) as any,
-		() => activeTagFilter ? { tag: activeTagFilter } : undefined
+	const allPolls = useQuery(api.testPollMutation.listPolls);
+	const taggedPolls = useQuery(api.testPollTags.listPollsByTag, () =>
+		activeTagFilter ? { tag: activeTagFilter } : 'skip'
 	);
+	const polls = $derived(activeTagFilter ? taggedPolls : allPolls);
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
