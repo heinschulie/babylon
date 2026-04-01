@@ -11,7 +11,7 @@
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
-	import { toast, Toaster } from 'sonner';
+	import { toast, Toaster } from 'svelte-sonner';
 	import { browser } from '$app/environment';
 
 	let dialogOpen = $state(false);

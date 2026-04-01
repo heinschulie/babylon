@@ -101,17 +101,33 @@ Rules:
 
 1. **Tests pass** — run `bun run test`. The new test and all existing tests must pass.
 
+**After the first frontend behavior** and again **after all behaviors complete**, run the browser smoke test:
+
+1. **Browser smoke test** — verify the page actually renders in a real browser:
+   ```
+   playwright-cli open http://localhost:5173/test
+   playwright-cli console
+   playwright-cli snapshot
+   playwright-cli close
+   ```
+   - If `console` output contains `[error]` entries → **RED. Fix before continuing.**
+   - If `snapshot` shows an empty/blank page → **RED. Fix before continuing.**
+   - This catches hydration crashes, bad imports, and runtime errors that unit tests and type checking cannot detect.
+
+2. **If the browser smoke test fails, this is a blocking RED.** Do not continue to the next behavior. Diagnose and fix the runtime error first. Common causes: wrong package imports (e.g. React library in Svelte), missing dependencies, SSR/hydration mismatches.
+
 **End-of-implementation validation** (after all behaviors complete):
 
 1. **Tests pass** — `bun run test`
 2. **Health check** — `bun run check` (types + build). Must exit 0.
-3. **Convex sync** — if any files under `convex/` were modified, run `npx convex dev --once` and confirm it succeeds
+3. **Browser smoke test** — run the browser smoke test above one final time. Page must render with no console errors.
+4. **Convex sync** — if any files under `convex/` were modified, run `npx convex dev --once` and confirm it succeeds
 
 **Exception**: If a behavior touches `convex/` schema files, run `npx convex dev --once` immediately after that cycle — schema errors compound and become undiagnosable if stacked.
 
 **IMPORTANT: Do not search for or discover test/build commands. Use exactly: `bun run test` and `bun run check`.**
 
-**IMPORTANT: Do not read `.env.local` or `.ports.env`. Do not curl pages. These are not part of validation.**
+**IMPORTANT: The dev server URL is provided in the Environment section of the issue body. Use that URL for browser smoke tests. Do not read `.env.local` or `.ports.env`.**
 
 ## Checklist Per Cycle
 
@@ -123,6 +139,7 @@ Rules:
 [ ] Code is minimal for this test
 [ ] No speculative features added
 [ ] bun run test passes (all tests)
+[ ] Browser smoke test passes (after first frontend behavior + after all behaviors)
 ```
 
 ## Completion Gate
