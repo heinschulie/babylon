@@ -18,6 +18,9 @@ export default defineConfig({
 		tailwindcss(),
 		sveltekit()
 	],
+	ssr: {
+		noExternal: ['svelte-sonner']
+	},
 	server: {
 		allowedHosts: ['dev.schulie.com'],
 		fs: {
