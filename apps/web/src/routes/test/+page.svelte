@@ -327,20 +327,11 @@
 									{/each}
 								</ol>
 
-								<!-- Vote buttons (shown on open, non-expired polls) -->
-								{#if !poll.closedAt && !isExpired}
-									<div class="mt-4 flex flex-wrap gap-2">
-										{#each poll.options as option}
-											<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
-										{/each}
-									</div>
-								{/if}
-
 								<!-- Vote buttons (disabled when expired) -->
-								{#if !poll.closedAt && isExpired}
+								{#if !poll.closedAt}
 									<div class="mt-4 flex flex-wrap gap-2">
 										{#each poll.options as option}
-											<Button disabled>{option}</Button>
+											<Button disabled={isExpired} onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
 										{/each}
 									</div>
 								{/if}
