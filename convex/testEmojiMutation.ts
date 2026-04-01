@@ -152,12 +152,15 @@ export const getMoodHeatmap = query({
 	handler: async (ctx): Promise<{ hour: number; mood: string; count: number }[]> => {
 		// Calculate cutoff for 7 days ago
 		const now = Date.now();
-		const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-		const cutoffTime = now - sevenDaysMs;
+		const cutoffTime = now - 7 * MS_PER_DAY;
 
-		// Fetch all testTable entries and filter to last 7 days
-		const allEntries = await ctx.db.query('testTable').collect();
-		const entries = allEntries.filter(entry => entry.createdAt >= cutoffTime);
+		// Fetch recent entries using index, filter to last 7 days
+		const entries = await ctx.db
+			.query('testTable')
+			.withIndex('by_createdAt')
+			.order('desc')
+			.collect()
+			.then(all => all.filter(entry => entry.createdAt >= cutoffTime));
 
 		// Group by hour and mood, count occurrences
 		const heatmapMap = new Map<string, number>();

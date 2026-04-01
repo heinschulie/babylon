@@ -529,7 +529,7 @@
 				</div>
 
 				<!-- Grid rows (one for each mood) -->
-				{#each ['chill', 'angry', 'happy'] as mood}
+				{#each moods as mood}
 					<div class="grid gap-1" style="grid-template-columns: auto repeat(24, minmax(0, 1fr))">
 						<!-- Row label -->
 						<div class="text-sm text-gray-700 pr-2 flex items-center">
