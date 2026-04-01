@@ -380,6 +380,51 @@ describe('testEmojiMutation', () => {
 				typeof entry.createdAt === 'number'
 			)).toBe(true);
 		});
+
+		it('should return pinned entries first, both groups sorted by createdAt descending', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create entries with delays to ensure different timestamps
+			const entry1 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			const entry2 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩',
+				mood: 'angry',
+				userId: 'test-user'
+			});
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			const entry3 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'test-user'
+			});
+
+			// Pin the oldest entry (entry1) and newest entry (entry3)
+			await asUser.mutation(api.testEmojiMutation.togglePin, { entryId: entry1 });
+			await asUser.mutation(api.testEmojiMutation.togglePin, { entryId: entry3 });
+
+			// Query results
+			const result = await asUser.query(api.testEmojiMutation.listRecentEmojis, {});
+
+			expect(result).toHaveLength(3);
+
+			// First two entries should be pinned (newest pinned first)
+			expect(result[0]._id).toBe(entry3); // newest pinned
+			expect(result[0].pinned).toBe(true);
+			expect(result[1]._id).toBe(entry1); // oldest pinned
+			expect(result[1].pinned).toBe(true);
+
+			// Last entry should be unpinned
+			expect(result[2]._id).toBe(entry2); // unpinned entry
+			expect(result[2].pinned).toBeUndefined(); // or false
+		});
 	});
 
 	describe('getEmojiLeaderboard', () => {
@@ -577,6 +622,216 @@ describe('testEmojiMutation', () => {
 			expect(achievementsAfter).toHaveLength(1);
 			expect(achievementsAfter[0].type).toBe('emoji_starter');
 			expect(achievementsAfter[0].title).toBe('Emoji Starter');
+		});
+	});
+
+	describe('togglePin', () => {
+		it('should toggle pinned boolean from false to true', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create an entry first
+			const entryId = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Entry should start unpinned (pinned field should be undefined)
+			const entryBefore = await t.run(async (ctx) => ctx.db.get(entryId));
+			expect(entryBefore?.pinned).toBeUndefined();
+
+			// Toggle pin
+			await asUser.mutation(api.testEmojiMutation.togglePin, { entryId });
+
+			// Entry should now be pinned
+			const entryAfter = await t.run(async (ctx) => ctx.db.get(entryId));
+			expect(entryAfter?.pinned).toBe(true);
+		});
+
+		it('should toggle pinned boolean from true to false', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create an entry first
+			const entryId = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Pin it first
+			await asUser.mutation(api.testEmojiMutation.togglePin, { entryId });
+
+			// Verify it's pinned
+			const entryPinned = await t.run(async (ctx) => ctx.db.get(entryId));
+			expect(entryPinned?.pinned).toBe(true);
+
+			// Toggle pin again
+			await asUser.mutation(api.testEmojiMutation.togglePin, { entryId });
+
+			// Entry should now be unpinned
+			const entryAfter = await t.run(async (ctx) => ctx.db.get(entryId));
+			expect(entryAfter?.pinned).toBe(false);
+		});
+
+		it('should throw an error when called with a non-existent entry ID', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create and then delete an entry to get a properly formatted but non-existent ID
+			const entryId = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Delete the entry manually
+			await t.run(async (ctx) => {
+				await ctx.db.delete(entryId);
+			});
+
+			// Now try to toggle pin on the deleted entry
+			await expect(
+				asUser.mutation(api.testEmojiMutation.togglePin, { entryId })
+			).rejects.toThrow('Entry not found');
+		});
+	});
+
+	describe('getMoodHeatmap', () => {
+		it('should return array of { hour, mood, count } objects', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a test entry
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getMoodHeatmap, {});
+
+			expect(Array.isArray(result)).toBe(true);
+			expect(result.length).toBeGreaterThan(0);
+
+			// Verify each item has the expected structure
+			result.forEach(item => {
+				expect(typeof item.hour).toBe('number');
+				expect(typeof item.mood).toBe('string');
+				expect(typeof item.count).toBe('number');
+				expect(item.hour).toBeGreaterThanOrEqual(0);
+				expect(item.hour).toBeLessThanOrEqual(23);
+				expect(item.count).toBeGreaterThan(0);
+			});
+		});
+
+		it('should group entries by hour-of-day (0-23) and mood (chill, angry, happy)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Mock specific timestamps for testing - same hour, different moods
+			const fixedHourMs = Math.floor(Date.now() / 3600000) * 3600000; // Start of current hour
+			const originalDateNow = Date.now;
+
+			// Create entries in the same hour with different moods
+			Date.now = () => fixedHourMs + 1000; // Hour 0, mood chill
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			Date.now = () => fixedHourMs + 2000; // Same hour, mood angry
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩',
+				mood: 'angry',
+				userId: 'test-user'
+			});
+
+			Date.now = () => fixedHourMs + 3000; // Same hour, mood chill again
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user'
+			});
+
+			// Restore Date.now
+			Date.now = originalDateNow;
+
+			const result = await asUser.query(api.testEmojiMutation.getMoodHeatmap, {});
+
+			// Find entries for our hour
+			const currentHour = Math.floor(fixedHourMs / 3600000) % 24;
+			const chillEntry = result.find(item => item.hour === currentHour && item.mood === 'chill');
+			const angryEntry = result.find(item => item.hour === currentHour && item.mood === 'angry');
+
+			// Verify grouping works correctly
+			expect(chillEntry).toBeDefined();
+			expect(chillEntry?.count).toBe(2); // Two chill entries
+			expect(angryEntry).toBeDefined();
+			expect(angryEntry?.count).toBe(1); // One angry entry
+
+			// Verify all moods are valid
+			result.forEach(item => {
+				expect(['chill', 'angry', 'happy']).toContain(item.mood);
+			});
+		});
+
+		it('should only include entries from the last 7 days', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			const now = Date.now();
+			const sevenDaysMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+			const eightDaysAgoMs = now - 8 * 24 * 60 * 60 * 1000; // 8 days ago
+			const sixDaysAgoMs = now - 6 * 24 * 60 * 60 * 1000; // 6 days ago (within range)
+
+			const originalDateNow = Date.now;
+
+			// Create an entry 8 days ago (should be excluded)
+			Date.now = () => eightDaysAgoMs;
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎',
+				mood: 'chill',
+				userId: 'test-user-old'
+			});
+
+			// Create an entry 6 days ago (should be included)
+			Date.now = () => sixDaysAgoMs;
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩',
+				mood: 'angry',
+				userId: 'test-user-recent'
+			});
+
+			// Create an entry now (should be included)
+			Date.now = () => now;
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥',
+				mood: 'happy',
+				userId: 'test-user-current'
+			});
+
+			// Restore Date.now
+			Date.now = originalDateNow;
+
+			const result = await asUser.query(api.testEmojiMutation.getMoodHeatmap, {});
+
+			// Should only include the recent entries (6 days ago and now), not 8 days ago
+			expect(result.length).toBe(2); // Only angry and happy entries should be present
+
+			// Find entries by mood
+			const angryEntry = result.find(item => item.mood === 'angry');
+			const happyEntry = result.find(item => item.mood === 'happy');
+			const chillEntry = result.find(item => item.mood === 'chill');
+
+			// Recent entries should be present
+			expect(angryEntry).toBeDefined();
+			expect(happyEntry).toBeDefined();
+
+			// Old entry should be excluded
+			expect(chillEntry).toBeUndefined();
 		});
 	});
 });

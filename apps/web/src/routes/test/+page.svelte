@@ -13,11 +13,13 @@
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
 	import { toast, Toaster } from 'sonner';
 	import { browser } from '$app/environment';
+	import { Pin } from '@lucide/svelte';
 
 	let dialogOpen = $state(false);
 	let pollQuestion = $state('');
 	let pollOptions = $state(['', '']);
 	let pollTagsInput = $state('');
+	let timerEnabled = $state(false);
 	let activeMoodFilter = $state<string | null>(null);
 	let activeTagFilter = $state<string | null>(null);
 	let reactionPickerOpen = $state<Id<'testTable'> | null>(null);
@@ -34,9 +36,30 @@
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+	const moodHeatmapData = useQuery(api.testEmojiMutation.getMoodHeatmap, {});
+
+	// Transform heatmap data for grid rendering
+	const heatmapGrid = $derived.by(() => {
+		if (!moodHeatmapData.data) return { maxCount: 0, grid: new Map() };
+
+		const grid = new Map<string, number>();
+		let maxCount = 0;
+
+		// Populate grid from sparse data
+		for (const item of moodHeatmapData.data) {
+			const key = `${item.hour}-${item.mood}`;
+			grid.set(key, item.count);
+			maxCount = Math.max(maxCount, item.count);
+		}
+
+		return { maxCount, grid };
+	});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
+
+	// Current time for countdown calculations (updated every second)
+	let currentTime = $state(Date.now());
 
 	// Watch for new achievements and show toast
 	$effect(() => {
@@ -51,6 +74,28 @@
 			previousCount = achievements.data.length;
 		}
 	});
+
+	// Update currentTime every second for countdown calculations
+	$effect(() => {
+		const interval = setInterval(() => {
+			currentTime = Date.now();
+		}, 1000);
+
+		return () => clearInterval(interval);
+	});
+
+	// Helper function to check if poll is expired
+	function isExpired(poll: any): boolean {
+		return poll.expiresAt && poll.expiresAt <= currentTime;
+	}
+
+	// Helper function to format remaining time as MM:SS
+	function formatTimeRemaining(expiresAt: number): string {
+		const remaining = Math.max(0, expiresAt - currentTime);
+		const minutes = Math.floor(remaining / 60000);
+		const seconds = Math.floor((remaining % 60000) / 1000);
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
 
 	type Mood = 'chill' | 'angry' | 'happy';
 
@@ -73,6 +118,11 @@
 		if (!recentEmojis.data) return [];
 		if (!activeMoodFilter) return recentEmojis.data;
 		return recentEmojis.data.filter((e: any) => e.mood === activeMoodFilter);
+	});
+
+	const pinnedCount = $derived.by(() => {
+		if (!recentEmojis.data) return 0;
+		return recentEmojis.data.filter((entry: any) => entry.pinned).length;
 	});
 
 	function toggleMoodFilter(mood: string | null) {
@@ -121,16 +171,19 @@
 			const tags = pollTagsInput.trim()
 				? pollTagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
 				: undefined;
+			const expiresAt = timerEnabled ? Date.now() + 5 * 60 * 1000 : undefined;
 
 			await client.mutation(api.testPollMutation.createPoll, {
 				question: pollQuestion,
 				options: nonEmptyOptions,
-				tags
+				tags,
+				expiresAt
 			});
 			// Reset form
 			pollQuestion = '';
 			pollOptions = ['', ''];
 			pollTagsInput = '';
+			timerEnabled = false;
 		} catch (error) {
 			console.error('Failed to create poll:', error);
 		}
@@ -169,6 +222,14 @@
 			});
 		} catch (error) {
 			console.error('Failed to add reaction:', error);
+		}
+	}
+
+	async function handlePinToggle(entryId: Id<'testTable'>) {
+		try {
+			await client.mutation(api.testEmojiMutation.togglePin, { entryId });
+		} catch (error) {
+			console.error('Failed to toggle pin:', error);
 		}
 	}
 </script>
@@ -253,6 +314,20 @@
 					/>
 				</div>
 
+				<!-- Timer Toggle -->
+				<div class="space-y-2">
+					<label class="text-sm font-medium">Options</label>
+					<div class="flex items-center gap-2">
+						<input
+							id="timer-toggle"
+							type="checkbox"
+							bind:checked={timerEnabled}
+							class="rounded"
+						/>
+						<label for="timer-toggle" class="text-sm">{m.test_timer_toggle()}</label>
+					</div>
+				</div>
+
 				<!-- Submit Button -->
 				<button onclick={handleCreatePoll} class="w-full px-4 py-2 bg-blue-600 text-white rounded">
 					Create Poll
@@ -281,16 +356,25 @@
 						<Card.Root>
 							<Card.Header>
 								<Card.Title>{poll.question}</Card.Title>
-								<!-- Tags display -->
-								{#if poll.tags && poll.tags.length > 0}
-									<div class="flex flex-wrap gap-1 mt-2">
+								<div class="flex flex-wrap gap-2 mt-2">
+									<!-- Tags display -->
+									{#if poll.tags && poll.tags.length > 0}
 										{#each poll.tags as tag (tag)}
 											<button onclick={() => handleTagClick(tag)}>
 												<Badge variant="secondary">{tag}</Badge>
 											</button>
 										{/each}
-									</div>
-								{/if}
+									{/if}
+
+									<!-- Timer/Status badges -->
+									{#if poll.expiresAt}
+										{#if isExpired(poll)}
+											<Badge variant="secondary" class="bg-red-100 text-red-800">{m.test_poll_closed()}</Badge>
+										{:else}
+											<Badge variant="outline">{formatTimeRemaining(poll.expiresAt)}</Badge>
+										{/if}
+									{/if}
+								</div>
 							</Card.Header>
 							<Card.Content>
 								<ol class="list-decimal list-inside space-y-1">
@@ -299,8 +383,8 @@
 									{/each}
 								</ol>
 
-								<!-- Vote buttons (hidden when poll is closed) -->
-								{#if !poll.closedAt}
+								<!-- Vote buttons (hidden when poll is closed or expired) -->
+								{#if !poll.closedAt && !isExpired(poll)}
 									<div class="mt-4 flex flex-wrap gap-2">
 										{#each poll.options as option}
 											<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
@@ -315,8 +399,8 @@
 									</div>
 								{/if}
 
-								<!-- Closed badge -->
-								{#if poll.closedAt}
+								<!-- Closed badge (for manually closed polls) -->
+								{#if poll.closedAt && !poll.expiresAt}
 									<div class="mt-3">
 										<Badge variant="secondary">
 											{m.test_poll_closed()}
@@ -427,6 +511,54 @@
 		{/if}
 	</section>
 
+	<!-- Mood Heatmap section -->
+	<section>
+		<h2>{m.test_mood_heatmap_title()}</h2>
+		{#if moodHeatmapData.isLoading}
+			<div>Loading heatmap...</div>
+		{:else if !moodHeatmapData.data || moodHeatmapData.data.length === 0}
+			<div>{m.test_mood_heatmap_empty()}</div>
+		{:else}
+			<div class="space-y-4">
+				<!-- Column headers (hours 0-23) -->
+				<div class="grid gap-1" style="grid-template-columns: auto repeat(24, minmax(0, 1fr))">
+					<div></div> <!-- Empty corner -->
+					{#each Array(24) as _, hour}
+						<div class="text-xs text-center text-gray-500">{hour}</div>
+					{/each}
+				</div>
+
+				<!-- Grid rows (one for each mood) -->
+				{#each moods as mood}
+					<div class="grid gap-1" style="grid-template-columns: auto repeat(24, minmax(0, 1fr))">
+						<!-- Row label -->
+						<div class="text-sm text-gray-700 pr-2 flex items-center">
+							{#if mood === 'chill'}
+								{m.test_mood_chill()}
+							{:else if mood === 'angry'}
+								{m.test_mood_angry()}
+							{:else}
+								{m.test_mood_happy()}
+							{/if}
+						</div>
+
+						<!-- Grid cells for each hour -->
+						{#each Array(24) as _, hour}
+							{@const count = heatmapGrid.grid.get(`${hour}-${mood}`) ?? 0}
+							{@const opacity = heatmapGrid.maxCount > 0 ? count / heatmapGrid.maxCount : 0}
+							{@const baseColor = mood === 'chill' ? '#3B82F6' : mood === 'angry' ? '#EF4444' : '#F97316'}
+							<div
+								class="w-6 h-6 border border-gray-200"
+								style="background-color: {baseColor}; opacity: {opacity}"
+								title="{mood} at hour {hour}: {count} entries"
+							></div>
+						{/each}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
 	<!-- Sentiment Timeline section -->
 	<section>
 		<h2>Sentiment Timeline</h2>
@@ -446,7 +578,7 @@
 			<div>
 				{#each filteredEmojis as entry (entry._id)}
 					{@const reactionCounts = useQuery(api.testReactions.getReactionCounts, { parentId: entry._id })}
-					<div class="mb-4">
+					<div class="mb-4 {entry.pinned ? 'border-2 border-yellow-400 bg-yellow-50 p-3 rounded-lg' : ''}">
 						<div class="flex items-center gap-2 mb-2">
 							<span class="text-2xl">{entry.emoji}</span>
 							<Badge variant="secondary">{entry.mood}</Badge>
@@ -479,6 +611,16 @@
 									</div>
 								{/if}
 							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								data-testid="pin-button"
+								onclick={() => handlePinToggle(entry._id)}
+								class={entry.pinned ? 'text-yellow-600' : ''}
+								disabled={!entry.pinned && pinnedCount >= 3}
+							>
+								<Pin size={16} fill={entry.pinned ? 'currentColor' : 'none'} />
+							</Button>
 						</div>
 						<!-- Reaction count badges -->
 						{#if reactionCounts.data && reactionCounts.data.length > 0}

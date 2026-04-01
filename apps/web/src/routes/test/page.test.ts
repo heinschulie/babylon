@@ -562,4 +562,70 @@ describe('/test route', () => {
 			expect(content).toContain("import * as m from '$lib/paraglide/messages.js'");
 		});
 	});
+
+	// Mood heatmap feature tests
+	describe('mood heatmap feature', () => {
+		it('should have getMoodHeatmap query', () => {
+			expect(content).toContain('api.testEmojiMutation.getMoodHeatmap');
+		});
+
+		it('should have mood heatmap section with heading', () => {
+			// Should have mood heatmap section with i18n heading
+			expect(content).toContain('test_mood_heatmap_title');
+			expect(content).toContain('<h2>');
+			expect(content).toContain('m.test_mood_heatmap_title()');
+		});
+
+		it('should render heatmap grid with 24 columns (hours) and 3 rows (moods)', () => {
+			// Should have grid with 24 columns for hours (plus auto for row labels)
+			expect(content).toContain('grid-template-columns: auto repeat(24, minmax(0, 1fr))');
+
+			// Should have row labels for moods
+			expect(content).toContain('m.test_mood_chill()');
+			expect(content).toContain('m.test_mood_angry()');
+			expect(content).toContain('m.test_mood_happy()');
+
+			// Should have column headers for hours 0-23
+			expect(content).toContain('{hour}');
+			expect(content).toMatch(/Array\(24\)/);
+		});
+
+		it('should display colored squares with correct colors for each mood', () => {
+			// Should have color assignments for each mood
+			expect(content).toContain("mood === 'chill' ? '#3B82F6'"); // Blue for chill
+			expect(content).toContain("mood === 'angry' ? '#EF4444'"); // Red for angry
+			expect(content).toContain("'#F97316'"); // Orange for happy
+
+			// Should apply background-color style
+			expect(content).toContain('background-color: {baseColor}');
+		});
+
+		it('should scale cell opacity proportionally to count', () => {
+			// Should calculate opacity based on count relative to maxCount
+			expect(content).toContain('heatmapGrid.maxCount > 0 ? count / heatmapGrid.maxCount : 0');
+			expect(content).toContain('opacity: {opacity}');
+
+			// Should have maxCount calculation in derived store
+			expect(content).toContain('Math.max(maxCount, item.count)');
+		});
+
+		it('should show row labels for mood names and column labels for hour numbers', () => {
+			// Should have mood labels using i18n
+			expect(content).toContain('m.test_mood_chill()');
+			expect(content).toContain('m.test_mood_angry()');
+			expect(content).toContain('m.test_mood_happy()');
+
+			// Should have hour column headers (0-23)
+			expect(content).toContain('{hour}');
+			expect(content).toMatch(/Array\(24\)/);
+		});
+
+		it('should show empty state when no data available', () => {
+			// Should have empty state message using i18n
+			expect(content).toContain('m.test_mood_heatmap_empty()');
+
+			// Should check for empty or no data conditions
+			expect(content).toContain('moodHeatmapData.data.length === 0');
+		});
+	});
 });

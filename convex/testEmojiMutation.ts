@@ -117,13 +117,71 @@ export const getUserStreak = query({
 	},
 });
 
+export const togglePin = mutation({
+	args: { entryId: v.id('testTable') },
+	handler: async (ctx, { entryId }) => {
+		await getAuthUserId(ctx);
+
+		const entry = await ctx.db.get(entryId);
+		if (!entry) {
+			throw new Error('Entry not found');
+		}
+		await ctx.db.patch(entryId, { pinned: !entry.pinned });
+	},
+});
+
 export const listRecentEmojis = query({
 	args: {},
 	handler: async (ctx) => {
-		return ctx.db
+		const entries = await ctx.db
 			.query('testTable')
 			.withIndex('by_createdAt')
 			.order('desc')
 			.take(MAX_RECENT_ENTRIES);
+		// Sort: pinned entries first (by createdAt desc), then unpinned (by createdAt desc)
+		return entries.sort((a, b) => {
+			if (a.pinned && !b.pinned) return -1;
+			if (!a.pinned && b.pinned) return 1;
+			return b.createdAt - a.createdAt;
+		});
+	},
+});
+
+export const getMoodHeatmap = query({
+	args: {},
+	handler: async (ctx): Promise<{ hour: number; mood: string; count: number }[]> => {
+		// Calculate cutoff for 7 days ago
+		const now = Date.now();
+		const cutoffTime = now - 7 * MS_PER_DAY;
+
+		// Fetch recent entries using index, filter to last 7 days
+		const entries = await ctx.db
+			.query('testTable')
+			.withIndex('by_createdAt')
+			.order('desc')
+			.collect()
+			.then(all => all.filter(entry => entry.createdAt >= cutoffTime));
+
+		// Group by hour and mood, count occurrences
+		const heatmapMap = new Map<string, number>();
+
+		for (const entry of entries) {
+			const hour = Math.floor(entry.createdAt / 3600000) % 24;
+			const key = `${hour}-${entry.mood}`;
+			heatmapMap.set(key, (heatmapMap.get(key) ?? 0) + 1);
+		}
+
+		// Convert Map to array
+		const result: { hour: number; mood: string; count: number }[] = [];
+		for (const [key, count] of heatmapMap) {
+			const [hourStr, mood] = key.split('-');
+			result.push({
+				hour: parseInt(hourStr, 10),
+				mood,
+				count
+			});
+		}
+
+		return result;
 	},
 });

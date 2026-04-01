@@ -130,6 +130,111 @@ describe('testPollTable', () => {
 		});
 	});
 
+	describe('setExpiry mutation: patches expiresAt field on a poll', () => {
+		it('should set expiresAt field on a poll and verify via doc read', async () => {
+			const t = convexTest(schema, modules);
+
+			// Create a poll first
+			const pollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Test poll for expiry',
+					options: ['option1', 'option2'],
+					createdAt: Date.now()
+				});
+			});
+
+			// Set expiry time to 5 minutes from now
+			const expiresAt = Date.now() + 5 * 60 * 1000;
+			await t.mutation(api.testPollMutation.setExpiry, { pollId, expiresAt });
+
+			// Read back the poll and verify expiresAt field is set
+			const updatedPoll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(updatedPoll?.expiresAt).toBe(expiresAt);
+		});
+	});
+
+	describe('getActivePolls query: returns only non-expired polls', () => {
+		it('should return polls where expiresAt is undefined or in the future', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Create polls with different expiry states
+			const activePollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Active poll (no expiry)',
+					options: ['option1', 'option2'],
+					createdAt: now
+				});
+			});
+
+			const futurePollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Future expiry poll',
+					options: ['option1', 'option2'],
+					createdAt: now,
+					expiresAt: now + 10 * 60 * 1000 // 10 minutes in future
+				});
+			});
+
+			const expiredPollId = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Expired poll',
+					options: ['option1', 'option2'],
+					createdAt: now,
+					expiresAt: now - 5 * 60 * 1000 // 5 minutes ago
+				});
+			});
+
+			// Query active polls
+			const activePolls = await t.query(api.testPollMutation.getActivePolls, {});
+
+			// Should contain non-expired polls only
+			const activePollIds = activePolls.map(p => p._id);
+			expect(activePollIds).toContain(activePollId);
+			expect(activePollIds).toContain(futurePollId);
+			expect(activePollIds).not.toContain(expiredPollId);
+		});
+
+		it('should order polls by expiresAt ascending (soonest expiring first)', async () => {
+			const t = convexTest(schema, modules);
+			const now = Date.now();
+
+			// Create polls with different expiry times
+			const poll1Id = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Poll expiring soon',
+					options: ['option1', 'option2'],
+					createdAt: now,
+					expiresAt: now + 5 * 60 * 1000 // 5 minutes from now
+				});
+			});
+
+			const poll2Id = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Poll expiring later',
+					options: ['option1', 'option2'],
+					createdAt: now,
+					expiresAt: now + 10 * 60 * 1000 // 10 minutes from now
+				});
+			});
+
+			const poll3Id = await t.run(async (ctx) => {
+				return ctx.db.insert('testPollTable', {
+					question: 'Poll with no expiry',
+					options: ['option1', 'option2'],
+					createdAt: now
+				});
+			});
+
+			const activePolls = await t.query(api.testPollMutation.getActivePolls, {});
+
+			// Should be ordered by expiresAt ascending (soonest first, no expiry last)
+			expect(activePolls[0]._id).toBe(poll1Id); // expires in 5 min
+			expect(activePolls[1]._id).toBe(poll2Id); // expires in 10 min
+			expect(activePolls[2]._id).toBe(poll3Id); // no expiry (should be last)
+		});
+	});
+
 	describe('backward compatibility: existing testEmojiMutation still works', () => {
 		it('submitEmoji should create testTable docs without pollId as before', async () => {
 			const t = convexTest(schema, modules);
