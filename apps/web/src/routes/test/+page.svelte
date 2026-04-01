@@ -21,6 +21,7 @@
 	let activeMoodFilter = $state<string | null>(null);
 	let activeTagFilter = $state<string | null>(null);
 	let reactionPickerOpen = $state<Id<'testTable'> | null>(null);
+	let now = $state(Date.now());
 
 	const client = useConvexClient();
 	const recentEmojis = useQuery(api.testEmojiMutation.listRecentEmojis);
@@ -50,6 +51,14 @@
 			}
 			previousCount = achievements.data.length;
 		}
+	});
+
+	// Update `now` every second for countdown timer
+	$effect(() => {
+		const id = setInterval(() => {
+			now = Date.now();
+		}, 1000);
+		return () => clearInterval(id);
 	});
 
 	type Mood = 'chill' | 'angry' | 'happy';
@@ -160,6 +169,17 @@
 		}
 	}
 
+	async function handleSetExpiry(pollId: Id<'testPollTable'>) {
+		try {
+			await client.mutation(api.testPollMutation.setExpiry, {
+				pollId,
+				expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes from now
+			});
+		} catch (error) {
+			console.error('Failed to set expiry:', error);
+		}
+	}
+
 	async function handleReaction(parentId: Id<'testTable'>, emoji: string) {
 		try {
 			await client.mutation(api.testReactions.addReaction, {
@@ -170,6 +190,12 @@
 		} catch (error) {
 			console.error('Failed to add reaction:', error);
 		}
+	}
+
+	function formatCountdown(remaining: number): string {
+		const mins = Math.floor(remaining / 60000);
+		const secs = Math.floor((remaining % 60000) / 1000);
+		return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 	}
 </script>
 
@@ -278,6 +304,8 @@
 				<div class="space-y-3">
 					{#each polls.data as poll (poll._id)}
 						{@const pollResults = useQuery(api.testPollMutation.getPollResults, { pollId: poll._id })}
+						{@const isExpired = poll.expiresAt != null && now > poll.expiresAt}
+						{@const remaining = poll.expiresAt ? poll.expiresAt - now : null}
 						<Card.Root>
 							<Card.Header>
 								<Card.Title>{poll.question}</Card.Title>
@@ -299,18 +327,32 @@
 									{/each}
 								</ol>
 
-								<!-- Vote buttons (hidden when poll is closed) -->
-								{#if !poll.closedAt}
+								<!-- Vote buttons (shown on open, non-expired polls) -->
+								{#if !poll.closedAt && !isExpired}
 									<div class="mt-4 flex flex-wrap gap-2">
 										{#each poll.options as option}
 											<Button onclick={() => handleVoteClick(poll._id, option)}>{option}</Button>
 										{/each}
 									</div>
+								{/if}
 
-									<!-- Close button (open polls only) -->
-									<div class="mt-3">
+								<!-- Vote buttons (disabled when expired) -->
+								{#if !poll.closedAt && isExpired}
+									<div class="mt-4 flex flex-wrap gap-2">
+										{#each poll.options as option}
+											<Button disabled>{option}</Button>
+										{/each}
+									</div>
+								{/if}
+
+								<!-- Control buttons (open polls only) -->
+								{#if !poll.closedAt && !isExpired}
+									<div class="mt-3 flex gap-2">
 										<Button variant="outline" size="sm" onclick={() => handleClosePoll(poll._id)}>
 											{m.test_poll_close()}
+										</Button>
+										<Button variant="outline" size="sm" onclick={() => handleSetExpiry(poll._id)}>
+											{m.test_poll_set_expiry()}
 										</Button>
 									</div>
 								{/if}
@@ -321,6 +363,24 @@
 										<Badge variant="secondary">
 											{m.test_poll_closed()}
 										</Badge>
+									</div>
+								{/if}
+
+								<!-- Expired badge -->
+								{#if isExpired}
+									<div class="mt-3">
+										<Badge variant="secondary">
+											{m.test_poll_expired()}
+										</Badge>
+									</div>
+								{/if}
+
+								<!-- Countdown timer -->
+								{#if poll.expiresAt && !poll.closedAt && !isExpired && remaining !== null}
+									<div class="mt-3">
+										<span class="text-sm text-gray-600">
+											Expires in: {formatCountdown(remaining)}
+										</span>
 									</div>
 								{/if}
 

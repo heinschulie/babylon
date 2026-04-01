@@ -236,5 +236,7 @@
   "test_filter_achievements": "Achievements",
   "test_reaction_on": "Reaction on",
   "test_achievement_unlocked": "Achievement unlocked",
-  "test_empty_filtered": "No matching activity"
+  "test_empty_filtered": "No matching activity",
+  "test_poll_set_expiry": "Set Expiry",
+  "test_poll_expired": "Expired"
 }

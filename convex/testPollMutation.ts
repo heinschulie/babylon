@@ -84,6 +84,11 @@ export const castVote = mutation({
 			throw new Error('Poll is closed');
 		}
 
+		// Check if poll has expired
+		if (poll.expiresAt && Date.now() > poll.expiresAt) {
+			throw new Error('Poll has expired');
+		}
+
 		const optionIndex = poll.options.indexOf(option);
 		if (optionIndex === -1) {
 			throw new Error(`Invalid option: ${option}. Must be one of: ${poll.options.join(', ')}`);
@@ -118,6 +123,29 @@ export const closePoll = mutation({
 
 		await ctx.db.patch(pollId, {
 			closedAt: Date.now(),
+		});
+
+		return null;
+	},
+});
+
+export const setExpiry = mutation({
+	args: {
+		pollId: v.id('testPollTable'),
+		expiresAt: v.number(),
+	},
+	handler: async (ctx, { pollId, expiresAt }) => {
+		const poll = await ctx.db.get(pollId);
+		if (!poll) {
+			throw new Error('Poll not found');
+		}
+
+		if (poll.closedAt) {
+			throw new Error('Poll is already closed');
+		}
+
+		await ctx.db.patch(pollId, {
+			expiresAt,
 		});
 
 		return null;
