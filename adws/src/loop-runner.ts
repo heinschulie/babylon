@@ -36,7 +36,9 @@ import {
   getHeadSha,
   checkoutBranch,
   assertStableBranch,
+  diffFileList,
 } from "./git-ops";
+import { svelteFilesToRoutes } from "./route-utils";
 import { openStep } from "./step-recorder";
 import { spawnTimekeeper, type TimekeeperConfig } from "./timekeeper-agent";
 
@@ -389,10 +391,18 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
       try {
         logger.info("Taking end-of-loop screenshots for parent issue");
         const screenshotStepName = logger.nextStep("screenshots");
+
+        const baseBranchName = state.get("base_branch") as string | undefined ?? "main";
+        const allChangedFiles = await diffFileList(`origin/${baseBranchName}`, "HEAD", workingDir).catch(() => [] as string[]);
+        const routes = svelteFilesToRoutes(allChangedFiles);
+        const routeTargets = routes.length > 0
+          ? `Navigate to these specific routes and screenshot each: ${routes.map((r) => `${localUrl}${r}`).join(", ")}`
+          : `Capture 3-5 screenshots of key pages at ${localUrl}`;
+
         const screenshotPrompt = [
-          `Take screenshots of the application at ${localUrl} to document the completed work.`,
+          `Take screenshots of the application to document the completed work.`,
           `Use firecrawl_scrape with formats: ["screenshot"] and screenshotOptions: { fullPage: true }.`,
-          `Capture 3-5 screenshots of the key pages affected by issues: ${completedIssues.map(n => `#${n}`).join(", ")}.`,
+          routeTargets,
           `Save screenshots to ${logger.logDir}/screenshots/ with descriptive names.`,
           `Output a markdown summary with embedded screenshot paths.`,
         ].join("\n");
@@ -402,7 +412,7 @@ export async function runLoop(config: LoopConfig): Promise<boolean> {
           logger,
           logDir: logger.logDir,
           stepName: screenshotStepName,
-          timeout: 120_000,
+          timeout: 300_000,
         });
         if (screenshotResult.success && screenshotResult.result) {
           state.update({ screenshots_summary: screenshotResult.result } as any);

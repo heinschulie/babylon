@@ -4,12 +4,12 @@
  * Heavy mock coverage of all loop-runner dependencies.
  *
  * IMPORTANT — test runner notes:
- * - Run via `npx vitest run` from adws/, NOT `bun test adws/tests/`.
+ * - Run via `npx vitest run tests/loop-runner.vitest.ts` from adws/
+ * - This file is named .vitest.ts (not .test.ts) to exclude it from `bun test adws/tests/`
  * - bun's test runner shares module state across files, so vi.mock()
- *   calls here leak into step-runner.test.ts, step-recorder.test.ts,
- *   and parse-blockers.test.ts — causing "Export not found" errors.
+ *   calls here would leak into other tests — causing "Export not found" errors
  * - vitest with pool: 'forks' (see adws/vitest.config.ts) isolates
- *   each file in its own process, which fixes the leak.
+ *   each file in its own process, which prevents the leak
  * - vi.importActual() does NOT work in bun (undefined). Don't try it.
  */
 

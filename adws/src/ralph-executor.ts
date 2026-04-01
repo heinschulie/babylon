@@ -18,7 +18,7 @@ import {
 } from "./agent-sdk";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { extractFrontendBehaviors, filterVisualBehaviors, buildVerifyPrompt } from "./verify-utils";
+import { hasSvelteFiles, svelteFilesToRoutes } from "./route-utils";
 import { diffFileList } from "./git-ops";
 import { recordLearning, inferTagsFromFiles } from "./learning-utils";
 import { parseReviewResult } from "./review-utils";
@@ -217,18 +217,26 @@ export function createRalphExecutor(adwId: string): StepExecutor {
       }
 
       case "verify": {
-        const behaviors = extractFrontendBehaviors(context.issue.body);
-        const visual = filterVisualBehaviors(behaviors);
+        const changedFiles = await diffFileList(context.preTddSha ?? context.baseSha, "HEAD", cwd).catch(() => [] as string[]);
 
-        if (visual.length === 0) {
-          logger.info("No visually-verifiable frontend behaviors — skipping verify");
-          return { success: true, produces: { verifyResult: { skipped: true, reason: "no visual behaviors" } } };
+        if (!hasSvelteFiles(changedFiles)) {
+          logger.info("No .svelte files changed — skipping verify");
+          return { success: true, produces: { verifyResult: { skipped: true, reason: "no svelte changes" } } };
         }
 
         const screenshotDir = join(stepDir, "screenshots");
         mkdirSync(screenshotDir, { recursive: true });
 
-        const prompt = buildVerifyPrompt(visual, context.localUrl ?? "http://localhost:5173", screenshotDir);
+        const pageUrl = context.localUrl ?? "http://localhost:5173";
+        const routes = svelteFilesToRoutes(changedFiles);
+        const routeTargets = routes.length > 0
+          ? routes.map((r) => `${pageUrl}${r}`).join(", ")
+          : pageUrl;
+
+        const prompt = `Navigate to ${routeTargets}.
+For each page, verify that the UI renders correctly and matches expected behavior from the issue.
+Screenshot each page. Save screenshots to ${screenshotDir}.
+Report pass/fail per page.`;
 
         const verifyResult = await runSkillStep(prompt, {
           ...baseOpts,
@@ -256,7 +264,7 @@ export function createRalphExecutor(adwId: string): StepExecutor {
           produces: {
             verifyResult: {
               passed,
-              behaviors_checked: visual.length,
+              routes_checked: routes.length,
               screenshot_dir: screenshotDir,
               report: verifyResult.result,
             },
