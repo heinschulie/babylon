@@ -127,3 +127,17 @@ export const listRecentEmojis = query({
 			.take(MAX_RECENT_ENTRIES);
 	},
 });
+
+export const getWordCounts = query({
+	args: {},
+	handler: async (ctx) => {
+		const entries = await ctx.db.query('testTable').collect();
+
+		return entries
+			.filter(entry => entry.sentence.trim() !== '')
+			.map(entry => ({
+				_id: entry._id,
+				wordCount: entry.sentence.split(/\s+/).filter(s => s !== '').length
+			}));
+	},
+});

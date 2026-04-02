@@ -579,4 +579,65 @@ describe('testEmojiMutation', () => {
 			expect(achievementsAfter[0].title).toBe('Emoji Starter');
 		});
 	});
+
+	describe('getWordCounts', () => {
+		it('should return correct word count for a sentence with multiple words', async () => {
+			const t = convexTest(schema, modules);
+
+			// Seed test data directly via DB
+			const id1 = await t.run(async (ctx) =>
+				ctx.db.insert('testTable', {
+					emoji: '😎',
+					mood: 'chill',
+					sentence: 'The cat wore sunglasses to the job interview',
+					userId: 'test-user',
+					createdAt: Date.now(),
+					streakDay: 1
+				})
+			);
+
+			// Call the query
+			const result = await t.query(api.testEmojiMutation.getWordCounts, {});
+
+			// Verify response shape and word count
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({
+				_id: id1,
+				wordCount: 8 // "The cat wore sunglasses to the job interview" = 8 words
+			});
+		});
+
+		it('should return 0 for entry with empty sentence', async () => {
+			const t = convexTest(schema, modules);
+
+			// Seed test data with empty sentence
+			const id1 = await t.run(async (ctx) =>
+				ctx.db.insert('testTable', {
+					emoji: '😎',
+					mood: 'chill',
+					sentence: '',
+					userId: 'test-user',
+					createdAt: Date.now(),
+					streakDay: 1
+				})
+			);
+
+			// Call the query
+			const result = await t.query(api.testEmojiMutation.getWordCounts, {});
+
+			// Should return empty array because empty sentence is filtered out
+			expect(result).toHaveLength(0);
+		});
+
+		it('should return empty array when no entries exist', async () => {
+			const t = convexTest(schema, modules);
+
+			// Call the query without adding any entries
+			const result = await t.query(api.testEmojiMutation.getWordCounts, {});
+
+			// Should return empty array
+			expect(result).toEqual([]);
+			expect(result).toHaveLength(0);
+		});
+	});
 });

@@ -35,6 +35,13 @@
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+	const wordCounts = useQuery(api.testEmojiMutation.getWordCounts, {});
+
+	// Create word count map for O(1) lookup
+	const wordCountMap = $derived.by(() => {
+		if (!wordCounts.data) return new Map();
+		return new Map(wordCounts.data.map(e => [e._id, e.wordCount]));
+	});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
@@ -451,6 +458,9 @@
 						<div class="flex items-center gap-2 mb-2">
 							<span class="text-2xl">{entry.emoji}</span>
 							<Badge variant="secondary">{entry.mood}</Badge>
+							{#if wordCountMap.get(entry._id) && wordCountMap.get(entry._id) > 0}
+								<Badge variant="outline">{m.test_word_count({ count: wordCountMap.get(entry._id) })}</Badge>
+							{/if}
 							<span class="text-sm text-gray-500">
 								{formatRelativeTime(entry.createdAt)}
 							</span>
