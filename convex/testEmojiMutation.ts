@@ -13,6 +13,11 @@ const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
 const MAX_RECENT_ENTRIES = 20;
 const MS_PER_DAY = 86400000;
 
+/** Split a sentence into non-empty words. */
+function splitWords(sentence: string): string[] {
+	return sentence.split(/\s+/).filter(s => s !== '');
+}
+
 /** Compute the streak day for a new submission given the user's most recent prior one. */
 function computeStreakDay(
 	prior: { createdAt: number; streakDay?: number } | null,
@@ -153,11 +158,10 @@ export const getSentenceStats = query({
 		}
 
 		// Word counts per sentence
-		const wordCounts = withSentences.map(e => ({
-			sentence: e.sentence,
-			count: e.sentence.split(/\s+/).filter(s => s !== '').length,
-			firstWord: e.sentence.split(/\s+/).filter(s => s !== '')[0],
-		}));
+		const wordCounts = withSentences.map(e => {
+			const words = splitWords(e.sentence);
+			return { sentence: e.sentence, count: words.length, firstWord: words[0] };
+		});
 
 		// Longest sentence
 		const longest = wordCounts.reduce((a, b) => (b.count > a.count ? b : a));
@@ -204,7 +208,7 @@ export const getWordCounts = query({
 			.filter(entry => entry.sentence.trim() !== '')
 			.map(entry => ({
 				_id: entry._id,
-				wordCount: entry.sentence.split(/\s+/).filter(s => s !== '').length
+				wordCount: splitWords(entry.sentence).length
 			}));
 	},
 });

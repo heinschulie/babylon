@@ -505,8 +505,8 @@
 
 						<!-- Word count distribution bar chart -->
 						<div class="space-y-2">
+							{@const maxCount = Math.max(...sentenceStats.data.wordCountDistribution.map(d => d.count))}
 							{#each sentenceStats.data.wordCountDistribution as { bucket, count } (bucket)}
-								{@const maxCount = Math.max(...sentenceStats.data.wordCountDistribution.map(d => d.count))}
 								<div class="flex items-center gap-3">
 									<span class="text-sm w-8 text-right">{bucket}</span>
 									<div class="flex-1 bg-gray-200 h-6 rounded">
