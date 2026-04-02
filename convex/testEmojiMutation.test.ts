@@ -580,6 +580,126 @@ describe('testEmojiMutation', () => {
 		});
 	});
 
+	describe('getSentenceStats', () => {
+		it('should find the longest sentence by word count', async () => {
+			const t = convexTest(schema, modules);
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Short one', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '🔥', mood: 'happy', sentence: 'This is the longest sentence in the test data set', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '💩', mood: 'angry', sentence: 'Medium length sentence here', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+			});
+
+			const result = await t.query(api.testEmojiMutation.getSentenceStats, {});
+
+			expect(result.longestSentence).toBe('This is the longest sentence in the test data set');
+			expect(result.longestWordCount).toBe(10);
+		});
+
+		it('should return null/zero values when no sentences exist', async () => {
+			const t = convexTest(schema, modules);
+
+			const result = await t.query(api.testEmojiMutation.getSentenceStats, {});
+
+			expect(result.totalSentences).toBe(0);
+			expect(result.longestSentence).toBe('');
+			expect(result.longestWordCount).toBe(0);
+			expect(result.mostCommonFirstWord).toBeNull();
+			expect(result.wordCountDistribution).toEqual([
+				{ bucket: '1', count: 0 },
+				{ bucket: '2', count: 0 },
+				{ bucket: '3', count: 0 },
+				{ bucket: '4', count: 0 },
+				{ bucket: '5+', count: 0 },
+			]);
+		});
+
+		it('should bucket word counts into 1, 2, 3, 4, 5+ distribution', async () => {
+			const t = convexTest(schema, modules);
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'One', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Two words', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Three words here', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Four words are here', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Five words are right here', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Six words are placed right here', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+			});
+
+			const result = await t.query(api.testEmojiMutation.getSentenceStats, {});
+
+			expect(result.wordCountDistribution).toEqual([
+				{ bucket: '1', count: 1 },
+				{ bucket: '2', count: 1 },
+				{ bucket: '3', count: 1 },
+				{ bucket: '4', count: 1 },
+				{ bucket: '5+', count: 2 },
+			]);
+		});
+
+		it('should compute mostCommonFirstWord correctly', async () => {
+			const t = convexTest(schema, modules);
+
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'The cat sat', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '🔥', mood: 'happy', sentence: 'The dog ran', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '💩', mood: 'angry', sentence: 'A bird flew', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+			});
+
+			const result = await t.query(api.testEmojiMutation.getSentenceStats, {});
+
+			expect(result.mostCommonFirstWord).toBe('The');
+		});
+
+		it('should return correct totalSentences count', async () => {
+			const t = convexTest(schema, modules);
+
+			// Seed 3 entries with non-empty sentences, 1 with empty
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: 'Hello world', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '🔥', mood: 'happy', sentence: 'The cat sat', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '💩', mood: 'angry', sentence: 'One', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎', mood: 'chill', sentence: '', userId: 'u1', createdAt: Date.now(), streakDay: 1
+				});
+			});
+
+			const result = await t.query(api.testEmojiMutation.getSentenceStats, {});
+
+			expect(result.totalSentences).toBe(3);
+		});
+	});
+
 	describe('getWordCounts', () => {
 		it('should return correct word count for a sentence with multiple words', async () => {
 			const t = convexTest(schema, modules);

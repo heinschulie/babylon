@@ -243,5 +243,11 @@
   "test_poll_stats_min": "[TODO] Min Options",
   "test_poll_stats_max": "[TODO] Max Options",
   "test_poll_stats_avg": "[TODO] Avg Options",
-  "test_poll_stats_empty": "[TODO] No polls yet"
+  "test_poll_stats_empty": "[TODO] No polls yet",
+  "test_sentence_stats_title": "[TODO] Sentence Stats",
+  "test_sentence_stats_total": "[TODO] Total Sentences",
+  "test_sentence_stats_longest": "[TODO] Longest Sentence",
+  "test_sentence_stats_first_word": "[TODO] Most Common First Word",
+  "test_sentence_stats_empty": "[TODO] No sentences yet",
+  "test_sentence_stats_words": "[TODO] {count} words"
 }

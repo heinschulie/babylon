@@ -8,6 +8,7 @@
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Flame } from '@lucide/svelte';
+	import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@babylon/ui';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
@@ -37,6 +38,7 @@
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
 	const wordCounts = useQuery(api.testEmojiMutation.getWordCounts, {});
+	const sentenceStats = useQuery(api.testEmojiMutation.getSentenceStats, {});
 
 	// Create word count map for O(1) lookup
 	const wordCountMap = $derived.by(() => {
@@ -474,6 +476,53 @@
 				{/each}
 			</ol>
 		{/if}
+	</section>
+
+	<!-- Sentence Stats section -->
+	<section class="p-4">
+		<Accordion type="single">
+			<AccordionItem value="sentence-stats">
+				<AccordionTrigger>{m.test_sentence_stats_title()}</AccordionTrigger>
+				<AccordionContent>
+					{#if sentenceStats.data?.totalSentences === 0}
+						<p class="text-gray-500">{m.test_sentence_stats_empty()}</p>
+					{:else if sentenceStats.data}
+						<!-- Header stat row -->
+						<div class="grid grid-cols-3 gap-4 mb-6">
+							<div class="text-center">
+								<div class="text-2xl font-bold">{sentenceStats.data.totalSentences}</div>
+								<div class="text-sm text-gray-500">{m.test_sentence_stats_total()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-lg font-medium">{sentenceStats.data.longestSentence.length > 30 ? sentenceStats.data.longestSentence.slice(0, 30) + '…' : sentenceStats.data.longestSentence}</div>
+								<div class="text-sm text-gray-500">{m.test_sentence_stats_longest()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-lg font-medium">{sentenceStats.data.mostCommonFirstWord ?? '—'}</div>
+								<div class="text-sm text-gray-500">{m.test_sentence_stats_first_word()}</div>
+							</div>
+						</div>
+
+						<!-- Word count distribution bar chart -->
+						<div class="space-y-2">
+							{#each sentenceStats.data.wordCountDistribution as { bucket, count } (bucket)}
+								{@const maxCount = Math.max(...sentenceStats.data.wordCountDistribution.map(d => d.count))}
+								<div class="flex items-center gap-3">
+									<span class="text-sm w-8 text-right">{bucket}</span>
+									<div class="flex-1 bg-gray-200 h-6 rounded">
+										<div
+											class="bg-blue-500 h-6 rounded"
+											style="width: {maxCount > 0 ? (count / maxCount) * 100 : 0}%"
+										></div>
+									</div>
+									<span class="text-sm text-gray-600 w-8">{count}</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</AccordionContent>
+			</AccordionItem>
+		</Accordion>
 	</section>
 
 	<!-- Sentiment Timeline section -->
