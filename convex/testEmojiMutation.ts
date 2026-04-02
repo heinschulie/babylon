@@ -13,6 +13,11 @@ const VALID_EMOJIS = Object.keys(EMOJI_CONFIG);
 const MAX_RECENT_ENTRIES = 20;
 const MS_PER_DAY = 86400000;
 
+/** Split a sentence into non-empty words. */
+function splitWords(sentence: string): string[] {
+	return sentence.split(/\s+/).filter(s => s !== '');
+}
+
 /** Compute the streak day for a new submission given the user's most recent prior one. */
 function computeStreakDay(
 	prior: { createdAt: number; streakDay?: number } | null,
@@ -125,5 +130,85 @@ export const listRecentEmojis = query({
 			.withIndex('by_createdAt')
 			.order('desc')
 			.take(MAX_RECENT_ENTRIES);
+	},
+});
+
+export const getSentenceStats = query({
+	args: {},
+	handler: async (ctx) => {
+		const entries = await ctx.db.query('testTable').collect();
+		const withSentences = entries.filter(e => e.sentence.trim() !== '');
+
+		const totalSentences = withSentences.length;
+
+		if (totalSentences === 0) {
+			return {
+				totalSentences: 0,
+				longestSentence: '',
+				longestWordCount: 0,
+				mostCommonFirstWord: null as string | null,
+				wordCountDistribution: [
+					{ bucket: '1', count: 0 },
+					{ bucket: '2', count: 0 },
+					{ bucket: '3', count: 0 },
+					{ bucket: '4', count: 0 },
+					{ bucket: '5+', count: 0 },
+				],
+			};
+		}
+
+		// Word counts per sentence
+		const wordCounts = withSentences.map(e => {
+			const words = splitWords(e.sentence);
+			return { sentence: e.sentence, count: words.length, firstWord: words[0] };
+		});
+
+		// Longest sentence
+		const longest = wordCounts.reduce((a, b) => (b.count > a.count ? b : a));
+
+		// Most common first word
+		const firstWordFreq = new Map<string, number>();
+		for (const { firstWord } of wordCounts) {
+			if (firstWord) {
+				firstWordFreq.set(firstWord, (firstWordFreq.get(firstWord) ?? 0) + 1);
+			}
+		}
+		let mostCommonFirstWord: string | null = null;
+		let maxFreq = 0;
+		for (const [word, freq] of firstWordFreq) {
+			if (freq > maxFreq) {
+				maxFreq = freq;
+				mostCommonFirstWord = word;
+			}
+		}
+
+		// Word count distribution buckets
+		const buckets: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5+': 0 };
+		for (const { count } of wordCounts) {
+			if (count >= 5) buckets['5+']++;
+			else buckets[String(count)]++;
+		}
+
+		return {
+			totalSentences,
+			longestSentence: longest.sentence,
+			longestWordCount: longest.count,
+			mostCommonFirstWord,
+			wordCountDistribution: Object.entries(buckets).map(([bucket, count]) => ({ bucket, count })),
+		};
+	},
+});
+
+export const getWordCounts = query({
+	args: {},
+	handler: async (ctx) => {
+		const entries = await ctx.db.query('testTable').collect();
+
+		return entries
+			.filter(entry => entry.sentence.trim() !== '')
+			.map(entry => ({
+				_id: entry._id,
+				wordCount: splitWords(entry.sentence).length
+			}));
 	},
 });

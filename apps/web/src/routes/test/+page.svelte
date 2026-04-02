@@ -8,6 +8,7 @@
 	import { api } from '@babylon/convex';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Flame } from '@lucide/svelte';
+	import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@babylon/ui';
 	import { formatRelativeTime } from '$lib/format';
 	import ActivityFeed from '$lib/components/ActivityFeed.svelte';
 	import AchievementCard from '$lib/components/AchievementCard.svelte';
@@ -32,9 +33,18 @@
 		activeTagFilter ? { tag: activeTagFilter } : 'skip'
 	);
 	const polls = $derived(activeTagFilter ? taggedPolls : allPolls);
+	const pollStats = useQuery(api.testPollMutation.getPollOptionStats, {});
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
+	const wordCounts = useQuery(api.testEmojiMutation.getWordCounts, {});
+	const sentenceStats = useQuery(api.testEmojiMutation.getSentenceStats, {});
+
+	// Create word count map for O(1) lookup
+	const wordCountMap = $derived.by(() => {
+		if (!wordCounts.data) return new Map();
+		return new Map(wordCounts.data.map(e => [e._id, e.wordCount]));
+	});
 
 	// Track achievement count for toast notifications
 	let previousCount = $state(0);
@@ -369,6 +379,46 @@
 			{/if}
 		</div>
 
+		<!-- Poll Statistics -->
+		<div class="mt-8">
+			<h3 class="text-lg font-semibold mb-4">{m.test_poll_stats_title()}</h3>
+			{#if pollStats.isLoading}
+				<div>Loading statistics...</div>
+			{:else if pollStats.data?.totalPolls === 0}
+				<Card.Root>
+					<Card.Content class="p-4 text-center text-gray-500">
+						{m.test_poll_stats_empty()}
+					</Card.Content>
+				</Card.Root>
+			{:else if pollStats.data}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.test_poll_stats_title()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.totalPolls}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_total()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.minOptions}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_min()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.maxOptions}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_max()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.avgOptions}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_avg()}</div>
+							</div>
+						</div>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		</div>
+
 		<!-- Tag Cloud -->
 		<div class="mt-8">
 			<h3 class="text-lg font-semibold mb-4">{m.test_tag_cloud_title()}</h3>
@@ -428,6 +478,53 @@
 		{/if}
 	</section>
 
+	<!-- Sentence Stats section -->
+	<section class="p-4">
+		<Accordion type="single">
+			<AccordionItem value="sentence-stats">
+				<AccordionTrigger>{m.test_sentence_stats_title()}</AccordionTrigger>
+				<AccordionContent>
+					{#if sentenceStats.data?.totalSentences === 0}
+						<p class="text-gray-500">{m.test_sentence_stats_empty()}</p>
+					{:else if sentenceStats.data}
+						<!-- Header stat row -->
+						<div class="grid grid-cols-3 gap-4 mb-6">
+							<div class="text-center">
+								<div class="text-2xl font-bold">{sentenceStats.data.totalSentences}</div>
+								<div class="text-sm text-gray-500">{m.test_sentence_stats_total()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-lg font-medium">{sentenceStats.data.longestSentence.length > 30 ? sentenceStats.data.longestSentence.slice(0, 30) + '…' : sentenceStats.data.longestSentence}</div>
+								<div class="text-sm text-gray-500">{m.test_sentence_stats_longest()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-lg font-medium">{sentenceStats.data.mostCommonFirstWord ?? '—'}</div>
+								<div class="text-sm text-gray-500">{m.test_sentence_stats_first_word()}</div>
+							</div>
+						</div>
+
+						<!-- Word count distribution bar chart -->
+						<div class="space-y-2">
+							{@const maxCount = Math.max(...sentenceStats.data.wordCountDistribution.map(d => d.count))}
+							{#each sentenceStats.data.wordCountDistribution as { bucket, count } (bucket)}
+								<div class="flex items-center gap-3">
+									<span class="text-sm w-8 text-right">{bucket}</span>
+									<div class="flex-1 bg-gray-200 h-6 rounded">
+										<div
+											class="bg-blue-500 h-6 rounded"
+											style="width: {maxCount > 0 ? (count / maxCount) * 100 : 0}%"
+										></div>
+									</div>
+									<span class="text-sm text-gray-600 w-8">{count}</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</AccordionContent>
+			</AccordionItem>
+		</Accordion>
+	</section>
+
 	<!-- Sentiment Timeline section -->
 	<section>
 		<h2>Sentiment Timeline</h2>
@@ -451,6 +548,9 @@
 						<div class="flex items-center gap-2 mb-2">
 							<span class="text-2xl">{entry.emoji}</span>
 							<Badge variant="secondary">{entry.mood}</Badge>
+							{#if wordCountMap.get(entry._id) && wordCountMap.get(entry._id) > 0}
+								<Badge variant="outline">{m.test_word_count({ count: wordCountMap.get(entry._id) })}</Badge>
+							{/if}
 							<span class="text-sm text-gray-500">
 								{formatRelativeTime(entry.createdAt)}
 							</span>

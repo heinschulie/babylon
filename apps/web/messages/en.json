@@ -236,5 +236,18 @@
   "test_filter_achievements": "Achievements",
   "test_reaction_on": "Reaction on",
   "test_achievement_unlocked": "Achievement unlocked",
-  "test_empty_filtered": "No matching activity"
+  "test_empty_filtered": "No matching activity",
+  "test_word_count": "{count} words",
+  "test_poll_stats_title": "Poll Statistics",
+  "test_poll_stats_total": "Total Polls",
+  "test_poll_stats_min": "Min Options",
+  "test_poll_stats_max": "Max Options",
+  "test_poll_stats_avg": "Avg Options",
+  "test_poll_stats_empty": "No polls yet",
+  "test_sentence_stats_title": "Sentence Stats",
+  "test_sentence_stats_total": "Total Sentences",
+  "test_sentence_stats_longest": "Longest Sentence",
+  "test_sentence_stats_first_word": "Most Common First Word",
+  "test_sentence_stats_empty": "No sentences yet",
+  "test_sentence_stats_words": "{count} words"
 }

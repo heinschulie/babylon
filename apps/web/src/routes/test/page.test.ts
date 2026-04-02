@@ -562,4 +562,44 @@ describe('/test route', () => {
 			expect(content).toContain("import * as m from '$lib/paraglide/messages.js'");
 		});
 	});
+
+	// Poll statistics tests
+	describe('poll statistics section', () => {
+		it('should render stat card on test page with all four metrics', () => {
+			// Should have the poll stats query
+			expect(content).toContain('getPollOptionStats');
+
+			// Should have all four metric displays
+			expect(content).toContain('pollStats.data.totalPolls');
+			expect(content).toContain('pollStats.data.minOptions');
+			expect(content).toContain('pollStats.data.maxOptions');
+			expect(content).toContain('pollStats.data.avgOptions');
+		});
+
+		it('should display each metric with a label and value', () => {
+			// Should have metric labels using i18n
+			expect(content).toContain('test_poll_stats_total()');
+			expect(content).toContain('test_poll_stats_min()');
+			expect(content).toContain('test_poll_stats_max()');
+			expect(content).toContain('test_poll_stats_avg()');
+		});
+
+		it('should show empty state message when totalPolls is 0', () => {
+			// Should have empty state condition
+			expect(content).toContain('pollStats.data?.totalPolls === 0');
+			// Should use empty message
+			expect(content).toContain('test_poll_stats_empty()');
+		});
+
+		it('should appear between polls section and tag cloud', () => {
+			const pollSectionIndex = content.indexOf('<!-- Poll List -->');
+			const statsIndex = content.indexOf('<!-- Poll Statistics -->');
+			const tagCloudIndex = content.indexOf('<!-- Tag Cloud -->');
+
+			// Stats should come after polls but before tag cloud
+			expect(pollSectionIndex).toBeGreaterThan(-1);
+			expect(statsIndex).toBeGreaterThan(pollSectionIndex);
+			expect(tagCloudIndex).toBeGreaterThan(statsIndex);
+		});
+	});
 });

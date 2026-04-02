@@ -236,5 +236,18 @@
   "test_filter_achievements": "[TODO] Achievements",
   "test_reaction_on": "[TODO] Reaction on",
   "test_achievement_unlocked": "[TODO] Achievement unlocked",
-  "test_empty_filtered": "[TODO] No matching activity"
+  "test_empty_filtered": "[TODO] No matching activity",
+  "test_word_count": "[TODO] {count} words",
+  "test_poll_stats_title": "[TODO] Poll Statistics",
+  "test_poll_stats_total": "[TODO] Total Polls",
+  "test_poll_stats_min": "[TODO] Min Options",
+  "test_poll_stats_max": "[TODO] Max Options",
+  "test_poll_stats_avg": "[TODO] Avg Options",
+  "test_poll_stats_empty": "[TODO] No polls yet",
+  "test_sentence_stats_title": "[TODO] Sentence Stats",
+  "test_sentence_stats_total": "[TODO] Total Sentences",
+  "test_sentence_stats_longest": "[TODO] Longest Sentence",
+  "test_sentence_stats_first_word": "[TODO] Most Common First Word",
+  "test_sentence_stats_empty": "[TODO] No sentences yet",
+  "test_sentence_stats_words": "[TODO] {count} words"
 }
