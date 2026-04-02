@@ -32,6 +32,7 @@
 		activeTagFilter ? { tag: activeTagFilter } : 'skip'
 	);
 	const polls = $derived(activeTagFilter ? taggedPolls : allPolls);
+	const pollStats = useQuery(api.testPollMutation.getPollOptionStats, {});
 	const tagCloud = useQuery(api.testPollTags.getPollTagCloud, {});
 	const userStreak = useQuery(api.testEmojiMutation.getUserStreak, { userId: 'test-user' });
 	const achievements = useQuery(api.testAchievements.getUserAchievements, { userId: 'test-user' });
@@ -373,6 +374,46 @@
 						</Card.Root>
 					{/each}
 				</div>
+			{/if}
+		</div>
+
+		<!-- Poll Statistics -->
+		<div class="mt-8">
+			<h3 class="text-lg font-semibold mb-4">{m.test_poll_stats_title()}</h3>
+			{#if pollStats.isLoading}
+				<div>Loading statistics...</div>
+			{:else if pollStats.data?.totalPolls === 0}
+				<Card.Root>
+					<Card.Content class="p-4 text-center text-gray-500">
+						{m.test_poll_stats_empty()}
+					</Card.Content>
+				</Card.Root>
+			{:else if pollStats.data}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.test_poll_stats_title()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.totalPolls}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_total()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.minOptions}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_min()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.maxOptions}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_max()}</div>
+							</div>
+							<div class="text-center">
+								<div class="text-2xl font-bold">{pollStats.data.avgOptions}</div>
+								<div class="text-sm text-gray-500">{m.test_poll_stats_avg()}</div>
+							</div>
+						</div>
+					</Card.Content>
+				</Card.Root>
 			{/if}
 		</div>
 

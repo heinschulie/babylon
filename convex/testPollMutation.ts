@@ -144,3 +144,32 @@ export const getPollResults = query({
 			.sort((a, b) => b.count - a.count);
 	},
 });
+
+export const getPollOptionStats = query({
+	args: {},
+	handler: async (ctx) => {
+		const polls = await ctx.db.query('testPollTable').collect();
+
+		if (polls.length === 0) {
+			return {
+				totalPolls: 0,
+				minOptions: 0,
+				maxOptions: 0,
+				avgOptions: 0
+			};
+		}
+
+		const optionCounts = polls.map(poll => poll.options.length);
+		const totalPolls = polls.length;
+		const minOptions = Math.min(...optionCounts);
+		const maxOptions = Math.max(...optionCounts);
+		const avgOptions = Math.round((optionCounts.reduce((sum, count) => sum + count, 0) / totalPolls) * 10) / 10;
+
+		return {
+			totalPolls,
+			minOptions,
+			maxOptions,
+			avgOptions
+		};
+	},
+});

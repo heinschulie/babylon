@@ -686,4 +686,108 @@ describe('testPollMutation', () => {
 			expect(achievements[0].title).toBe('Democracy');
 		});
 	});
+
+	describe('getPollOptionStats', () => {
+		it('should return correct min/max/avg for multiple polls with different option counts', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create polls with different option counts: 2, 3, 5 options
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Two options?',
+				options: ['yes', 'no']  // 2 options
+			});
+
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Three options?',
+				options: ['a', 'b', 'c']  // 3 options
+			});
+
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Five options?',
+				options: ['one', 'two', 'three', 'four', 'five']  // 5 options
+			});
+
+			// Get stats
+			const stats = await asUser.query(api.testPollMutation.getPollOptionStats, {});
+
+			// Should return: totalPolls=3, min=2, max=5, avg=3.3
+			expect(stats).toEqual({
+				totalPolls: 3,
+				minOptions: 2,
+				maxOptions: 5,
+				avgOptions: 3.3
+			});
+		});
+
+		it('should return zeroes when no polls exist', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Don't create any polls
+			const stats = await asUser.query(api.testPollMutation.getPollOptionStats, {});
+
+			// Should return all zeroes
+			expect(stats).toEqual({
+				totalPolls: 0,
+				minOptions: 0,
+				maxOptions: 0,
+				avgOptions: 0
+			});
+		});
+
+		it('should handle single poll correctly (min === max === avg)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create single poll with 4 options
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Single poll?',
+				options: ['option1', 'option2', 'option3', 'option4']  // 4 options
+			});
+
+			const stats = await asUser.query(api.testPollMutation.getPollOptionStats, {});
+
+			// For single poll: min=max=avg=4
+			expect(stats).toEqual({
+				totalPolls: 1,
+				minOptions: 4,
+				maxOptions: 4,
+				avgOptions: 4.0
+			});
+		});
+
+		it('should round avg to 1 decimal place', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create polls that will produce a non-round average: 2, 3, 4 options
+			// Average: (2+3+4)/3 = 9/3 = 3.0 (not a good test)
+			// Let's try 2, 3, 3 options: (2+3+3)/3 = 8/3 = 2.666...
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Two options?',
+				options: ['a', 'b']  // 2 options
+			});
+
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Three options?',
+				options: ['x', 'y', 'z']  // 3 options
+			});
+
+			await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Another three options?',
+				options: ['p', 'q', 'r']  // 3 options
+			});
+
+			const stats = await asUser.query(api.testPollMutation.getPollOptionStats, {});
+
+			// Should return: totalPolls=3, avg=(2+3+3)/3 = 2.666... rounded to 2.7
+			expect(stats).toEqual({
+				totalPolls: 3,
+				minOptions: 2,
+				maxOptions: 3,
+				avgOptions: 2.7
+			});
+		});
+	});
 });
