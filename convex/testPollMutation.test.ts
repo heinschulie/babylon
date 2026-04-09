@@ -288,6 +288,40 @@ describe('testPollMutation', () => {
 			expect(result[0].question).toBe('Poll 24?');
 			expect(result[19].question).toBe('Poll 5?');
 		});
+
+		it('should include expiresAt field in returned poll documents', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create poll without expiry
+			const pollWithoutExpiry = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'No expiry poll?',
+				options: ['yes', 'no']
+			});
+
+			// Create poll with expiry
+			const pollWithExpiry = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'With expiry poll?',
+				options: ['yes', 'no']
+			});
+			const expiryTime = Date.now() + 5 * 60 * 1000;
+			await asUser.mutation(api.testPollMutation.setExpiry, {
+				pollId: pollWithExpiry,
+				expiresAt: expiryTime
+			});
+
+			const polls = await asUser.query(api.testPollMutation.listPolls, {});
+
+			// Find both polls in results
+			const withExpiryPoll = polls.find(p => p._id === pollWithExpiry);
+			const withoutExpiryPoll = polls.find(p => p._id === pollWithoutExpiry);
+
+			// Poll with expiry should have expiresAt field
+			expect(withExpiryPoll?.expiresAt).toBe(expiryTime);
+
+			// Poll without expiry should not have expiresAt field (optional field should be undefined)
+			expect(withoutExpiryPoll?.expiresAt).toBeUndefined();
+		});
 	});
 
 	describe('castVote', () => {
@@ -468,6 +502,64 @@ describe('testPollMutation', () => {
 			const record4 = await t.run(async (ctx) => ctx.db.get(vote4));
 			expect(record4?.mood).toBe('happy');
 		});
+
+		it('should succeed on a poll with future expiresAt', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll and set expiry to future
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+			const futureExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+			await asUser.mutation(api.testPollMutation.setExpiry, {
+				pollId,
+				expiresAt: futureExpiry
+			});
+
+			// Cast vote should succeed
+			const voteId = await asUser.mutation(api.testPollMutation.castVote, {
+				pollId,
+				option: 'yes',
+				userId: 'test-user'
+			});
+
+			expect(voteId).toBeDefined();
+
+			// Verify vote was recorded
+			const vote = await t.run(async (ctx) => ctx.db.get(voteId));
+			expect(vote).toMatchObject({
+				emoji: 'yes',
+				sentence: 'Test poll?',
+				userId: 'test-user',
+				pollId
+			});
+		});
+
+		it('should throw "Poll has expired" when expiresAt is in the past', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+
+			// Set expiry to past via direct DB manipulation (simpler than stubbing Date.now)
+			const pastExpiry = Date.now() - 60 * 1000; // 1 minute ago
+			await t.run(async (ctx) => ctx.db.patch(pollId, { expiresAt: pastExpiry }));
+
+			// Try to cast vote - should throw
+			await expect(
+				asUser.mutation(api.testPollMutation.castVote, {
+					pollId,
+					option: 'yes',
+					userId: 'test-user'
+				})
+			).rejects.toThrow('Poll has expired');
+		});
 	});
 
 	describe('closePoll', () => {
@@ -495,6 +587,53 @@ describe('testPollMutation', () => {
 			expect(poll?.closedAt).toBeDefined();
 			expect(poll?.closedAt).toBeGreaterThanOrEqual(before);
 			expect(poll?.closedAt).toBeLessThanOrEqual(after);
+		});
+	});
+
+	describe('setExpiry', () => {
+		it('should set expiresAt timestamp on an open poll', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+
+			const expiryTime = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+			const result = await asUser.mutation(api.testPollMutation.setExpiry, {
+				pollId,
+				expiresAt: expiryTime
+			});
+
+			// setExpiry should return null (following closePoll pattern)
+			expect(result).toBeNull();
+
+			// Verify poll now has expiresAt set
+			const poll = await t.run(async (ctx) => ctx.db.get(pollId));
+			expect(poll?.expiresAt).toBe(expiryTime);
+		});
+
+		it('should throw if poll is already closed (closedAt is set)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create a poll and close it
+			const pollId = await asUser.mutation(api.testPollMutation.createPoll, {
+				question: 'Test poll?',
+				options: ['yes', 'no']
+			});
+			await asUser.mutation(api.testPollMutation.closePoll, { pollId });
+
+			// Try to set expiry on closed poll - should throw
+			const expiryTime = Date.now() + 5 * 60 * 1000;
+			await expect(
+				asUser.mutation(api.testPollMutation.setExpiry, {
+					pollId,
+					expiresAt: expiryTime
+				})
+			).rejects.toThrow('Poll is already closed');
 		});
 	});
 

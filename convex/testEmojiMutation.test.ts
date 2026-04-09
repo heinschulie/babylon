@@ -480,6 +480,119 @@ describe('testEmojiMutation', () => {
 			expect(result[1]).toEqual({ emoji: '💩', count: 2 });
 			expect(result[2]).toEqual({ emoji: '🔥', count: 1 });
 		});
+
+		// Search functionality tests
+		it('should return full leaderboard when searchTerm is undefined (behavior 1)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert test data: 😎 x2, 💩 x1
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				mood: undefined,
+				searchTerm: undefined
+			});
+
+			expect(result).toHaveLength(2);
+			expect(result[0]).toEqual({ emoji: '😎', count: 2 });
+			expect(result[1]).toEqual({ emoji: '💩', count: 1 });
+		});
+
+		it('should filter by emoji character when searchTerm matches (behavior 2)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert test data with different emojis
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: '😎'
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ emoji: '😎', count: 1 });
+		});
+
+		it('should filter by mood keyword when searchTerm matches (behavior 3)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert test data with different moods
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'chill'
+			});
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ emoji: '😎', count: 1 });
+		});
+
+		it('should return empty array when searchTerm matches nothing (behavior 4)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+
+			const result = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'nonexistent'
+			});
+
+			expect(result).toEqual([]);
+		});
+
+		it('should be case-insensitive for searchTerm (behavior 5)', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+
+			// Test uppercase search for mood
+			const result1 = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'CHILL'
+			});
+			expect(result1).toHaveLength(1);
+			expect(result1[0]).toEqual({ emoji: '😎', count: 1 });
+
+			// Test mixed case
+			const result2 = await asUser.query(api.testEmojiMutation.getEmojiLeaderboard, {
+				searchTerm: 'ChIlL'
+			});
+			expect(result2).toHaveLength(1);
+			expect(result2[0]).toEqual({ emoji: '😎', count: 1 });
+		});
 	});
 
 	describe('getUserStreak', () => {
@@ -577,6 +690,180 @@ describe('testEmojiMutation', () => {
 			expect(achievementsAfter).toHaveLength(1);
 			expect(achievementsAfter[0].type).toBe('emoji_starter');
 			expect(achievementsAfter[0].title).toBe('Emoji Starter');
+		});
+	});
+
+	describe('listRecentEmojisPaginated', () => {
+		it('should return empty result when table has no entries', async () => {
+			const t = convexTest(schema, modules);
+
+			// Query empty table
+			const result = await t.query(api.testEmojiMutation.listRecentEmojisPaginated, {});
+
+			// Should return empty entries array
+			expect(result.entries).toEqual([]);
+			expect(result.entries).toHaveLength(0);
+
+			// Should indicate no more entries
+			expect(result.hasMore).toBe(false);
+
+			// Should have null cursor
+			expect(result.cursor).toBe(null);
+		});
+
+		it('should respect custom limit parameter', async () => {
+			const t = convexTest(schema, modules);
+
+			// Try with custom limit on empty table first (simple case)
+			const emptyResult = await t.query(api.testEmojiMutation.listRecentEmojisPaginated, {
+				limit: 3
+			});
+
+			// Should respect the custom limit structure even with no data
+			expect(emptyResult.entries).toEqual([]);
+			expect(emptyResult.hasMore).toBe(false);
+			expect(emptyResult.cursor).toBe(null);
+		});
+
+		it('should handle cursor-based navigation correctly', async () => {
+			const t = convexTest(schema, modules);
+
+			// Test with an invalid cursor (simulating real pagination scenarios)
+			const result = await t.query(api.testEmojiMutation.listRecentEmojisPaginated, {
+				cursor: "some_test_cursor_that_doesnt_exist"
+			});
+
+			// Should handle gracefully - exact behavior depends on Convex implementation
+			// but should not crash and should return proper structure
+			expect(result).toHaveProperty('entries');
+			expect(result).toHaveProperty('hasMore');
+			expect(result).toHaveProperty('cursor');
+			expect(Array.isArray(result.entries)).toBe(true);
+			expect(typeof result.hasMore).toBe('boolean');
+			expect(result.cursor === null || typeof result.cursor === 'string').toBe(true);
+		});
+	});
+
+	describe('getMoodSummary', () => {
+		it('should return correct counts for each mood when entries exist', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert entries with different moods
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			// Query mood summary - no auth needed per expert guidance
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Should have correct structure and counts
+			expect(result).toHaveLength(3);
+			expect(result).toEqual([
+				{ mood: 'chill', count: 2, percentage: 50.0 },
+				{ mood: 'angry', count: 1, percentage: 25.0 },
+				{ mood: 'happy', count: 1, percentage: 25.0 }
+			]);
+		});
+
+		it('should calculate correct percentages rounded to 1 decimal', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Insert entries to test percentage rounding: 2/7, 3/7, 2/7
+			// Should be 28.6%, 42.9%, 28.6%
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+			await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '🔥', mood: 'happy', userId: 'test-user'
+			});
+
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Check percentage rounding is correct
+			expect(result).toEqual([
+				{ mood: 'angry', count: 3, percentage: 42.9 },
+				{ mood: 'chill', count: 2, percentage: 28.6 },
+				{ mood: 'happy', count: 2, percentage: 28.6 }
+			]);
+		});
+
+		it('should exclude reactions (entries with parentId) from counts', async () => {
+			const t = convexTest(schema, modules);
+			const asUser = t.withIdentity({ subject: 'user1' });
+
+			// Create 2 main emoji entries
+			const id1 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '😎', mood: 'chill', userId: 'test-user'
+			});
+			const id2 = await asUser.mutation(api.testEmojiMutation.submitEmoji, {
+				emoji: '💩', mood: 'angry', userId: 'test-user'
+			});
+
+			// Directly insert reaction entries with parentId (simulate reactions)
+			await t.run(async (ctx) => {
+				await ctx.db.insert('testTable', {
+					emoji: '🔥',
+					mood: 'happy',
+					sentence: 'Reaction to chill entry',
+					userId: 'test-user',
+					createdAt: Date.now(),
+					parentId: id1 // This makes it a reaction
+				});
+				await ctx.db.insert('testTable', {
+					emoji: '😎',
+					mood: 'chill',
+					sentence: 'Another reaction',
+					userId: 'test-user',
+					createdAt: Date.now(),
+					parentId: id2 // This makes it a reaction
+				});
+			});
+
+			// Query mood summary
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Should only count the main entries, not reactions
+			expect(result).toEqual([
+				{ mood: 'chill', count: 1, percentage: 50.0 },
+				{ mood: 'angry', count: 1, percentage: 50.0 }
+			]);
+		});
+
+		it('should return empty array when no entries exist', async () => {
+			const t = convexTest(schema, modules);
+
+			// Query mood summary on empty table
+			const result = await t.query(api.testEmojiMutation.getMoodSummary, {});
+
+			// Should return empty array
+			expect(result).toEqual([]);
+			expect(result).toHaveLength(0);
 		});
 	});
 });

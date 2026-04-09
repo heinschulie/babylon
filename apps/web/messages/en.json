@@ -18,6 +18,8 @@
   "library_label_english": "English",
   "library_label_xhosa": "Xhosa",
   "library_feedback_banner": "Your verifier has reviewed your practice",
+  "test_load_more": "Load More",
+  "test_loading_more": "Loading...",
   "library_fab_label": "Start practice",
   "library_fab_unit": "min",
   "library_add_phrase_desc": "Enter an English phrase and we'll translate it for you.",
@@ -236,5 +238,9 @@
   "test_filter_achievements": "Achievements",
   "test_reaction_on": "Reaction on",
   "test_achievement_unlocked": "Achievement unlocked",
-  "test_empty_filtered": "No matching activity"
+  "test_empty_filtered": "No matching activity",
+  "test_poll_set_expiry": "Set Expiry",
+  "test_poll_expired": "Expired",
+  "test_leaderboard_search_placeholder": "Search emojis or moods...",
+  "test_leaderboard_no_results": "No results"
 }
