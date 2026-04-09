@@ -25,8 +25,9 @@ export const createPoll = mutation({
 		question: v.string(),
 		options: v.array(v.string()),
 		tags: v.optional(v.array(v.string())),
+		expiresAt: v.optional(v.number()),
 	},
-	handler: async (ctx, { question, options, tags }) => {
+	handler: async (ctx, { question, options, tags, expiresAt }) => {
 		// Validate question is non-empty
 		if (!question.trim()) {
 			throw new Error('Question must not be empty');
@@ -49,6 +50,7 @@ export const createPoll = mutation({
 			options,
 			createdAt: Date.now(),
 			...(processedTags && { tags: processedTags }),
+			...(expiresAt && { expiresAt }),
 		});
 	},
 });
@@ -79,9 +81,13 @@ export const castVote = mutation({
 			throw new Error('Poll not found');
 		}
 
-		// Check if poll is closed
+		// Check if poll is closed or expired
 		if (poll.closedAt) {
 			throw new Error('Poll is closed');
+		}
+
+		if (poll.expiresAt && poll.expiresAt <= Date.now()) {
+			throw new Error('Poll has expired');
 		}
 
 		const optionIndex = poll.options.indexOf(option);
@@ -121,6 +127,43 @@ export const closePoll = mutation({
 		});
 
 		return null;
+	},
+});
+
+export const setExpiry = mutation({
+	args: { pollId: v.id('testPollTable'), expiresAt: v.number() },
+	handler: async (ctx, { pollId, expiresAt }) => {
+		const poll = await ctx.db.get(pollId);
+		if (!poll) {
+			throw new Error('Poll not found');
+		}
+
+		await ctx.db.patch(pollId, { expiresAt });
+	},
+});
+
+export const getActivePolls = query({
+	args: {},
+	handler: async (ctx) => {
+		const allPolls = await ctx.db
+			.query('testPollTable')
+			.withIndex('by_createdAt')
+			.order('desc')
+			.collect();
+
+		const now = Date.now();
+		// Filter to only active polls (expiresAt is undefined OR expiresAt > now)
+		const activePolls = allPolls.filter(poll =>
+			!poll.expiresAt || poll.expiresAt > now
+		);
+
+		// Sort by expiresAt ascending (soonest-expiring first), undefined last
+		return activePolls.sort((a, b) => {
+			if (!a.expiresAt && !b.expiresAt) return 0;
+			if (!a.expiresAt) return 1; // a goes to end
+			if (!b.expiresAt) return -1; // b goes to end
+			return a.expiresAt - b.expiresAt; // ascending
+		});
 	},
 });
 

@@ -305,7 +305,8 @@ export default defineSchema({
 		createdAt: v.number(),
 		pollId: v.optional(v.id('testPollTable')),
 		streakDay: v.optional(v.number()),
-		parentId: v.optional(v.id('testTable'))
+		parentId: v.optional(v.id('testTable')),
+		pinned: v.optional(v.boolean()) // true = pinned to top
 	})
 		.index('by_createdAt', ['createdAt'])
 		.index('by_pollId', ['pollId'])
@@ -318,6 +319,7 @@ export default defineSchema({
 		options: v.array(v.string()),
 		createdAt: v.number(),
 		closedAt: v.optional(v.number()),
+		expiresAt: v.optional(v.number()), // unix ms timestamp
 		tags: v.optional(v.array(v.string()))
 	})
 		.index('by_createdAt', ['createdAt'])
