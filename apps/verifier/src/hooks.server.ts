@@ -1,8 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { sequence } from '@sveltejs/kit/hooks';
-import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
-import { createAuth } from '$lib/server/auth';
+import { getAuthToken } from '$lib/server/auth';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
 const STATIC_SECURITY_HEADERS = {
@@ -31,8 +30,12 @@ const securityHeadersHandle: Handle = async ({ event, resolve }) => {
 };
 
 const authHandle: Handle = async ({ event, resolve }) => {
-	const token = await getToken(createAuth, event.cookies);
-	event.locals.token = token;
+	try {
+		event.locals.token = getAuthToken(event.cookies, event.url.origin);
+	} catch (error) {
+		console.error('Failed to initialize auth token from cookies', error);
+		event.locals.token = undefined;
+	}
 	return resolve(event);
 };
 
