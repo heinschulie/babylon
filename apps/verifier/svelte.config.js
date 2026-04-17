@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-node';
+import adapter from '@sveltejs/adapter-netlify';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -31,7 +31,7 @@ const config = {
 		env: {
 			dir: '../..'
 		},
-		adapter: adapter(),
+			adapter: adapter(),
 		csp: {
 			mode: 'auto',
 			directives: cspDirectives

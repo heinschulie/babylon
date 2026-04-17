@@ -1,0 +1,6 @@
+[build]
+command = "bun install --frozen-lockfile && bun run build:web"
+publish = "apps/web/build"
+
+[build.environment]
+BUN_VERSION = "1.3.9"

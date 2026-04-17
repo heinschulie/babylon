@@ -149,10 +149,11 @@ Paraglide JS v2, cookie-only strategy (`PARAGLIDE_LOCALE`, 400-day max-age), no 
 
 ## Configuration
 
-- **Adapter**: `@sveltejs/adapter-node` (Netlify Node runtime)
+- **Adapter**: `@sveltejs/adapter-netlify`
 - **CSP**: Strict in prod — `'self'` defaults, googleapis fonts, `https:` images, WebSocket, nonce-based scripts, `upgrade-insecure-requests`
 - **Vite plugins**: Paraglide → Tailwind → SvelteKit
 - **Env directory**: `../..` (monorepo root)
+- **Netlify package directory**: `apps/web`
 - **PWA**: `manifest.json`, `sw.js`, apple-touch-icon, theme-color meta, push notifications via web-push
 
 ## Environment Variables

@@ -56,7 +56,7 @@ adws/               → Agentic dev workflow tooling (Bun-native)
 
 ## Frontends
 
-Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@sveltejs/adapter-node`. Identical config: svelte.config.js, vite.config.ts, hooks.server.ts, tsconfig.json. Differences are purely in routes and UI.
+Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@sveltejs/adapter-netlify`. Identical config: svelte.config.js, vite.config.ts, hooks.server.ts, tsconfig.json. Differences are purely in routes and UI.
 
 **Web app** (15 routes): Practice dashboard with audio recording (MediaRecorder API) + queue modes, phrase library with auto-translation + category grouping, vocabulary flashcards (13 sets, Unsplash images), translation self-test, theory pages (clicks, noun classes, agglutination), settings (profile, locale, skin, notifications, billing), PayFast checkout flows. PWA-enabled.
 
@@ -73,7 +73,7 @@ Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@svel
 Four runtime environments:
 
 1. **Bun** (v1.2.2, engine-strict) — package manager, script runner, workspace orchestrator. Bun APIs used in ADW workflows (`Bun.serve()`, `Bun.spawn()`, `Bun.file()`).
-2. **Node.js** — SvelteKit production server via `adapter-node`. Started with `node apps/*/build/index.js`.
+2. **Node.js** — SvelteKit SSR and endpoints packaged by `adapter-netlify` into Netlify Functions.
 3. **Convex** — V8 isolates (queries/mutations, deterministic) + Node.js (`'use node'` actions for external APIs).
 4. **Browser** — Service worker (push notifications, notification click handling), PWA manifest.
 
@@ -130,7 +130,7 @@ bun run convex:check-generated  # verify codegen is current
 
 ## Deployment
 
-- **Frontend:** Railway (RAILPACK builder, Node adapter). Both apps produce `build/index.js`. Health checks on `/` (300s timeout, max 3 restarts). Auto-deploy from `main`. Watch patterns include `packages/**` so shared changes trigger redeploy. Config in `apps/*/railway.toml`.
+- **Frontend:** Netlify monorepo deploy. Two separate sites point at this repo with package directories `apps/web` and `apps/verifier`, using app-local `netlify.toml` files plus `@sveltejs/adapter-netlify` for SSR/auth functions. Build commands run from repo root via Bun 1.3.9 and publish `apps/*/build`.
 - **Backend:** Convex Cloud (`disciplined-spider-126`). Manual deploy via `bun run convex:deploy`. HTTP routes for auth (CORS) + PayFast webhook. Daily cron at 06:00 UTC.
 - **CI:** GitHub Actions — PR/push to `main` → Bun 1.3.9 → `bun install --frozen-lockfile` → typecheck → test → build (matrix: web, verifier). Validation only, no automated deploy.
 - **Dev tunneling:** Cloudflare Tunnel (`cloudflared tunnel run babylon-dev`) → `dev.schulie.com` (web), `verifier.schulie.com` (verifier).
