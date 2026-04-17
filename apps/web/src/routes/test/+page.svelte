@@ -504,21 +504,23 @@
 						</div>
 
 						<!-- Word count distribution bar chart -->
-						<div class="space-y-2">
+						{#if sentenceStats.data.wordCountDistribution.length > 0}
 							{@const maxCount = Math.max(...sentenceStats.data.wordCountDistribution.map(d => d.count))}
-							{#each sentenceStats.data.wordCountDistribution as { bucket, count } (bucket)}
-								<div class="flex items-center gap-3">
-									<span class="text-sm w-8 text-right">{bucket}</span>
-									<div class="flex-1 bg-gray-200 h-6 rounded">
-										<div
-											class="bg-blue-500 h-6 rounded"
-											style="width: {maxCount > 0 ? (count / maxCount) * 100 : 0}%"
-										></div>
+							<div class="space-y-2">
+								{#each sentenceStats.data.wordCountDistribution as { bucket, count } (bucket)}
+									<div class="flex items-center gap-3">
+										<span class="text-sm w-8 text-right">{bucket}</span>
+										<div class="flex-1 bg-gray-200 h-6 rounded">
+											<div
+												class="bg-blue-500 h-6 rounded"
+												style="width: {maxCount > 0 ? (count / maxCount) * 100 : 0}%"
+											></div>
+										</div>
+										<span class="text-sm text-gray-600 w-8">{count}</span>
 									</div>
-									<span class="text-sm text-gray-600 w-8">{count}</span>
-								</div>
-							{/each}
-						</div>
+								{/each}
+							</div>
+						{/if}
 					{/if}
 				</AccordionContent>
 			</AccordionItem>

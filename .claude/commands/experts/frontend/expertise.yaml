@@ -1,6 +1,6 @@
 ---
 # Frontend Expert Knowledge — Babylon
-# Last validated: 2026-03-27 (v2 — first full self-improve pass)
+# Last validated: 2026-04-02 (v3)
 # Source of truth: apps/web, apps/verifier, packages/ui, packages/shared
 
 file_patterns:
@@ -50,7 +50,7 @@ routing:
       - "Syncs locale+skin from api.preferences.get on mount"
       - "Renders Header with nav links (practice, library, theory, settings)"
     routes:
-      /: {page: +page.svelte, purpose: "Home/dashboard — phrase groups by category + billing + feedback count", auth: required, convex: [api.phrases.listGroupedByCategory, api.billing.getStatus, api.humanReviews.getUnseenFeedback]}
+      /: {page: +page.svelte, purpose: "Home/dashboard — all phrases, practice sessions, streak, active practice run", auth: required, convex: [api.phrases.listAllByUser, api.practiceSessions.list, api.practiceSessions.getStreak, api.practiceSessions.get, api.attempts.listByPracticeSessionAsc]}
       /login: {page: +page.svelte, purpose: "Email/password login", auth: none, convex: none}
       /register: {page: +page.svelte, purpose: "Email/password registration", auth: none, convex: none}
       /library: {page: +page.svelte, purpose: "Phrase library (same layout as /)", auth: required, convex: [api.phrases.listGroupedByCategory, api.billing.getStatus, api.humanReviews.getUnseenFeedback]}
@@ -62,7 +62,7 @@ routing:
       /vocabulary: {page: +page.svelte, purpose: "Vocabulary sets index (local VOCABULARY_SETS constant)", auth: none, convex: none}
       /vocabulary/[set]: {page: +page.svelte, purpose: "Flashcard viewer with image fetch", auth: none, convex: "client only"}
       /settings: {page: +page.svelte, purpose: "Prefs — locale, theme/skin, notifications, avatar, billing", auth: required, convex: [api.preferences.get, api.billing.getStatus, api.preferences.getProfileImageUrl, api.preferences.generateProfileImageUploadUrl]}
-      /test: {page: +page.svelte, purpose: "Dev test route — emoji mutation dialog", auth: none, convex: [api.testEmojiMutation.submitEmoji]}
+      /test: {page: +page.svelte, purpose: "Dev test route — emoji mutations, polls, tags, achievements, word counts, sentence stats, reactions", auth: none, convex: [api.testEmojiMutation.*, api.testPollMutation.*, api.testPollTags.*, api.testAchievements.*, api.testReactions.*]}
       /billing/cancel: {page: +page.svelte, purpose: "Static cancellation message", auth: none, convex: none}
       /billing/return: {page: +page.svelte, purpose: "Static success message", auth: none, convex: none}
 
@@ -97,6 +97,7 @@ components:
       - Alert: {variants: [default, destructive], subs: [AlertDescription, AlertTitle]}
       - Dialog: {subs: [DialogTitle, DialogPortal, DialogFooter, DialogHeader, DialogTrigger, DialogOverlay, DialogContent, DialogDescription, DialogClose], bindable: open}
       - DropdownMenu: {subs: 17, note: "Root, Sub, CheckboxGroup, Content, Item, etc.", bindable: open}
+      - Badge: {variants: [default, secondary, outline], note: "Inline rounded pill for labels/tags"}
     custom:
       - Header:
           file: packages/ui/src/components/header/Header.svelte
@@ -203,10 +204,10 @@ shared_package:
 
 key_data_flows:
   phrase_practice:
-    - "/ (home) → select phrase group → navigate to /practice/session/[id]"
-    - "Components: +page.svelte (home) → Accordion (groups) → Button (start practice)"
-    - "Convex: api.phrases.listGroupedByCategory → (practice session created server-side) → api.attempts.listByPracticeSessionAsc"
-    - "Post-practice: api.humanReviews.markFeedbackSeen auto-called on session review"
+    - "/ (home) → browse all phrases + practice sessions + streak → start/resume practice via ?run=[id] param"
+    - "Components: +page.svelte (home) → Accordion + Card + Button (phrases, sessions)"
+    - "Convex: api.phrases.listAllByUser + api.practiceSessions.list + api.practiceSessions.getStreak → api.practiceSessions.get + api.attempts.listByPracticeSessionAsc (when run param set)"
+    - "Post-practice review: /practice/session/[id] → api.attempts.listByPracticeSessionAsc + api.humanReviews.markFeedbackSeen"
 
   add_phrase:
     - "/ or /library → open dialog → enter English → submit"
@@ -294,7 +295,7 @@ quality_gates:
 # ─── KNOWN ISSUES ────────────────────────────────────────────────────
 
 known_issues:
-  - "/ (home) and /library appear to render near-identical content — possible duplication"
+  - "/ (home) now distinct from /library — home shows all phrases + practice sessions + streak; library groups by category + billing + feedback"
   - "/practice redirects to / — route exists but is unused"
-  - "/test route is a dev-only test page (emoji mutation) — should not ship to production"
+  - "/test route is a dev-only test page (emoji, polls, tags, achievements, reactions) — should not ship to production"
   - "packages/ui Header imports auth stores directly — tight coupling to shared package"
