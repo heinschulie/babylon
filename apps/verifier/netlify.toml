@@ -1,5 +1,5 @@
 [build]
-command = "bun install --frozen-lockfile && bun run build:verifier"
+command = "bun run build:verifier"
 publish = "apps/verifier/build"
 
 [build.environment]

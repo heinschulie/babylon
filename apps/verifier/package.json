@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"paraglide:compile": "bunx @inlang/paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy cookie baseLocale --emit-ts-declarations",
+		"paraglide:compile": "node ../../node_modules/@inlang/paraglide-js/bin/run.js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy cookie baseLocale --emit-ts-declarations",
 		"build": "bun run paraglide:compile && vite build",
 		"preview": "vite preview",
 		"prepare": "bun run paraglide:compile && svelte-kit sync || echo ''",
