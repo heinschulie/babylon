@@ -1,5 +1,5 @@
 [build]
-command = "bun run build:verifier && echo 'VERIFIER_BUILD_DIRS' && find apps/verifier -maxdepth 4 -type d -name build | sort && ls -ld apps/verifier/build || true && ls -ld apps/verifier/apps/verifier/build || true"
+command = "bun run build:verifier && rm -rf apps/verifier/build && cp -R apps/verifier/apps/verifier/build apps/verifier/build"
 publish = "apps/verifier/build"
 
 [build.environment]

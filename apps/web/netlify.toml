@@ -1,5 +1,5 @@
 [build]
-command = "bun run build:web && echo 'WEB_BUILD_DIRS' && find apps/web -maxdepth 4 -type d -name build | sort && ls -ld apps/web/build || true && ls -ld apps/web/apps/web/build || true"
+command = "bun run build:web && rm -rf apps/web/build && cp -R apps/web/apps/web/build apps/web/build"
 publish = "apps/web/build"
 
 [build.environment]
