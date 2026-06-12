@@ -58,10 +58,17 @@
 			</form>
 		</Card.Content>
 		<Card.Footer class="justify-center">
-			<p class="meta-text">
-				{m.auth_no_account()}
-				<a href={resolve('/register')} class="text-primary underline">{m.auth_register()}</a>
-			</p>
+			<div class="space-y-2 text-center">
+				<p class="meta-text">
+					<a href={resolve('/forgot-password')} class="text-primary underline"
+						>{m.auth_forgot_password_link()}</a
+					>
+				</p>
+				<p class="meta-text">
+					{m.auth_no_account()}
+					<a href={resolve('/register')} class="text-primary underline">{m.auth_register()}</a>
+				</p>
+			</div>
 		</Card.Footer>
 	</Card.Root>
 </div>

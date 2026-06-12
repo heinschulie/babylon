@@ -35,6 +35,7 @@ import type * as lib_tags from "../lib/tags.js";
 import type * as lib_vocabularySets from "../lib/vocabularySets.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsNode from "../notificationsNode.js";
+import type * as passwordReset from "../passwordReset.js";
 import type * as phrases from "../phrases.js";
 import type * as practiceSessions from "../practiceSessions.js";
 import type * as preferences from "../preferences.js";
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "lib/vocabularySets": typeof lib_vocabularySets;
   notifications: typeof notifications;
   notificationsNode: typeof notificationsNode;
+  passwordReset: typeof passwordReset;
   phrases: typeof phrases;
   practiceSessions: typeof practiceSessions;
   preferences: typeof preferences;

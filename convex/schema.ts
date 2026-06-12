@@ -235,6 +235,16 @@ export default defineSchema({
 		profileImageStorageId: v.optional(v.string()) // Convex storage ID for profile pic
 	}).index('by_user', ['userId']),
 
+	// Temporary password reset links for environments without real email delivery.
+	passwordResetDebugLinks: defineTable({
+		email: v.string(),
+		url: v.string(),
+		expiresAt: v.number(),
+		createdAt: v.number()
+	})
+		.index('by_email', ['email'])
+		.index('by_email_createdAt', ['email', 'createdAt']),
+
 	// Billing subscriptions (provider state)
 	billingSubscriptions: defineTable({
 		userId: v.string(),
