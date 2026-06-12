@@ -3,7 +3,8 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { api, type Id } from '@babylon/convex';
 	import { Button } from '@babylon/ui/button';
-	import { AudioRecorder, AttemptPlayer, formatDuration } from '@babylon/ui/audio';
+	import { AudioRecorder, AttemptPlayer } from '@babylon/ui/audio';
+	import { submitAttempt } from '$lib/practice/submitAttempt';
 	import { fly } from 'svelte/transition';
 	import * as m from '$lib/paraglide/messages.js';
 
@@ -103,30 +104,6 @@
 		recorder.discard();
 	}
 
-	async function uploadWithRetry(uploadUrl: string, blob: Blob): Promise<string> {
-		const maxAttempts = 3;
-		let lastError: unknown;
-		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-			try {
-				const response = await fetch(uploadUrl, {
-					method: 'POST',
-					headers: { 'Content-Type': blob.type || 'audio/webm' },
-					body: blob
-				});
-				if (!response.ok) throw new Error(`Upload failed with status ${response.status}`);
-				const result = (await response.json()) as { storageId?: string };
-				if (!result.storageId) throw new Error('Upload response missing storageId');
-				return result.storageId;
-			} catch (err) {
-				lastError = err;
-				if (attempt < maxAttempts) {
-					await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** (attempt - 1)));
-				}
-			}
-		}
-		throw lastError instanceof Error ? lastError : new Error(m.practice_upload_failed());
-	}
-
 	async function handleSubmit() {
 		const blob = recorder.blob;
 		const phrase = currentPhrase;
@@ -134,53 +111,20 @@
 
 		processing = true;
 		submitError = '';
-		const durationSnapshot = recorder.durationMs;
 
-		let attemptId: Id<'attempts'> | null = null;
 		try {
-			attemptId = await client.mutation(api.attempts.create, {
+			const { aiProcessing } = await submitAttempt({
+				client,
 				phraseId: phrase._id,
 				practiceSessionId,
-				durationMs: durationSnapshot
+				english: phrase.english,
+				translation: phrase.translation,
+				blob,
+				durationMs: recorder.durationMs
 			});
-
-			const uploadUrl = await client.mutation(api.audioUploads.generateUploadUrl, {});
-			const storageId = await uploadWithRetry(uploadUrl, blob);
-
-			const audioAssetId = await client.mutation(api.audioAssets.create, {
-				storageKey: storageId,
-				contentType: blob.type || 'audio/webm',
-				phraseId: phrase._id,
-				attemptId,
-				durationMs: durationSnapshot
-			});
-
-			await client.mutation(api.attempts.attachAudio, { attemptId, audioAssetId });
-
-			// AI processing runs in the background; the review screen tracks
-			// per-attempt status, and the pipeline marks failures server-side.
-			onTrackSubmission(
-				client
-					.action(api.aiPipeline.processAttempt, {
-						attemptId,
-						phraseId: phrase._id,
-						englishPrompt: phrase.english,
-						targetPhrase: phrase.translation
-					})
-					.catch((err) => {
-						console.error('AI processing failed for attempt', attemptId, err);
-					})
-			);
-
+			onTrackSubmission(aiProcessing);
 			advanceToNext();
 		} catch (err) {
-			// The attempt exists but has no audio — mark it failed so it can't
-			// linger as eternally "processing" in review screens.
-			if (attemptId) {
-				client
-					.mutation(api.attempts.markFailed, { attemptId, reason: 'upload_failed' })
-					.catch(() => {});
-			}
 			submitError = err instanceof Error ? err.message : m.practice_submit_failed();
 		} finally {
 			processing = false;

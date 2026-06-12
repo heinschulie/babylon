@@ -61,7 +61,8 @@
 	logoSrc="/thetha_logo.avif"
 	links={[
 		{ label: m.nav_home(), href: '/' },
-		{ label: m.nav_work(), href: '/work' }
+		{ label: m.nav_work(), href: '/work' },
+		{ label: m.exemplars_nav(), href: '/exemplars' }
 	]}
 	settingsLabel={m.nav_settings()}
 	logoutLabel={m.nav_logout()}

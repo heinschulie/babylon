@@ -103,5 +103,21 @@
   "vsettings_push_test_failed": "Failed to send test notification",
   "vsettings_push_enable": "Enable Notifications",
   "vsettings_push_enabling": "Enabling...",
-  "vsettings_push_disable": "Disable"
+  "vsettings_push_disable": "Disable",
+  "exemplars_nav": "Exemplars",
+  "exemplars_kicker": "Course Recordings",
+  "exemplars_title": "Exemplars",
+  "exemplars_desc": "Record exemplar audio for approved course prompts. Learners hear these as the model pronunciation.",
+  "exemplars_loading": "Loading prompts...",
+  "exemplars_empty_title": "All Done",
+  "exemplars_empty_desc": "All prompts have exemplars.",
+  "exemplars_pending_title": "Prompts Needing Exemplars",
+  "exemplars_pending_desc": "Record yourself saying each phrase correctly, then save.",
+  "exemplars_record": "Record",
+  "exemplars_stop": "Stop Recording",
+  "exemplars_save": "Save",
+  "exemplars_saving": "Saving...",
+  "exemplars_save_failed": "Failed to save exemplar.",
+  "exemplars_mic_permission_denied": "Microphone permission denied.",
+  "exemplars_mic_not_found": "No microphone found."
 }

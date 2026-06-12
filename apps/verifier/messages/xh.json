@@ -103,5 +103,21 @@
   "vsettings_push_test_failed": "[TODO] Failed to send test notification",
   "vsettings_push_enable": "[TODO] Enable Notifications",
   "vsettings_push_enabling": "[TODO] Enabling...",
-  "vsettings_push_disable": "[TODO] Disable"
+  "vsettings_push_disable": "[TODO] Disable",
+  "exemplars_nav": "[TODO] Exemplars",
+  "exemplars_kicker": "[TODO] Course Recordings",
+  "exemplars_title": "[TODO] Exemplars",
+  "exemplars_desc": "[TODO] Record exemplar audio for approved course prompts. Learners hear these as the model pronunciation.",
+  "exemplars_loading": "[TODO] Loading prompts...",
+  "exemplars_empty_title": "[TODO] All Done",
+  "exemplars_empty_desc": "[TODO] All prompts have exemplars.",
+  "exemplars_pending_title": "[TODO] Prompts Needing Exemplars",
+  "exemplars_pending_desc": "[TODO] Record yourself saying each phrase correctly, then save.",
+  "exemplars_record": "[TODO] Record",
+  "exemplars_stop": "[TODO] Stop Recording",
+  "exemplars_save": "[TODO] Save",
+  "exemplars_saving": "[TODO] Saving...",
+  "exemplars_save_failed": "[TODO] Failed to save exemplar.",
+  "exemplars_mic_permission_denied": "[TODO] Microphone permission denied.",
+  "exemplars_mic_not_found": "[TODO] No microphone found."
 }

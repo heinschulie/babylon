@@ -9,12 +9,20 @@
 	import PracticeHome from '$lib/practice/PracticeHome.svelte';
 	import PracticeSession from '$lib/practice/PracticeSession.svelte';
 	import SessionReview from '$lib/practice/SessionReview.svelte';
+	import CourseHome from '$lib/course/CourseHome.svelte';
+	import { COURSE_LANGUAGE_CODE } from '$lib/course/language';
 	import * as m from '$lib/paraglide/messages.js';
 
 	const client = useConvexClient();
 	const allPhrases = useQuery(api.phrases.listAllByUser, {});
 	const practiceSessions = useQuery(api.practiceSessions.list, {});
 	const streak = useQuery(api.practiceSessions.getStreak, {});
+	const courseState = useQuery(api.courses.getMyCourseState, {
+		languageCode: COURSE_LANGUAGE_CODE
+	});
+	const capabilities = useQuery(api.courses.getMyCapabilities, {
+		languageCode: COURSE_LANGUAGE_CODE
+	});
 
 	const activePracticeSessionId = $derived(
 		(page.url.searchParams.get('run') as Id<'practiceSessions'> | null) ?? null
@@ -82,14 +90,30 @@
 </script>
 
 {#if !activePracticeSessionId}
-	<PracticeHome
-		phraseCount={allPhrases.data?.length ?? 0}
-		streak={streak.data?.streak ?? null}
-		sessions={practiceSessions.data ?? []}
-		sessionsLoading={practiceSessions.isLoading}
-		{starting}
-		onStart={startPracticeSession}
-	/>
+	{#if courseState.data}
+		<!-- Michel-Thomas course is the home experience when one is published. -->
+		<CourseHome
+			courseTitle={courseState.data.course.title}
+			units={courseState.data.units}
+			continueUnitId={courseState.data.continueUnitId}
+			ownedCount={capabilities.data?.ownedCount ?? 0}
+			introducedCount={capabilities.data?.introducedCount ?? 0}
+			totalHandles={capabilities.data?.totalHandles ?? 0}
+			recentHandles={capabilities.data?.handles.filter((h) => h.status) ?? []}
+			phraseCount={allPhrases.data?.length ?? 0}
+			{starting}
+			onStartFreePractice={startPracticeSession}
+		/>
+	{:else}
+		<PracticeHome
+			phraseCount={allPhrases.data?.length ?? 0}
+			streak={streak.data?.streak ?? null}
+			sessions={practiceSessions.data ?? []}
+			sessionsLoading={practiceSessions.isLoading}
+			{starting}
+			onStart={startPracticeSession}
+		/>
+	{/if}
 {:else if allPhrases.isLoading || activePracticeSession.isLoading}
 	<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
 		<p class="meta-text">{m.practice_loading_session()}</p>
