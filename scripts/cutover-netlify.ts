@@ -15,9 +15,8 @@ type CutoverConfig = {
 	authAllowLocalhostOrigins?: string;
 	authAllowUnverifiedEmailsProd?: string;
 	authExtraTrustedOrigins?: string;
-	payfastReturnUrl: string;
-	payfastCancelUrl: string;
-	payfastNotifyUrl: string;
+	billingReturnUrl: string;
+	billingCancelUrl: string;
 };
 
 type NetlifySite = {
@@ -202,14 +201,12 @@ async function main() {
 		authAllowLocalhostOrigins: env.AUTH_ALLOW_LOCALHOST_ORIGINS,
 		authAllowUnverifiedEmailsProd: env.AUTH_ALLOW_UNVERIFIED_EMAILS_PROD,
 		authExtraTrustedOrigins: env.AUTH_EXTRA_TRUSTED_ORIGINS,
-		payfastReturnUrl: '',
-		payfastCancelUrl: '',
-		payfastNotifyUrl: ''
+		billingReturnUrl: '',
+		billingCancelUrl: ''
 	};
 
-	config.payfastReturnUrl = new URL('/billing/return', config.webUrl).toString();
-	config.payfastCancelUrl = new URL('/billing/cancel', config.webUrl).toString();
-	config.payfastNotifyUrl = new URL('/webhooks/payfast', config.convexSiteUrl).toString();
+	config.billingReturnUrl = new URL('/billing/return', config.webUrl).toString();
+	config.billingCancelUrl = new URL('/billing/cancel', config.webUrl).toString();
 
 	const sites = await Promise.all([
 		loadSiteContext('web', config.webUrl),
@@ -382,9 +379,8 @@ function buildConvexTargets(config: CutoverConfig): Target[] {
 		['VERIFIER_SITE_URL', config.verifierUrl],
 		['BETTER_AUTH_SECRET', config.betterAuthSecret],
 		['PUBLIC_CONVEX_SITE_URL', config.convexSiteUrl],
-		['PAYFAST_RETURN_URL', config.payfastReturnUrl],
-		['PAYFAST_CANCEL_URL', config.payfastCancelUrl],
-		['PAYFAST_NOTIFY_URL', config.payfastNotifyUrl],
+		['BILLING_RETURN_URL', config.billingReturnUrl],
+		['BILLING_CANCEL_URL', config.billingCancelUrl],
 		['VITE_VAPID_PUBLIC_KEY', config.vapidPublicKey],
 		['VAPID_PRIVATE_KEY', config.vapidPrivateKey],
 		['AUTH_REQUIRE_EMAIL_VERIFICATION', config.authRequireEmailVerification],
@@ -478,9 +474,8 @@ function printPlan(input: {
 	console.log(`  web domain:      ${input.config.webUrl}`);
 	console.log(`  verifier domain: ${input.config.verifierUrl}`);
 	console.log(`  convex site:     ${input.config.convexSiteUrl}`);
-	console.log(`  payfast return:  ${input.config.payfastReturnUrl}`);
-	console.log(`  payfast cancel:  ${input.config.payfastCancelUrl}`);
-	console.log(`  payfast notify:  ${input.config.payfastNotifyUrl}`);
+	console.log(`  billing return:  ${input.config.billingReturnUrl}`);
+	console.log(`  billing cancel:  ${input.config.billingCancelUrl}`);
 
 	console.log('\nNetlify sites:');
 	for (const site of input.sites) {

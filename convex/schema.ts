@@ -248,19 +248,20 @@ export default defineSchema({
 	// Billing subscriptions (provider state)
 	billingSubscriptions: defineTable({
 		userId: v.string(),
-		provider: v.string(), // payfast
+		provider: v.string(), // paystack | stripe
 		plan: v.string(), // free | ai | pro
 		status: v.string(), // pending | active | past_due | canceled
-		payfastReference: v.optional(v.string()),
+		providerReference: v.optional(v.string()), // our checkout reference
 		providerPaymentId: v.optional(v.string()),
-		providerSubscriptionToken: v.optional(v.string()),
+		providerSubscriptionId: v.optional(v.string()),
 		lastPaymentAt: v.optional(v.number()),
 		currentPeriodEnd: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number()
 	})
 		.index('by_user', ['userId'])
-		.index('by_provider_reference', ['provider', 'payfastReference'])
+		.index('by_provider_reference', ['provider', 'providerReference'])
+		.index('by_provider_subscription', ['provider', 'providerSubscriptionId'])
 		.index('by_provider_payment', ['provider', 'providerPaymentId']),
 
 	// Effective entitlements (authoritative for gating)

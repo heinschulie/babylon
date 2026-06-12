@@ -157,23 +157,8 @@
 		billingError = null;
 
 		try {
-			const checkout = await client.mutation(api.billing.createPayfastCheckout, { plan });
-			const form = document.createElement('form');
-			form.method = 'POST';
-			form.action = checkout.endpointUrl;
-
-			const fields = checkout.fields as Record<string, string>;
-			Object.entries(fields).forEach(([key, value]) => {
-				const input = document.createElement('input');
-				input.type = 'hidden';
-				input.name = key;
-				input.value = value;
-				form.appendChild(input);
-			});
-
-			document.body.appendChild(form);
-			form.submit();
-			form.remove();
+			const checkout = await client.action(api.billingCheckout.createCheckout, { plan });
+			window.location.assign(checkout.redirectUrl);
 		} catch (e) {
 			billingError = e instanceof Error ? e.message : m.settings_sub_checkout_error();
 		} finally {

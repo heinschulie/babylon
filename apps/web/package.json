@@ -30,7 +30,6 @@
 		"@tailwindcss/vite": "^4.1.18",
 		"@testing-library/svelte": "^5.3.1",
 		"@types/node": "^25.0.10",
-		"@types/spark-md5": "^3.0.5",
 		"@types/web-push": "^3.6.4",
 		"bits-ui": "^2.15.4",
 		"clsx": "^2.1.1",
@@ -62,7 +61,6 @@
 		"better-auth": "^1.4.9",
 		"convex": "^1.31.6",
 		"convex-svelte": "^0.0.12",
-		"spark-md5": "^3.0.2",
 		"svelte-sonner": "^1.1.0",
 		"web-push": "^3.6.7"
 	}
