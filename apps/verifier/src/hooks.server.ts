@@ -12,7 +12,9 @@ const STATIC_SECURITY_HEADERS = {
 } as const;
 
 const securityHeadersHandle: Handle = async ({ event, resolve }) => {
-	const response = await resolve(event);
+	const resolved = await resolve(event);
+	// Clone via Response-as-ResponseInit: resolved headers can be immutable on Netlify.
+	const response = new Response(resolved.body, resolved);
 
 	for (const [name, value] of Object.entries(STATIC_SECURITY_HEADERS)) {
 		if (!response.headers.has(name)) {
