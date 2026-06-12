@@ -501,6 +501,21 @@ export const insertDraftUnit = internalMutation({
 	}
 });
 
+/** Ops-only seeding entry point (bunx convex run). */
+export const createCourseInternal = internalMutation({
+	args: { languageCode: v.string(), title: v.string() },
+	handler: async (ctx, args) => {
+		const language = requireSupportedLanguage(args.languageCode);
+		return await ctx.db.insert('courses', {
+			languageCode: language.bcp47,
+			title: args.title.trim(),
+			status: 'draft',
+			version: 1,
+			createdAt: Date.now()
+		});
+	}
+});
+
 export const assertAdminForAction = internalQuery({
 	args: { userId: v.string() },
 	handler: async (ctx, args) => {

@@ -1,7 +1,7 @@
 'use node';
 
 import { v } from 'convex/values';
-import { action } from './_generated/server';
+import { action, internalAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
 import { getAnthropicDraftingModel } from './lib/anthropicModel';
@@ -77,7 +77,26 @@ export const draftNextUnit = action({
 	handler: async (ctx, args): Promise<{ unitId: string }> => {
 		const userId = await getAuthUserId(ctx);
 		await ctx.runQuery(internal.courseAuthoring.assertAdminForAction, { userId });
+		return await draftUnitImpl(ctx, args);
+	}
+});
 
+/** Ops-only seeding entry point (bunx convex run) — bypasses user auth. */
+export const draftNextUnitInternal = internalAction({
+	args: {
+		courseId: v.id('courses'),
+		guidance: v.optional(v.string())
+	},
+	handler: async (ctx, args): Promise<{ unitId: string }> => {
+		return await draftUnitImpl(ctx, args);
+	}
+});
+
+async function draftUnitImpl(
+	ctx: { runQuery: any; runMutation: any },
+	args: { courseId: any; guidance?: string }
+): Promise<{ unitId: string }> {
+	{
 		const context = await ctx.runQuery(internal.courseAuthoring.getDraftingContext, {
 			courseId: args.courseId
 		});
@@ -94,7 +113,7 @@ export const draftNextUnit = action({
 				? '(none yet — this is unit 1; start from the most fundamental building blocks)'
 				: JSON.stringify(context.handles, null, 1),
 			'',
-			`Units so far: ${context.units.length === 0 ? '(none)' : context.units.map((u) => `${u.index}. ${u.title} [${u.handleKeys.join(', ')}]`).join('; ')}`,
+			`Units so far: ${context.units.length === 0 ? '(none)' : context.units.map((u: { index: number; title: string; handleKeys: string[] }) => `${u.index}. ${u.title} [${u.handleKeys.join(', ')}]`).join('; ')}`,
 			'',
 			`Draft unit ${context.nextUnitIndex}.`,
 			args.guidance ? `Author guidance for this unit: ${args.guidance}` : ''
@@ -176,4 +195,4 @@ export const draftNextUnit = action({
 
 		return { unitId };
 	}
-});
+}
