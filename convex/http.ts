@@ -1,6 +1,6 @@
 import { httpRouter } from 'convex/server';
 import { authComponent, createAuth } from './auth';
-import { payfastWebhook } from './billingNode';
+import { paystackWebhook, stripeWebhook } from './billingWebhooks';
 
 const http = httpRouter();
 authComponent.registerRoutes(http, createAuth, {
@@ -8,9 +8,15 @@ authComponent.registerRoutes(http, createAuth, {
 });
 
 http.route({
-	path: '/webhooks/payfast',
+	path: '/webhooks/paystack',
 	method: 'POST',
-	handler: payfastWebhook
+	handler: paystackWebhook
+});
+
+http.route({
+	path: '/webhooks/stripe',
+	method: 'POST',
+	handler: stripeWebhook
 });
 
 export default http;

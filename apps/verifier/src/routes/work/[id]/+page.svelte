@@ -7,12 +7,15 @@
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 	import { Button } from '@babylon/ui/button';
 	import * as m from '$lib/paraglide/messages.js';
+	import { activeLanguageCode } from '$lib/activeLanguage';
 
 	const client = useConvexClient();
 	const requestId = $derived(page.params.id as Id<'humanReviewRequests'>);
 
+	const verifierState = useQuery(api.verifierAccess.getMyVerifierState, {});
+	const languageCode = $derived(activeLanguageCode(verifierState.data?.languages));
 	const currentClaim = useQuery(api.humanReviews.getCurrentClaim, () => ({
-		languageCode: 'xh-ZA'
+		languageCode
 	}));
 
 	$effect(() => {
@@ -170,7 +173,9 @@
 
 			discardRecording();
 			// Try to claim next automatically
-			const next = await client.mutation(api.humanReviews.claimNext, { languageCode: 'xh-ZA' });
+			const next = await client.mutation(api.humanReviews.claimNext, {
+				languageCode: claim?.languageCode ?? languageCode
+			});
 			if (next) {
 				goto(resolve(`/work/${next.requestId}`));
 			} else {

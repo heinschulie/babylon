@@ -6,11 +6,13 @@
 	import { isAuthenticated, isLoading } from '@babylon/shared/stores/auth';
 	import * as Card from '@babylon/ui/card';
 	import * as m from '$lib/paraglide/messages.js';
+	import { activeLanguageCode, hasActiveLanguage } from '$lib/activeLanguage';
 
 	const client = useConvexClient();
 	const verifierState = useQuery(api.verifierAccess.getMyVerifierState, {});
+	const languageCode = $derived(activeLanguageCode(verifierState.data?.languages));
 	const queueSignal = useQuery(api.humanReviews.getQueueSignal, () => ({
-		languageCode: 'xh-ZA'
+		languageCode
 	}));
 
 	$effect(() => {
@@ -18,11 +20,7 @@
 	});
 
 	const pendingCount = $derived(queueSignal.data?.pendingCount ?? 0);
-	const canReview = $derived(
-		!!verifierState.data?.languages.find(
-			(l) => l.languageCode === 'xh-ZA' && l.active
-		)
-	);
+	const canReview = $derived(hasActiveLanguage(verifierState.data?.languages));
 
 	let claiming = $state(false);
 
@@ -31,7 +29,7 @@
 		claiming = true;
 		try {
 			const assignment = await client.mutation(api.humanReviews.claimNext, {
-				languageCode: 'xh-ZA'
+				languageCode
 			});
 			if (assignment) {
 				goto(resolve(`/work/${assignment.requestId}`));

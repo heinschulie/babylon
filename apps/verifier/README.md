@@ -123,8 +123,9 @@ Xhosa translations mostly complete; push notification keys still `[TODO]` prefix
 
 ## Deployment
 
-- **Adapter:** `@sveltejs/adapter-node`
+- **Adapter:** `@sveltejs/adapter-netlify`
 - **Host:** `verifier.schulie.com` (Netlify)
+- **Netlify package directory:** `apps/verifier`
 - **CSP:** Allows `wss:` (Convex WebSocket), `blob:`/`data:` (audio), HTTPS images
 
 ## Dev

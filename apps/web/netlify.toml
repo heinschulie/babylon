@@ -1,0 +1,11 @@
+# Monorepo note: the site's "package directory" is apps/web and the base directory
+# is the repo root, so the build command runs at the root.
+# `publish` is intentionally NOT set here: Netlify resolves toml paths from the repo
+# root while @sveltejs/adapter-netlify resolves them from this app directory, which
+# conflict. Instead the adapter uses its default ("build" → apps/web/build) and the
+# site's publish directory is set to "apps/web/build" in Netlify build settings.
+[build]
+command = "bun run build:web"
+
+[build.environment]
+BUN_VERSION = "1.3.9"

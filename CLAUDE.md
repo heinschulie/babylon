@@ -10,7 +10,7 @@
 - **i18n**: Paraglide JS (cookie-only locale strategy, no URL prefixes)
 - **Icons**: Lucide (`@lucide/svelte`)
 - **Testing**: Vitest + convex-test
-- **Deploy**: Netlify (SvelteKit Node adapter)
+- **Deploy**: Netlify (@sveltejs/adapter-netlify; publish dirs set in Netlify build settings, see apps/*/netlify.toml)
 
 ## Commands
 
@@ -67,7 +67,6 @@ packages/ui/        — shadcn-svelte components (no i18n — props only)
 packages/convex/    — Convex type exports
 convex/             — Backend: schema, mutations, queries, actions
 docs/               — Architecture docs, setup guides
-temp/               — Temporary outputs (specs, research, thoughts)
 ```
 
 ## Conventions

@@ -40,17 +40,54 @@ export const getForWebhook = internalQuery({
 	}
 });
 
-export const getByPayfastReference = internalQuery({
+export const getByReference = internalQuery({
 	args: {
+		provider: v.string(),
 		reference: v.string()
 	},
 	handler: async (ctx, args) => {
 		return await ctx.db
 			.query('billingSubscriptions')
 			.withIndex('by_provider_reference', (q) =>
-				q.eq('provider', 'payfast').eq('payfastReference', args.reference)
+				q.eq('provider', args.provider).eq('providerReference', args.reference)
 			)
 			.unique();
+	}
+});
+
+export const getByProviderSubscriptionId = internalQuery({
+	args: {
+		provider: v.string(),
+		providerSubscriptionId: v.string()
+	},
+	handler: async (ctx, args) => {
+		return await ctx.db
+			.query('billingSubscriptions')
+			.withIndex('by_provider_subscription', (q) =>
+				q.eq('provider', args.provider).eq('providerSubscriptionId', args.providerSubscriptionId)
+			)
+			.unique();
+	}
+});
+
+export const createPending = internalMutation({
+	args: {
+		userId: v.string(),
+		provider: v.string(),
+		plan: v.union(v.literal('ai'), v.literal('pro')),
+		reference: v.string()
+	},
+	handler: async (ctx, args) => {
+		const now = Date.now();
+		return await ctx.db.insert('billingSubscriptions', {
+			userId: args.userId,
+			provider: args.provider,
+			plan: args.plan,
+			status: 'pending',
+			providerReference: args.reference,
+			createdAt: now,
+			updatedAt: now
+		});
 	}
 });
 
@@ -64,7 +101,7 @@ export const setStatus = internalMutation({
 			v.literal('canceled')
 		),
 		providerPaymentId: v.optional(v.union(v.string(), v.null())),
-		providerSubscriptionToken: v.optional(v.union(v.string(), v.null()))
+		providerSubscriptionId: v.optional(v.union(v.string(), v.null()))
 	},
 	handler: async (ctx, args) => {
 		const subscription = await ctx.db.get(args.subscriptionId);
@@ -83,11 +120,11 @@ export const setStatus = internalMutation({
 
 		const nextStatus = args.status;
 		const providerPaymentId = args.providerPaymentId ?? undefined;
-		const providerSubscriptionToken = args.providerSubscriptionToken ?? undefined;
+		const providerSubscriptionId = args.providerSubscriptionId ?? undefined;
 		const providerMetadataChanged =
 			(providerPaymentId !== undefined && providerPaymentId !== subscription.providerPaymentId) ||
-			(providerSubscriptionToken !== undefined &&
-				providerSubscriptionToken !== subscription.providerSubscriptionToken);
+			(providerSubscriptionId !== undefined &&
+				providerSubscriptionId !== subscription.providerSubscriptionId);
 
 		const transition = canTransitionStatus(currentStatus, nextStatus);
 		if (!transition.allowed && !(transition.reason === 'duplicate_status' && providerMetadataChanged)) {
@@ -101,7 +138,7 @@ export const setStatus = internalMutation({
 		await ctx.db.patch(subscription._id, {
 			status: nextStatus,
 			providerPaymentId,
-			providerSubscriptionToken,
+			providerSubscriptionId,
 			...(nextStatus === 'active' ? { lastPaymentAt: Date.now() } : {}),
 			updatedAt: Date.now()
 		});

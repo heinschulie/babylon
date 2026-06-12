@@ -61,6 +61,42 @@ export const generateProfileImageUploadUrl = mutation({
 	}
 });
 
+const SUPPORTED_UI_LOCALES = new Set(['en', 'xh']);
+
+function validateHourOfDay(name: string, value: number | undefined) {
+	if (value === undefined) return;
+	if (!Number.isInteger(value) || value < 0 || value > 23) {
+		throw new Error(`${name} must be an integer hour between 0 and 23`);
+	}
+}
+
+function validatePushSubscription(value: string | undefined) {
+	if (value === undefined || value === '') return;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch {
+		throw new Error('pushSubscription must be a JSON-serialized PushSubscription');
+	}
+	const subscription = parsed as { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
+	if (
+		typeof subscription?.endpoint !== 'string' ||
+		typeof subscription?.keys?.p256dh !== 'string' ||
+		typeof subscription?.keys?.auth !== 'string'
+	) {
+		throw new Error('pushSubscription is missing endpoint or keys');
+	}
+}
+
+function validateTimeZone(value: string | undefined) {
+	if (value === undefined) return;
+	try {
+		new Intl.DateTimeFormat('en-US', { timeZone: value });
+	} catch {
+		throw new Error(`Unsupported time zone: ${value}`);
+	}
+}
+
 // Upsert user preferences
 export const upsert = mutation({
 	args: {
@@ -75,6 +111,22 @@ export const upsert = mutation({
 	},
 	handler: async (ctx, args) => {
 		const userId = await getAuthUserId(ctx);
+
+		validateHourOfDay('quietHoursStart', args.quietHoursStart);
+		validateHourOfDay('quietHoursEnd', args.quietHoursEnd);
+		if (
+			args.notificationsPerPhrase !== undefined &&
+			(!Number.isInteger(args.notificationsPerPhrase) ||
+				args.notificationsPerPhrase < 0 ||
+				args.notificationsPerPhrase > 10)
+		) {
+			throw new Error('notificationsPerPhrase must be an integer between 0 and 10');
+		}
+		validatePushSubscription(args.pushSubscription);
+		validateTimeZone(args.timeZone);
+		if (args.uiLocale !== undefined && !SUPPORTED_UI_LOCALES.has(args.uiLocale)) {
+			throw new Error(`Unsupported uiLocale: ${args.uiLocale}`);
+		}
 
 		const existing = await ctx.db
 			.query('userPreferences')

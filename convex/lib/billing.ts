@@ -4,17 +4,18 @@ export type Tier = 'free' | 'ai' | 'pro';
 
 export const BILLING_PLANS: Record<Exclude<Tier, 'free'>, {
 	name: string;
-	amountZar: number;
+	/** Subunit amounts per provider currency (ZAR cents via Paystack, USD cents via Stripe). */
+	prices: { ZAR: number; USD: number };
 	dailyMinutes: number;
 }> = {
 	ai: {
 		name: 'AI',
-		amountZar: 150,
+		prices: { ZAR: 15000, USD: 900 },
 		dailyMinutes: 10
 	},
 	pro: {
 		name: 'Pro',
-		amountZar: 500,
+		prices: { ZAR: 50000, USD: 2900 },
 		dailyMinutes: 15
 	}
 };

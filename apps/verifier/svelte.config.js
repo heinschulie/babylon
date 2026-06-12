@@ -1,6 +1,8 @@
-import adapter from '@sveltejs/adapter-node';
+import adapter from '@sveltejs/adapter-netlify';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const __impeccableLiveDev =
+	process.env.NODE_ENV === 'development' ? ['http://localhost:8400'] : [];
 
 /** @type {import('@sveltejs/kit').CspDirectives} */
 const cspDirectives = {
@@ -11,13 +13,13 @@ const cspDirectives = {
 	'object-src': ["'none'"],
 	'frame-src': ["'none'"],
 	'manifest-src': ["'self'"],
-	'script-src': ["'self'"],
+	'script-src': ["'self'", ...__impeccableLiveDev],
 	'script-src-attr': ["'none'"],
 	'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
 	'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
 	'img-src': ["'self'", 'data:', 'blob:', 'https:'],
 	'media-src': ["'self'", 'data:', 'blob:', 'https:'],
-	'connect-src': ["'self'", 'https:', 'wss:', 'http:', 'ws:'],
+	'connect-src': ["'self'", 'https:', 'wss:', 'http:', 'ws:', ...__impeccableLiveDev],
 	'worker-src': ["'self'", 'blob:']
 };
 
@@ -31,7 +33,7 @@ const config = {
 		env: {
 			dir: '../..'
 		},
-		adapter: adapter(),
+			adapter: adapter(),
 		csp: {
 			mode: 'auto',
 			directives: cspDirectives

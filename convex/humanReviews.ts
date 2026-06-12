@@ -3,223 +3,15 @@ import { internalMutation, mutation, query } from './_generated/server';
 import { getAuthUserId } from './lib/auth';
 import { normalizeLanguage, requireSupportedLanguage } from './lib/languages';
 import { internal } from './_generated/api';
-
-const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
-const SLA_MS = 24 * 60 * 60 * 1000;
-const AGREEMENT_TOLERANCE = 1;
-
-function scoresAreValid(scores: {
-	soundAccuracy: number;
-	rhythmIntonation: number;
-	phraseAccuracy: number;
-}) {
-	return [scores.soundAccuracy, scores.rhythmIntonation, scores.phraseAccuracy].every(
-		(score) => Number.isInteger(score) && score >= 1 && score <= 5
-	);
-}
-
-function agreesWithOriginal(
-	original: { soundAccuracy: number; rhythmIntonation: number; phraseAccuracy: number },
-	next: { soundAccuracy: number; rhythmIntonation: number; phraseAccuracy: number }
-) {
-	return (
-		Math.abs(original.soundAccuracy - next.soundAccuracy) <= AGREEMENT_TOLERANCE &&
-		Math.abs(original.rhythmIntonation - next.rhythmIntonation) <= AGREEMENT_TOLERANCE &&
-		Math.abs(original.phraseAccuracy - next.phraseAccuracy) <= AGREEMENT_TOLERANCE
-	);
-}
-
-function medianOf(values: number[]) {
-	const sorted = [...values].sort((a, b) => a - b);
-	return sorted[Math.floor(sorted.length / 2)];
-}
-
-async function updateAiCalibration(
-	ctx: { db: any },
-	phraseId: any,
-	ai: { soundAccuracy: number; rhythmIntonation: number; phraseAccuracy: number },
-	human: { soundAccuracy: number; rhythmIntonation: number; phraseAccuracy: number }
-) {
-	const dS = ai.soundAccuracy - human.soundAccuracy;
-	const dR = ai.rhythmIntonation - human.rhythmIntonation;
-	const dP = ai.phraseAccuracy - human.phraseAccuracy;
-
-	const existing = await ctx.db
-		.query('aiCalibration')
-		.withIndex('by_phrase', (q: any) => q.eq('phraseId', phraseId))
-		.unique();
-
-	if (existing) {
-		await ctx.db.patch(existing._id, {
-			comparisonCount: existing.comparisonCount + 1,
-			sumDeltaSoundAccuracy: existing.sumDeltaSoundAccuracy + dS,
-			sumDeltaRhythmIntonation: existing.sumDeltaRhythmIntonation + dR,
-			sumDeltaPhraseAccuracy: existing.sumDeltaPhraseAccuracy + dP,
-			sumAbsDeltaSoundAccuracy: existing.sumAbsDeltaSoundAccuracy + Math.abs(dS),
-			sumAbsDeltaRhythmIntonation: existing.sumAbsDeltaRhythmIntonation + Math.abs(dR),
-			sumAbsDeltaPhraseAccuracy: existing.sumAbsDeltaPhraseAccuracy + Math.abs(dP),
-			lastUpdatedAt: Date.now()
-		});
-	} else {
-		await ctx.db.insert('aiCalibration', {
-			phraseId,
-			comparisonCount: 1,
-			sumDeltaSoundAccuracy: dS,
-			sumDeltaRhythmIntonation: dR,
-			sumDeltaPhraseAccuracy: dP,
-			sumAbsDeltaSoundAccuracy: Math.abs(dS),
-			sumAbsDeltaRhythmIntonation: Math.abs(dR),
-			sumAbsDeltaPhraseAccuracy: Math.abs(dP),
-			lastUpdatedAt: Date.now()
-		});
-	}
-}
-
-async function assertVerifierLanguageAccess(
-	ctx: { db: any },
-	userId: string,
-	languageCode: string
-) {
-	const membership = await ctx.db
-		.query('verifierLanguageMemberships')
-		.withIndex('by_user_language', (q: any) => q.eq('userId', userId).eq('languageCode', languageCode))
-		.unique();
-
-	if (!membership || !membership.active) {
-		throw new Error('Verifier is not authorized for this language');
-	}
-}
-
-async function reclaimExpiredClaims(ctx: { db: any }, languageCode: string, now: number) {
-	const expired = await ctx.db
-		.query('humanReviewRequests')
-		.withIndex('by_status_claim_deadline', (q: any) =>
-			q.eq('status', 'claimed').lte('claimDeadlineAt', now)
-		)
-		.filter((q: any) => q.eq(q.field('languageCode'), languageCode))
-		.take(25);
-
-	for (const request of expired) {
-		await ctx.db.patch(request._id, {
-			status: 'pending',
-			claimedByVerifierUserId: undefined,
-			claimedAt: undefined,
-			claimDeadlineAt: undefined,
-			priorityAt: 0,
-			updatedAt: now
-		});
-	}
-}
-
-async function escalateExpiredSla(ctx: { db: any }, languageCode: string, now: number) {
-	const pendingExpired = await ctx.db
-		.query('humanReviewRequests')
-		.withIndex('by_status_sla', (q: any) => q.eq('status', 'pending').lte('slaDueAt', now))
-		.filter((q: any) => q.eq(q.field('languageCode'), languageCode))
-		.take(25);
-
-	for (const request of pendingExpired) {
-		await ctx.db.patch(request._id, {
-			status: 'escalated',
-			escalatedAt: now,
-			escalatedReason: 'SLA exceeded while pending',
-			claimedByVerifierUserId: undefined,
-			claimedAt: undefined,
-			claimDeadlineAt: undefined,
-			updatedAt: now
-		});
-	}
-
-	const claimedExpired = await ctx.db
-		.query('humanReviewRequests')
-		.withIndex('by_status_sla', (q: any) => q.eq('status', 'claimed').lte('slaDueAt', now))
-		.filter((q: any) => q.eq(q.field('languageCode'), languageCode))
-		.take(25);
-
-	for (const request of claimedExpired) {
-		await ctx.db.patch(request._id, {
-			status: 'escalated',
-			escalatedAt: now,
-			escalatedReason: 'SLA exceeded while claimed',
-			claimedByVerifierUserId: undefined,
-			claimedAt: undefined,
-			claimDeadlineAt: undefined,
-			updatedAt: now
-		});
-	}
-}
-
-async function buildAssignment(ctx: any, request: any, now: number) {
-	const attempt = await ctx.db.get(request.attemptId);
-	if (!attempt) {
-		return null;
-	}
-
-	const phrase = await ctx.db.get(request.phraseId);
-	const learnerAudio = attempt.audioAssetId ? await ctx.db.get(attempt.audioAssetId) : null;
-	const learnerAudioUrl = learnerAudio?.storageKey ? await ctx.storage.getUrl(learnerAudio.storageKey) : null;
-
-	const aiFeedback = await ctx.db
-		.query('aiFeedback')
-		.withIndex('by_attempt', (q: any) => q.eq('attemptId', request.attemptId))
-		.unique();
-
-	let initialReview: any = null;
-	if (request.initialReviewId) {
-		initialReview = await ctx.db.get(request.initialReviewId);
-	}
-
-	return {
-		requestId: request._id,
-		attemptId: request.attemptId,
-		phraseId: request.phraseId,
-		languageCode: request.languageCode,
-		phase: request.phase,
-		status: request.status,
-		claimDeadlineAt: request.claimDeadlineAt ?? null,
-		remainingMs: request.claimDeadlineAt ? Math.max(request.claimDeadlineAt - now, 0) : null,
-		learner: {
-			userId: request.learnerUserId
-		},
-		phrase: phrase
-			? {
-					english: phrase.english,
-					translation: phrase.translation
-				}
-			: null,
-		learnerAttempt: {
-			durationMs: attempt.durationMs ?? null,
-			audioUrl: learnerAudioUrl
-		},
-		originalReview: initialReview
-			? {
-					verifierFirstName: initialReview.verifierFirstName,
-					verifierProfileImageUrl: initialReview.verifierProfileImageUrl ?? null,
-					soundAccuracy: initialReview.soundAccuracy,
-					rhythmIntonation: initialReview.rhythmIntonation,
-					phraseAccuracy: initialReview.phraseAccuracy
-				}
-			: null,
-		aiFeedback: aiFeedback
-			? {
-					transcript: aiFeedback.transcript ?? null,
-					confidence: aiFeedback.confidence ?? null,
-					soundAccuracy: aiFeedback.soundAccuracy ?? null,
-					rhythmIntonation: aiFeedback.rhythmIntonation ?? null,
-					phraseAccuracy: aiFeedback.phraseAccuracy ?? null,
-					feedbackText: aiFeedback.feedbackText ?? null,
-					errorTags: aiFeedback.errorTags ?? []
-				}
-			: null,
-		disputeProgress:
-			request.phase === 'dispute'
-				? {
-						completed: request.disputeReviewCount ?? 0,
-						required: 2
-					}
-				: null
-	};
-}
+import { CLAIM_TIMEOUT_MS, SLA_MS, DISPUTE_REVIEWS_REQUIRED } from './lib/humanReviews/constants';
+import { scoresAreValid, agreesWithOriginal, medianOf } from './lib/humanReviews/scoring';
+import { recordAiCalibrationComparison } from './lib/humanReviews/calibration';
+import {
+	assertVerifierLanguageAccess,
+	reclaimExpiredClaims,
+	escalateExpiredSla
+} from './lib/humanReviews/queue';
+import { buildAssignment } from './lib/humanReviews/assignments';
 
 export const queueAttemptForHumanReview = internalMutation({
 	args: { attemptId: v.id('attempts') },
@@ -541,7 +333,7 @@ export const submitReview = mutation({
 		// Record AI vs human calibration if AI scores exist
 		const aiFeedbackForCalibration = await ctx.db
 			.query('aiFeedback')
-			.withIndex('by_attempt', (q: any) => q.eq('attemptId', request.attemptId))
+			.withIndex('by_attempt', (q) => q.eq('attemptId', request.attemptId))
 			.unique();
 
 		if (
@@ -549,7 +341,7 @@ export const submitReview = mutation({
 			aiFeedbackForCalibration?.rhythmIntonation != null &&
 			aiFeedbackForCalibration?.phraseAccuracy != null
 		) {
-			await updateAiCalibration(
+			await recordAiCalibrationComparison(
 				ctx,
 				request.phraseId,
 				{
@@ -589,8 +381,8 @@ export const submitReview = mutation({
 
 		const disputeReviewCount = (request.disputeReviewCount ?? 0) + 1;
 		const disputeAgreementCount = (request.disputeAgreementCount ?? 0) + (agrees ? 1 : 0);
-		if (disputeReviewCount >= 2) {
-			const fullyAgreed = disputeAgreementCount >= 2;
+		if (disputeReviewCount >= DISPUTE_REVIEWS_REQUIRED) {
+			const fullyAgreed = disputeAgreementCount >= DISPUTE_REVIEWS_REQUIRED;
 			if (fullyAgreed) {
 				await ctx.db.patch(request._id, {
 					status: 'dispute_resolved',

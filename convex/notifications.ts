@@ -99,14 +99,21 @@ export const scheduleForPhrase = internalMutation({
 /**
  * Daily cron: reschedule spaced-repetition notifications for all push-enabled users.
  * Picks the N least-recently-practiced phrases per user.
+ *
+ * Processes users in pages and self-schedules the next page, so a large user
+ * base can't blow the mutation limits of a single invocation.
  */
-export const rescheduleDaily = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const allPrefs = await ctx.db.query('userPreferences').collect();
-		const pushUsers = allPrefs.filter((p) => p.pushSubscription);
+const RESCHEDULE_PAGE_SIZE = 25;
 
-		for (const prefs of pushUsers) {
+export const rescheduleDaily = internalMutation({
+	args: { cursor: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const page = await ctx.db
+			.query('userPreferences')
+			.paginate({ cursor: args.cursor ?? null, numItems: RESCHEDULE_PAGE_SIZE });
+
+		for (const prefs of page.page) {
+			if (!prefs.pushSubscription) continue;
 			// Clean up old unsent notifications (scheduled >24h ago, never sent)
 			const oldNotifications = await ctx.db
 				.query('scheduledNotifications')
@@ -166,6 +173,12 @@ export const rescheduleDaily = internalMutation({
 					});
 				}
 			}
+		}
+
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(0, internal.notifications.rescheduleDaily, {
+				cursor: page.continueCursor
+			});
 		}
 	}
 });

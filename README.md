@@ -1,6 +1,6 @@
 # Babylon
 
-Language-learning platform for practising isiXhosa pronunciation. Learners record phrases, get AI feedback (Whisper + Claude), and optionally receive human verification scores. Supports spaced repetition (FSRS), subscription billing (PayFast in ZAR), push notifications, and i18n (English + isiXhosa).
+Language-learning platform for practising isiXhosa pronunciation. Learners record phrases, get AI feedback (Whisper + Claude), and optionally receive human verification scores. Supports spaced-repetition notifications, subscription billing (Paystack in ZAR, Stripe in USD), push notifications, and i18n (English + isiXhosa).
 
 ## Architecture
 
@@ -11,7 +11,6 @@ packages/shared/    → Auth client, stores, styles, notifications, provider int
 packages/ui/        → shadcn-svelte components (bits-ui)
 packages/convex/    → Type re-exports from convex/_generated/
 convex/             → Serverless backend: 20 tables, ~65 functions, 1 daily cron
-adws/               → Agentic dev workflow tooling (Bun-native)
 ```
 
 **Build order (Turbo DAG):**
@@ -29,7 +28,7 @@ adws/               → Agentic dev workflow tooling (Bun-native)
 - **Learning** — `sessions`, `phrases`, `userPhrases` (FSRS), `practiceSessions`, `attempts`, `audioAssets`
 - **AI Pipeline** — `aiFeedback`, `aiCalibration`. Attempt → Whisper transcription (45s) → Claude scoring (35s) → scores (sound/rhythm/phrase, 1–5). Race-protected via `aiRunId` claim.
 - **Human Verification** — `humanReviewRequests`, `humanReviews`, `humanReviewFlags`, `verifierProfiles`, `verifierLanguageMemberships`. Claim-based queue (5min TTL), 24h SLA auto-escalation, multi-phase dispute resolution (2 additional reviewers, ±1 tolerance, 3-way disagreement → escalation).
-- **Billing** — `billingSubscriptions`, `entitlements`, `usageDaily`, `billingEvents`. Dual-table pattern: subscriptions (PayFast provider state) + entitlements (authoritative feature gating). Webhook-driven state machine with event deduplication. Terminal cancellation (no reactivation).
+- **Billing** — `billingSubscriptions`, `entitlements`, `usageDaily`, `billingEvents`. Dual-table pattern: subscriptions (provider state: Paystack/Stripe) + entitlements (authoritative feature gating). Webhook-driven state machine with event deduplication. Terminal cancellation (no reactivation).
 - **User** — `userPreferences` (timezone, locale, push subscription, quiet hours, skin)
 - **Notifications** — `scheduledNotifications`. Daily cron (06:00 UTC) reschedules spaced-repetition pushes. Quiet hours respected (default 22:00–08:00).
 - **Auth** — Better Auth-managed tables (users, sessions, accounts, verification, rate limits, etc.)
@@ -39,12 +38,12 @@ adws/               → Agentic dev workflow tooling (Bun-native)
 **Function types:**
 - `query` / `mutation` — V8 isolates (real-time subscriptions, transactional writes)
 - `action` (`'use node'`) — Node.js for external APIs: `aiPipeline.ts`, `billingNode.ts`, `notificationsNode.ts`, `translateNode.ts`, `translatePhrase.ts`
-- `httpAction` — `/api/auth/*` (Better Auth, CORS), `POST /webhooks/payfast`
+- `httpAction` — `/api/auth/*` (Better Auth, CORS), `POST /webhooks/paystack`, `POST /webhooks/stripe`
 - `internalMutation` / `internalQuery` — backend-only, not client-callable
 
-**External services:** Anthropic Claude, OpenAI Whisper, Google Translate, PayFast, Web Push (VAPID), Unsplash
+**External services:** Anthropic Claude, OpenAI Whisper, Google Translate, Paystack, Stripe, Web Push (VAPID), Unsplash
 
-**Utilities (`convex/lib/`):** auth (dual fallback), billing (entitlements, usage tracking, timezone-aware reset), payfast (MD5 signatures via spark-md5), languages (9 supported), phraseCategories (17 keyword-matched), vocabularySets (15 sets), fetchWithTimeout (retries, abort, error classification), safeErrors (secret redaction, error categories), publicActionGuards (bucket-based rate limiting)
+**Utilities (`convex/lib/`):** auth (dual fallback), billing (entitlements, usage tracking, timezone-aware reset), billingProviders (Paystack/Stripe checkout + HMAC webhook verification), languages (9 supported), phraseCategories (17 keyword-matched), vocabularySets (15 sets), fetchWithTimeout (retries, abort, error classification), safeErrors (secret redaction, error categories), publicActionGuards (bucket-based rate limiting)
 
 ## Auth
 
@@ -56,9 +55,9 @@ adws/               → Agentic dev workflow tooling (Bun-native)
 
 ## Frontends
 
-Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@sveltejs/adapter-node`. Identical config: svelte.config.js, vite.config.ts, hooks.server.ts, tsconfig.json. Differences are purely in routes and UI.
+Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@sveltejs/adapter-netlify`. Identical config: svelte.config.js, vite.config.ts, hooks.server.ts, tsconfig.json. Differences are purely in routes and UI.
 
-**Web app** (15 routes): Practice dashboard with audio recording (MediaRecorder API) + queue modes, phrase library with auto-translation + category grouping, vocabulary flashcards (13 sets, Unsplash images), translation self-test, theory pages (clicks, noun classes, agglutination), settings (profile, locale, skin, notifications, billing), PayFast checkout flows. PWA-enabled.
+**Web app** (15 routes): Practice dashboard with audio recording (MediaRecorder API) + queue modes, phrase library with auto-translation + category grouping, vocabulary flashcards (13 sets, Unsplash images), translation self-test, theory pages (clicks, noun classes, agglutination), settings (profile, locale, skin, notifications, billing), hosted checkout redirects (Paystack/Stripe). PWA-enabled.
 
 **Verifier app** (8 routes): Verification guide, queue-based work assignment with FAB, 3-dimension scoring (Sound Accuracy / Rhythm & Intonation / Phrase Accuracy, 1–5), AI analysis audit, MediaRecorder exemplar recording, countdown timer for 5-min claim deadline, auto-claim-next on submit, language team management, verifier stats. Currently hardcoded to isiXhosa (`xh-ZA`).
 
@@ -73,7 +72,7 @@ Both apps: SvelteKit 2, Svelte 5 (runes), Tailwind CSS 4, Paraglide i18n, `@svel
 Four runtime environments:
 
 1. **Bun** (v1.2.2, engine-strict) — package manager, script runner, workspace orchestrator. Bun APIs used in ADW workflows (`Bun.serve()`, `Bun.spawn()`, `Bun.file()`).
-2. **Node.js** — SvelteKit production server via `adapter-node`. Started with `node apps/*/build/index.js`.
+2. **Node.js** — SvelteKit SSR and endpoints packaged by `adapter-netlify` into Netlify Functions.
 3. **Convex** — V8 isolates (queries/mutations, deterministic) + Node.js (`'use node'` actions for external APIs).
 4. **Browser** — Service worker (push notifications, notification click handling), PWA manifest.
 
@@ -87,7 +86,7 @@ Env vars shared across apps via `envDir: '../..'` in Vite config. Public vars: `
 
 **Vitest** v4.0.17 as sole test runner (~21 test files, ~1,622 lines).
 
-- **Convex backend** (12 files) — `convex-test` v0.0.41 for in-memory function testing. Fresh DB per test via `convexTest(schema, modules)`. Identity simulation via `t.withIdentity()`. Covers: sessions, phrases, attempts, AI pipeline, audio assets, notifications, human review flags, PayFast signatures, billing webhooks, billing dev toggle, fetchWithTimeout.
+- **Convex backend** (12 files) — `convex-test` v0.0.41 for in-memory function testing. Fresh DB per test via `convexTest(schema, modules)`. Identity simulation via `t.withIdentity()`. Covers: sessions, phrases, attempts, AI pipeline, audio assets, notifications, human review flags, billing provider signatures/normalization, billing webhook pipeline, billing dev toggle, fetchWithTimeout.
 - **Frontend** (2 files) — Auth store tests with mocked BetterAuth client, test route validation.
 - **ADW** (7 files) — Integration tests, API-key-gated with `describe.skipIf`.
 - **Dual environments:** `edge-runtime` for Convex functions, `jsdom` for browser/Svelte tests.
@@ -118,6 +117,7 @@ bun run build                # all packages
 bun run check                # svelte-check
 bun run test                 # vitest + convex-test
 bun run format               # prettier
+bun run cutover:netlify -- --web-domain https://www.xhosa.academy --verifier-domain https://verifier.xhosa.academy
 ```
 
 **Convex:**
@@ -130,10 +130,11 @@ bun run convex:check-generated  # verify codegen is current
 
 ## Deployment
 
-- **Frontend:** Railway (RAILPACK builder, Node adapter). Both apps produce `build/index.js`. Health checks on `/` (300s timeout, max 3 restarts). Auto-deploy from `main`. Watch patterns include `packages/**` so shared changes trigger redeploy. Config in `apps/*/railway.toml`.
-- **Backend:** Convex Cloud (`disciplined-spider-126`). Manual deploy via `bun run convex:deploy`. HTTP routes for auth (CORS) + PayFast webhook. Daily cron at 06:00 UTC.
+- **Frontend:** Netlify monorepo deploy. Two separate sites point at this repo with package directories `apps/web` and `apps/verifier`, using app-local `netlify.toml` files plus `@sveltejs/adapter-netlify` for SSR/auth functions. Build commands run from repo root via Bun 1.3.9 and publish `apps/*/build`.
+- **Backend:** Convex Cloud (`disciplined-spider-126`). Manual deploy via `bun run convex:deploy`. HTTP routes for auth (CORS) + billing webhooks (Paystack/Stripe). Daily cron at 06:00 UTC.
 - **CI:** GitHub Actions — PR/push to `main` → Bun 1.3.9 → `bun install --frozen-lockfile` → typecheck → test → build (matrix: web, verifier). Validation only, no automated deploy.
 - **Dev tunneling:** Cloudflare Tunnel (`cloudflared tunnel run babylon-dev`) → `dev.schulie.com` (web), `verifier.schulie.com` (verifier).
+- **Production cutover:** `bun run cutover:netlify -- --web-domain <web-domain> --verifier-domain <verifier-domain> --apply` updates Netlify env for both apps, Convex production env for auth/billing URLs, attaches Netlify custom domains when needed, inspects DNS state, and detaches old Railway custom domains from the linked frontend services. If `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`, and `NAMECHEAP_CLIENT_IP` are present, it can also update Namecheap DNS records automatically.
 
 ## Environment Variables
 
@@ -158,10 +159,6 @@ bun run convex:check-generated  # verify codegen is current
 
 | Variable | Purpose |
 |----------|---------|
-| `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` | Merchant credentials |
-| `PAYFAST_PASSPHRASE` | Webhook signature (optional) |
-| `PAYFAST_RETURN_URL` / `PAYFAST_CANCEL_URL` / `PAYFAST_NOTIFY_URL` | Redirect + webhook URLs |
-| `PAYFAST_SANDBOX` / `PAYFAST_ENABLE_RECURRING` | Sandbox mode + subscription toggle |
 
 **Optional:**
 
@@ -170,6 +167,7 @@ bun run convex:check-generated  # verify codegen is current
 | `VERIFIER_SITE_URL` | Verifier app origin (cross-origin auth) |
 | `GOOGLE_TRANSLATE_API_KEY` | Translation verification (degrades gracefully) |
 | `UNSPLASH_ACCESS_KEY` | Vocabulary flashcard images (degrades) |
+| `NAMECHEAP_API_USER` / `NAMECHEAP_API_KEY` / `NAMECHEAP_USERNAME` / `NAMECHEAP_CLIENT_IP` | Optional DNS cutover automation for Namecheap-managed domains |
 | `BILLING_DEV_TOGGLE` / `BILLING_DEV_TOGGLE_ALLOWLIST` | Dev tier switching + user allowlist |
 
 **Feature flags:** `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_ALLOW_LOCALHOST_ORIGINS`, `AUTH_ALLOW_UNVERIFIED_EMAILS_PROD`, `AUTH_EXTRA_TRUSTED_ORIGINS`, `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION`

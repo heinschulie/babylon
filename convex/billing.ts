@@ -3,14 +3,12 @@ import { internalMutation, mutation, query } from './_generated/server';
 import { internal } from './_generated/api';
 import { getAuthUserId } from './lib/auth';
 import {
-	BILLING_PLANS,
 	getDateKeyForTimeZone,
 	getEntitlement,
 	getPlanFromTier,
 	getUserTimeZone,
 	getDailyUsage
 } from './lib/billing';
-import { buildPayfastSignature, normalizePayfastPassphrase } from './lib/payfast';
 
 type EntitlementStatus = 'active' | 'past_due' | 'canceled';
 
@@ -20,32 +18,6 @@ type DevBillingToggleDecision =
 			enabled: false;
 			reason: 'disabled' | 'not_allowlisted' | 'production_disabled' | 'missing_user';
 	  };
-
-function requireEnv(name: string) {
-	const value = process.env[name];
-	if (!value) throw new Error(`Missing env var: ${name}`);
-	return value.trim();
-}
-
-function getPayfastEndpoint() {
-	const sandbox = process.env.PAYFAST_SANDBOX === 'true';
-	return sandbox ? 'https://sandbox.payfast.co.za/eng/process' : 'https://www.payfast.co.za/eng/process';
-}
-
-function recurringEnabled() {
-	return process.env.PAYFAST_ENABLE_RECURRING !== 'false';
-}
-
-function minimalCheckoutEnabled() {
-	return process.env.PAYFAST_MINIMAL_CHECKOUT === 'true';
-}
-
-function buildPayfastReference() {
-	const rand = Math.floor(Math.random() * 1_000_000)
-		.toString()
-		.padStart(6, '0');
-	return `sub${Date.now()}${rand}`;
-}
 
 function asEntitlementStatus(value: string): EntitlementStatus | null {
 	if (value === 'active' || value === 'past_due' || value === 'canceled') return value;
@@ -139,62 +111,6 @@ export const getStatus = query({
 			minutesLimit: plan?.dailyMinutes ?? 0,
 			dateKey,
 			devToggleEnabled: canUseDevBillingToggle(userId).enabled
-		};
-	}
-});
-
-export const createPayfastCheckout = mutation({
-	args: {
-		plan: v.union(v.literal('ai'), v.literal('pro'))
-	},
-	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		const plan = BILLING_PLANS[args.plan];
-		const payfastReference = buildPayfastReference();
-
-		const merchantId = requireEnv('PAYFAST_MERCHANT_ID');
-		const merchantKey = requireEnv('PAYFAST_MERCHANT_KEY');
-		const passphrase = normalizePayfastPassphrase(process.env.PAYFAST_PASSPHRASE);
-		const returnUrl = requireEnv('PAYFAST_RETURN_URL');
-		const cancelUrl = requireEnv('PAYFAST_CANCEL_URL');
-		const notifyUrl = requireEnv('PAYFAST_NOTIFY_URL');
-
-		const now = Date.now();
-		const subscriptionId = await ctx.db.insert('billingSubscriptions', {
-			userId,
-			provider: 'payfast',
-			plan: args.plan,
-			status: 'pending',
-			payfastReference,
-			createdAt: now,
-			updatedAt: now
-		});
-
-		const fields: Record<string, string> = {};
-		fields.merchant_id = merchantId;
-		fields.merchant_key = merchantKey;
-		fields.return_url = returnUrl;
-		fields.cancel_url = cancelUrl;
-		fields.notify_url = notifyUrl;
-
-		if (!minimalCheckoutEnabled()) {
-			fields.m_payment_id = payfastReference;
-		}
-
-		fields.amount = plan.amountZar.toFixed(2);
-		fields.item_name = `Xhosa ${plan.name} Plan`;
-
-		if (recurringEnabled() && !minimalCheckoutEnabled()) {
-			fields.subscription_type = '1';
-			fields.frequency = '3';
-			fields.cycles = '0';
-		}
-
-		fields.signature = buildPayfastSignature(fields, passphrase);
-
-		return {
-			endpointUrl: getPayfastEndpoint(),
-			fields
 		};
 	}
 });

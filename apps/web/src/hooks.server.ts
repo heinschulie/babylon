@@ -1,8 +1,8 @@
 import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { redirect } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
-import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
-import { createAuth } from '$lib/server/auth';
+import { getAuthToken } from '$lib/server/auth';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
 const STATIC_SECURITY_HEADERS = {
@@ -13,7 +13,9 @@ const STATIC_SECURITY_HEADERS = {
 } as const;
 
 const securityHeadersHandle: Handle = async ({ event, resolve }) => {
-	const response = await resolve(event);
+	const resolved = await resolve(event);
+	// Clone via Response-as-ResponseInit: resolved headers can be immutable on Netlify.
+	const response = new Response(resolved.body, resolved);
 
 	for (const [name, value] of Object.entries(STATIC_SECURITY_HEADERS)) {
 		if (!response.headers.has(name)) {
@@ -30,9 +32,27 @@ const securityHeadersHandle: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
+const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
+const PUBLIC_PREFIXES = ['/api/auth'];
+
 const authHandle: Handle = async ({ event, resolve }) => {
-	const token = await getToken(createAuth, event.cookies);
-	event.locals.token = token;
+	try {
+		event.locals.token = getAuthToken(event.cookies, event.url.origin);
+	} catch (error) {
+		console.error('Failed to initialize auth token from cookies', error);
+		event.locals.token = undefined;
+	}
+
+	// Server-side guard: avoids flashing protected pages before the client-side
+	// auth check kicks in. Token presence is checked here; Convex still enforces
+	// real authorization on every query/mutation.
+	const { pathname } = event.url;
+	const isPublic =
+		PUBLIC_ROUTES.has(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+	if (!event.locals.token && !isPublic) {
+		redirect(302, '/login');
+	}
+
 	return resolve(event);
 };
 

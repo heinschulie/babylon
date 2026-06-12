@@ -6,7 +6,8 @@ const crons = cronJobs();
 crons.daily(
 	'reschedule-spaced-repetition',
 	{ hourUTC: 6, minuteUTC: 0 },
-	internal.notifications.rescheduleDaily
+	internal.notifications.rescheduleDaily,
+	{}
 );
 
 export default crons;

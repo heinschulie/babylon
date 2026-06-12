@@ -1,8 +1,7 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
 import { convex } from '@convex-dev/better-auth/plugins';
 import { betterAuth } from 'better-auth';
-import { organization } from 'better-auth/plugins';
-import { components } from './_generated/api';
+import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import authConfig from './auth.config';
 
@@ -31,17 +30,44 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,
-			requireEmailVerification
-		},
-		plugins: [
-			organization({
-				allowUserToCreateOrganization: false,
-				teams: {
-					enabled: true
+			requireEmailVerification,
+			revokeSessionsOnPasswordReset: true,
+			sendResetPassword: async ({ user, url }, request) => {
+				const delivery = getPasswordResetDeliveryConfig(env);
+				const normalizedEmail = normalizeEmail(user.email);
+
+				if (delivery.canSendEmail) {
+					await sendPasswordResetEmail({
+						to: normalizedEmail,
+						resetUrl: url,
+						siteUrl: env.siteUrl,
+						request: request ?? new Request(url),
+						apiKey: delivery.apiKey!,
+						from: delivery.from!,
+						replyTo: delivery.replyTo
+					});
 				}
-			}),
-			convex({ authConfig })
-		]
+
+				if (delivery.debugEnabled) {
+					if (!('runMutation' in ctx)) {
+						throw new Error('Password reset debug links require an action context.');
+					}
+					await ctx.runMutation(internal.passwordReset.storeDebugLink, {
+						email: normalizedEmail,
+						url,
+						expiresAt: Date.now() + 15 * 60 * 1000
+					});
+					console.warn('Password reset debug link generated', { email: normalizedEmail });
+				}
+
+				if (!delivery.canSendEmail && !delivery.debugEnabled) {
+					throw new Error(
+						'Password reset delivery is not configured. Set RESEND_API_KEY/AUTH_EMAIL_FROM or enable AUTH_PASSWORD_RESET_DEBUG.'
+					);
+				}
+			}
+		},
+		plugins: [convex({ authConfig })]
 	});
 };
 
@@ -174,4 +200,88 @@ function assertValidUrl(value: string, name: string) {
 	} catch {
 		throw new Error(`Invalid URL for ${name}: ${value}`);
 	}
+}
+
+function normalizeEmail(email: string) {
+	return email.trim().toLowerCase();
+}
+
+function getPasswordResetDeliveryConfig(env: AuthEnv) {
+	const apiKey = process.env.RESEND_API_KEY?.trim();
+	const from = process.env.AUTH_EMAIL_FROM?.trim();
+	const replyTo = process.env.AUTH_EMAIL_REPLY_TO?.trim();
+	const debugOverride = parseBooleanEnv('AUTH_PASSWORD_RESET_DEBUG');
+	const canSendEmail = Boolean(apiKey && from);
+
+	// Debug links expose one-time reset URLs to an unauthenticated query, which is
+	// account takeover if it ever runs in production. Never auto-enable there.
+	const debugEnabled = env.isProduction
+		? debugOverride === true
+		: (debugOverride ?? !canSendEmail);
+
+	if (env.isProduction && debugEnabled) {
+		console.warn(
+			'AUTH_PASSWORD_RESET_DEBUG=true in production: reset links are exposed via debug query.'
+		);
+	}
+
+	return { apiKey, from, replyTo, canSendEmail, debugEnabled };
+}
+
+async function sendPasswordResetEmail(args: {
+	to: string;
+	resetUrl: string;
+	siteUrl: string;
+	request: Request;
+	apiKey: string;
+	from: string;
+	replyTo?: string;
+}) {
+	const appHost = new URL(args.siteUrl).hostname;
+	const userAgent = args.request.headers.get('user-agent') ?? 'unknown device';
+	const text = [
+		`Reset your ${appHost} password.`,
+		'',
+		`Open this link to choose a new password: ${args.resetUrl}`,
+		'',
+		`If you did not request this, you can ignore this email.`,
+		`Request came from: ${userAgent}`
+	].join('\n');
+
+	const html = [
+		`<p>Reset your password for <strong>${escapeHtml(appHost)}</strong>.</p>`,
+		`<p><a href="${escapeHtml(args.resetUrl)}">Choose a new password</a></p>`,
+		`<p>If you did not request this, you can ignore this email.</p>`,
+		`<p style="color:#666;font-size:12px">Request came from: ${escapeHtml(userAgent)}</p>`
+	].join('');
+
+	const response = await fetch('https://api.resend.com/emails', {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${args.apiKey}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			from: args.from,
+			to: [args.to],
+			reply_to: args.replyTo ? [args.replyTo] : undefined,
+			subject: 'Reset your password',
+			text,
+			html
+		})
+	});
+
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Resend password reset email failed: ${response.status} ${body}`);
+	}
+}
+
+function escapeHtml(value: string) {
+	return value
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;');
 }

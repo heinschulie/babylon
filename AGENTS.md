@@ -27,3 +27,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
   - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.
   - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.
 - Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.
+
+## Design Context
+
+Before frontend/design work, read `PRODUCT.md` and `DESIGN.md` at the project root. Babylon is a product UI for spoken isiXhosa practice and human verification. Default design register: product. North Star: **The Practice Poster**. Brand personality: energetic, warm, bold. Component philosophy: poster-bold but task-first. Preserve the square, flat, OKLCH-tokenized visual system in `packages/shared/src/styles/recall.css`: Call-and-Response Green for active/action states, Live Mic Pink for recording/voice states, Bebas Neue for high-signal practice moments, and Public Sans for workflow readability. Avoid corporate edtech, generic SaaS dashboards, and Duolingo-style gamified cuteness.

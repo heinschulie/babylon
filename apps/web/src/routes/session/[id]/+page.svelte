@@ -41,7 +41,7 @@
 		}
 
 		if (!session?.targetLanguage) {
-			error = 'Session language not found';
+			error = m.session_language_not_found();
 			return;
 		}
 

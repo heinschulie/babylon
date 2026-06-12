@@ -4,6 +4,7 @@ import { v } from 'convex/values';
 import { action } from './_generated/server';
 import { internal } from './_generated/api';
 import { classifyExternalFetchError, fetchWithTimeout } from './lib/fetchWithTimeout';
+import { normalizeLanguage } from './lib/languages';
 import {
 	classifyAppErrorCode,
 	readSafeErrorBodySnippet,
@@ -15,16 +16,24 @@ const AI_PROCESSING_STALE_AFTER_MS = 5 * 60 * 1000;
 const WHISPER_TIMEOUT_MS = 45_000;
 const CLAUDE_FEEDBACK_TIMEOUT_MS = 35_000;
 
-const XHOSA_COACHING_PROMPT = [
-	'You are a Xhosa pronunciation coach grading an English speaker\'s isiXhosa attempt.',
+// claude-sonnet-4-20250514 (the previous hardcoded model) retires 2026-06-15.
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
+function getAnthropicModel() {
+	return process.env.CONVEX_ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
+}
+
+function buildCoachingPrompt(languageName: string) {
+	return [
+	`You are a ${languageName} pronunciation coach grading an English speaker's ${languageName} attempt.`,
 	'',
-	'A speech-to-text system transcribed the learner\'s audio. The transcript is the system\'s best guess at what the learner said while attempting the TARGET Xhosa phrase. Do NOT interpret it as a word in any other language. Always analyse it as an attempt at the target phrase.',
+	`A speech-to-text system transcribed the learner's audio. The transcript is the system's best guess at what the learner said while attempting the TARGET ${languageName} phrase. Do NOT interpret it as a word in any other language. Always analyse it as an attempt at the target phrase.`,
 	'',
 	'Grade the attempt on three dimensions (1-5 integer each):',
 	'',
-	'1. **Sound Accuracy** (soundAccuracy): How accurately the learner produces individual sounds — clicks (c, q, x), vowels, consonants. 5 = native-like sound production, 1 = most sounds unrecognisable.',
+	`1. **Sound Accuracy** (soundAccuracy): How accurately the learner produces individual sounds — vowels, consonants, and language-specific sounds (for Xhosa: the clicks c, q, x). 5 = native-like sound production, 1 = most sounds unrecognisable.`,
 	'',
-	'2. **Rhythm & Intonation** (rhythmIntonation): Natural flow, stress patterns, syllable timing, and tonal contour. 5 = natural isiXhosa prosody, 1 = flat/choppy/wrong stress throughout.',
+	`2. **Rhythm & Intonation** (rhythmIntonation): Natural flow, stress patterns, syllable timing, and tonal contour. 5 = natural ${languageName} prosody, 1 = flat/choppy/wrong stress throughout.`,
 	'',
 	'3. **Phrase Accuracy** (phraseAccuracy): Overall correctness of the full phrase — right words in right order, no omissions or substitutions. 5 = complete and correct, 1 = mostly wrong or missing words.',
 	'',
@@ -34,7 +43,8 @@ const XHOSA_COACHING_PROMPT = [
 	'',
 	'Respond with ONLY valid JSON in this exact format:',
 	'{"soundAccuracy": <1-5>, "rhythmIntonation": <1-5>, "phraseAccuracy": <1-5>, "feedback": "<coaching text>"}'
-].join('\n');
+	].join('\n');
+}
 
 export const processAttempt = action({
 	args: {
@@ -83,7 +93,7 @@ export const processAttempt = action({
 
 async function processAudioAttempt(
 	ctx: any,
-	args: { attemptId: any; englishPrompt: string; targetPhrase: string },
+	args: { attemptId: any; phraseId: any; englishPrompt: string; targetPhrase: string },
 	aiRunId: string
 ): Promise<string> {
 	const audioAsset = await ctx.runQuery(internal.aiPipelineData.getAudioAssetByAttempt, {
@@ -101,15 +111,30 @@ async function processAudioAttempt(
 
 	const audioBuffer = await toArrayBuffer(audioData);
 
-	const transcriptResult = await transcribeWithWhisper({
-		audioBuffer,
-		contentType: audioAsset.contentType
+	let transcriptResult: Awaited<ReturnType<typeof transcribeWithWhisper>>;
+	try {
+		transcriptResult = await transcribeWithWhisper({
+			audioBuffer,
+			contentType: audioAsset.contentType
+		});
+	} catch {
+		// Transcription is idempotent — one retry shields transient Whisper failures.
+		transcriptResult = await transcribeWithWhisper({
+			audioBuffer,
+			contentType: audioAsset.contentType
+		});
+	}
+
+	const phrase = await ctx.runQuery(internal.notifications.getPhraseById, {
+		phraseId: args.phraseId
 	});
+	const languageName = normalizeLanguage(phrase?.languageCode ?? 'xh-ZA')?.displayName ?? 'Xhosa';
 
 	const feedbackResult = await generateFeedbackWithClaude({
 		englishPrompt: args.englishPrompt,
 		targetPhrase: args.targetPhrase,
-		transcript: transcriptResult.transcript
+		transcript: transcriptResult.transcript,
+		languageName
 	});
 
 	await ctx.runMutation(internal.aiPipelineData.insertAiFeedback, {
@@ -223,6 +248,7 @@ async function generateFeedbackWithClaude(input: {
 	englishPrompt: string;
 	targetPhrase: string;
 	transcript: string | null;
+	languageName: string;
 }): Promise<{
 	feedbackText: string;
 	soundAccuracy?: number;
@@ -246,13 +272,13 @@ async function generateFeedbackWithClaude(input: {
 				'anthropic-version': '2023-06-01'
 			},
 			body: JSON.stringify({
-				model: 'claude-sonnet-4-20250514',
+				model: getAnthropicModel(),
 				max_tokens: 500,
-				system: XHOSA_COACHING_PROMPT,
+				system: buildCoachingPrompt(input.languageName),
 				messages: [
 					{
 						role: 'user',
-						content: `English prompt: ${input.englishPrompt}\nTarget Xhosa: ${input.targetPhrase}\nUser transcript: ${input.transcript ?? 'N/A'}`
+						content: `English prompt: ${input.englishPrompt}\nTarget ${input.languageName}: ${input.targetPhrase}\nUser transcript: ${input.transcript ?? 'N/A'}`
 					}
 				]
 			}),
