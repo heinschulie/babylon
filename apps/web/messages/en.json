@@ -249,5 +249,7 @@
   "test_sentence_stats_longest": "Longest Sentence",
   "test_sentence_stats_first_word": "Most Common First Word",
   "test_sentence_stats_empty": "No sentences yet",
-  "test_sentence_stats_words": "{count} words"
+  "test_sentence_stats_words": "{count} words",
+  "practice_mic_permission_denied": "Microphone access was denied. Enable the microphone for this site in your browser settings, then try again.",
+  "practice_mic_not_found": "No microphone was found on this device."
 }
