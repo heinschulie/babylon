@@ -194,6 +194,16 @@ export const getPhraseById = internalQuery({
 });
 
 /**
+ * Get a course prompt by ID (internal query for handle-based notifications).
+ */
+export const getCoursePromptById = internalQuery({
+	args: { coursePromptId: v.id('coursePrompts') },
+	handler: async (ctx, { coursePromptId }) => {
+		return ctx.db.get(coursePromptId);
+	}
+});
+
+/**
  * Get user preferences by userId (internal query for notifications).
  */
 export const getPreferencesByUserId = internalQuery({

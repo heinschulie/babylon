@@ -24,17 +24,16 @@ export default defineSchema({
 		categoryKey: v.optional(v.string()),
 		categoryLabel: v.optional(v.string()),
 		createdAt: v.number(),
-		difficulty: v.optional(v.string()),
-		grammarTags: v.optional(v.array(v.string())),
-		phoneticTags: v.optional(v.array(v.string())),
-		domainTags: v.optional(v.array(v.string())),
-		referenceAudioUrl: v.optional(v.string()),
 		phonetic: v.optional(v.string()),
-		translationStatus: v.optional(v.string())
+		translationStatus: v.optional(v.string()),
+		// Set when this phrase is a per-user materialization of a course prompt.
+		// Such phrases are excluded from the library/free-practice surfaces.
+		coursePromptId: v.optional(v.id('coursePrompts'))
 	})
 		.index('by_session', ['sessionId'])
 		.index('by_user', ['userId'])
-		.index('by_user_category', ['userId', 'categoryKey']),
+		.index('by_user_category', ['userId', 'categoryKey'])
+		.index('by_user_course_prompt', ['userId', 'coursePromptId']),
 
 	// Audio assets stored in object storage
 	audioAssets: defineTable({
@@ -193,6 +192,10 @@ export default defineSchema({
 		rhythmIntonation: v.optional(v.number()),
 		phraseAccuracy: v.optional(v.number()),
 		feedbackText: v.optional(v.string()),
+		// Course attempts only: which morphemes were wrong (drives decomposition).
+		constructionErrors: v.optional(
+			v.array(v.object({ morpheme: v.string(), issue: v.string() }))
+		),
 		ttsAudioUrl: v.optional(v.string()),
 		createdAt: v.number()
 	}).index('by_attempt', ['attemptId']),
@@ -284,14 +287,115 @@ export default defineSchema({
 		.index('by_provider_event', ['provider', 'providerEventId'])
 		.index('by_provider_payment', ['provider', 'providerPaymentId']),
 
-	// Scheduled notifications for spaced repetition
+	// Scheduled notifications for spaced repetition.
+	// Legacy phrase recall carries phraseId; handle-based construction prompts
+	// carry coursePromptId (no phrase exists until the learner first attempts it).
 	scheduledNotifications: defineTable({
-		phraseId: v.id('phrases'),
+		phraseId: v.optional(v.id('phrases')),
+		coursePromptId: v.optional(v.id('coursePrompts')),
 		userId: v.string(),
 		scheduledFor: v.number(), // timestamp
 		sent: v.boolean()
 	})
 		.index('by_phrase', ['phraseId'])
 		.index('by_user_scheduled', ['userId', 'scheduledFor'])
-		.index('by_sent', ['sent'])
+		.index('by_sent', ['sent']),
+
+	// ——— Michel-Thomas course mode ———
+
+	// One course per language (versioned; only one published at a time).
+	courses: defineTable({
+		languageCode: v.string(), // BCP 47
+		title: v.string(),
+		status: v.union(v.literal('draft'), v.literal('published')),
+		version: v.number(),
+		createdAt: v.number()
+	}).index('by_language_status', ['languageCode', 'status']),
+
+	// Canonical inventory of building blocks ("handles") for a course.
+	// This is the constraint input for AI drafting and the SRS scheduling unit.
+	handles: defineTable({
+		courseId: v.id('courses'),
+		key: v.string(), // stable slug, e.g. 'sc_ndi'
+		label: v.string(), // e.g. "ndi- (I)"
+		gloss: v.string(), // what it does, e.g. "first-person subject concord"
+		unitId: v.optional(v.id('units')), // unit that introduces it
+		index: v.number()
+	})
+		.index('by_course_index', ['courseId', 'index'])
+		.index('by_course_key', ['courseId', 'key']),
+
+	// A lesson: introduces 1–4 handles via a text intro + construction prompts.
+	units: defineTable({
+		courseId: v.id('courses'),
+		index: v.number(),
+		title: v.string(),
+		introBody: v.string(), // plain text, whitespace-pre-wrap rendering
+		handleKeys: v.array(v.string()),
+		status: v.union(v.literal('draft'), v.literal('published')),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	}).index('by_course_index', ['courseId', 'index']),
+
+	// A construction prompt: English in, learner constructs the target phrase.
+	// Approved prompts are IMMUTABLE — materialized phrases and issued feedback
+	// snapshot their content; edits go through clonePromptForEdit.
+	coursePrompts: defineTable({
+		courseId: v.id('courses'),
+		unitId: v.id('units'),
+		index: v.number(),
+		english: v.string(),
+		translation: v.string(),
+		phonetic: v.optional(v.string()),
+		morphemeBreakdown: v.array(
+			v.object({ morpheme: v.string(), gloss: v.string(), role: v.string() })
+		),
+		usesHandles: v.array(v.string()),
+		primaryHandleKey: v.string(), // denormalized: arrays aren't indexable
+		status: v.union(v.literal('draft'), v.literal('approved'), v.literal('retired')),
+		exemplarAudioAssetId: v.optional(v.id('audioAssets')),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_unit_index', ['unitId', 'index'])
+		.index('by_course_status', ['courseId', 'status'])
+		.index('by_handle_status', ['primaryHandleKey', 'status']),
+
+	// Per-learner SRS state per handle. nextDueAt drives notification scheduling.
+	learnerHandleState: defineTable({
+		userId: v.string(),
+		courseId: v.id('courses'),
+		handleKey: v.string(),
+		status: v.union(v.literal('introduced'), v.literal('owned')),
+		strength: v.number(), // 0-based rung on the interval ladder
+		cleanStreak: v.number(), // consecutive clean constructions
+		lastConstructedAt: v.optional(v.number()),
+		nextDueAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_user_course', ['userId', 'courseId'])
+		.index('by_user_handle', ['userId', 'courseId', 'handleKey'])
+		.index('by_user_due', ['userId', 'nextDueAt']),
+
+	// Authoritative per-learner course position ("continue course" + completion).
+	learnerUnitProgress: defineTable({
+		userId: v.string(),
+		courseId: v.id('courses'),
+		unitId: v.id('units'),
+		status: v.union(v.literal('in_progress'), v.literal('completed')),
+		promptCursor: v.number(),
+		introSeenAt: v.optional(v.number()),
+		completedAt: v.optional(v.number()),
+		updatedAt: v.number()
+	})
+		.index('by_user_course', ['userId', 'courseId'])
+		.index('by_user_unit', ['userId', 'unitId']),
+
+	// Admin tier: curriculum authoring + admin management.
+	// Bootstrap via ADMIN_USER_IDS env var; grants live here.
+	admins: defineTable({
+		userId: v.string(),
+		grantedBy: v.string(),
+		createdAt: v.number()
+	}).index('by_user', ['userId'])
 });
