@@ -1,7 +1,6 @@
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
 import { convex } from '@convex-dev/better-auth/plugins';
 import { betterAuth } from 'better-auth';
-import { organization } from 'better-auth/plugins';
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import authConfig from './auth.config';
@@ -68,15 +67,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 				}
 			}
 		},
-		plugins: [
-			organization({
-				allowUserToCreateOrganization: false,
-				teams: {
-					enabled: true
-				}
-			}),
-			convex({ authConfig })
-		]
+		plugins: [convex({ authConfig })]
 	});
 };
 

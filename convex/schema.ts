@@ -36,18 +36,6 @@ export default defineSchema({
 		.index('by_user', ['userId'])
 		.index('by_user_category', ['userId', 'categoryKey']),
 
-	// Per-user phrase learning state (FSRS)
-	userPhrases: defineTable({
-		userId: v.string(),
-		phraseId: v.id('phrases'),
-		fsrsState: v.optional(v.any()),
-		lastReviewedAt: v.optional(v.number()),
-		nextReviewAt: v.optional(v.number())
-	})
-		.index('by_user', ['userId'])
-		.index('by_user_phrase', ['userId', 'phraseId'])
-		.index('by_next_review', ['userId', 'nextReviewAt']),
-
 	// Audio assets stored in object storage
 	audioAssets: defineTable({
 		userId: v.string(),

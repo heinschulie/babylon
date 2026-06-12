@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { redirect } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { getAuthToken } from '$lib/server/auth';
 import { paraglideMiddleware } from '$lib/paraglide/server';
@@ -31,6 +32,9 @@ const securityHeadersHandle: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
+const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
+const PUBLIC_PREFIXES = ['/api/auth'];
+
 const authHandle: Handle = async ({ event, resolve }) => {
 	try {
 		event.locals.token = getAuthToken(event.cookies, event.url.origin);
@@ -38,6 +42,17 @@ const authHandle: Handle = async ({ event, resolve }) => {
 		console.error('Failed to initialize auth token from cookies', error);
 		event.locals.token = undefined;
 	}
+
+	// Server-side guard: avoids flashing protected pages before the client-side
+	// auth check kicks in. Token presence is checked here; Convex still enforces
+	// real authorization on every query/mutation.
+	const { pathname } = event.url;
+	const isPublic =
+		PUBLIC_ROUTES.has(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+	if (!event.locals.token && !isPublic) {
+		redirect(302, '/login');
+	}
+
 	return resolve(event);
 };
 

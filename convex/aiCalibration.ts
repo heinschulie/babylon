@@ -1,6 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation, query } from './_generated/server';
-import { getAuthUserId } from './lib/auth';
+import { internalMutation, internalQuery } from './_generated/server';
 
 export const recordComparison = internalMutation({
 	args: {
@@ -49,10 +48,10 @@ export const recordComparison = internalMutation({
 	}
 });
 
-export const listAll = query({
+// Internal-only: per-phrase calibration bias is operational data, not user-facing.
+export const listAll = internalQuery({
 	args: {},
 	handler: async (ctx) => {
-		await getAuthUserId(ctx);
 		const rows = await ctx.db.query('aiCalibration').collect();
 		return rows.map((row) => ({
 			phraseId: row.phraseId,

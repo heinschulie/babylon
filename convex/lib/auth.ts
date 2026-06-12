@@ -19,8 +19,12 @@ export async function getAuthUserId(ctx: QueryCtx | MutationCtx | ActionCtx): Pr
 		if (user) {
 			return user.userId ?? user._id;
 		}
-	} catch {
-		// BetterAuth not available (e.g., in tests without auth module)
+	} catch (error) {
+		// Expected in tests without the auth module; anything else (network, DB)
+		// should be visible in logs rather than masquerading as a 401.
+		console.warn('BetterAuth user lookup failed', {
+			error: error instanceof Error ? error.message : 'unknown'
+		});
 	}
 
 	throw new Error('Not authenticated');

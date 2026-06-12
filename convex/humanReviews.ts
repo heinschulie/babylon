@@ -80,6 +80,14 @@ async function assertVerifierLanguageAccess(
 	userId: string,
 	languageCode: string
 ) {
+	const profile = await ctx.db
+		.query('verifierProfiles')
+		.withIndex('by_user', (q: any) => q.eq('userId', userId))
+		.unique();
+	if (!profile || !profile.active) {
+		throw new Error('Verifier profile is inactive');
+	}
+
 	const membership = await ctx.db
 		.query('verifierLanguageMemberships')
 		.withIndex('by_user_language', (q: any) => q.eq('userId', userId).eq('languageCode', languageCode))
