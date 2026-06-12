@@ -9,6 +9,7 @@ import {
 	readSafeErrorBodySnippet,
 	summarizeErrorForLog
 } from './lib/safeErrors';
+import { getAnthropicModel } from './lib/anthropicModel';
 
 const TRANSLATE_PHRASE_TIMEOUT_MS = 20_000;
 
@@ -58,7 +59,7 @@ export const translateAndPhoneticize = internalAction({
 					'anthropic-version': '2023-06-01'
 				},
 				body: JSON.stringify({
-					model: 'claude-sonnet-4-20250514',
+					model: getAnthropicModel(),
 					max_tokens: 300,
 					system: prompt,
 					messages: [{ role: 'user', content: `Translate to isiXhosa: "${args.english}"` }]

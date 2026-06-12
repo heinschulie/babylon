@@ -5,6 +5,7 @@ import { action } from './_generated/server';
 import { internal } from './_generated/api';
 import { classifyExternalFetchError, fetchWithTimeout } from './lib/fetchWithTimeout';
 import { normalizeLanguage } from './lib/languages';
+import { getAnthropicModel } from './lib/anthropicModel';
 import {
 	classifyAppErrorCode,
 	readSafeErrorBodySnippet,
@@ -15,13 +16,6 @@ import {
 const AI_PROCESSING_STALE_AFTER_MS = 5 * 60 * 1000;
 const WHISPER_TIMEOUT_MS = 45_000;
 const CLAUDE_FEEDBACK_TIMEOUT_MS = 35_000;
-
-// claude-sonnet-4-20250514 (the previous hardcoded model) retires 2026-06-15.
-const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
-
-function getAnthropicModel() {
-	return process.env.CONVEX_ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
-}
 
 function buildCoachingPrompt(languageName: string) {
 	return [
