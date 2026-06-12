@@ -1,0 +1,18 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"admin_login_kicker": "Admin Access",
+	"admin_login_desc": "Sign in to manage the curriculum and admin team.",
+	"admin_register_kicker": "Get Started",
+	"admin_register_desc": "Create an account, then ask an existing admin to grant you access.",
+	"admin_nav_curriculum": "Curriculum",
+	"admin_nav_admins": "Admins",
+	"admin_home_kicker": "Administration",
+	"admin_home_title": "Recall Admin",
+	"admin_home_desc": "Manage the curriculum and the admin team.",
+	"admin_not_admin_title": "Not an admin",
+	"admin_not_admin_body": "Your account doesn't have admin access. Ask an existing admin to grant it.",
+	"admin_curriculum_title": "Curriculum",
+	"admin_curriculum_desc": "Author and publish courses, units, and phrases.",
+	"admin_admins_title": "Admins",
+	"admin_admins_desc": "Grant and revoke admin access."
+}

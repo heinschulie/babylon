@@ -7,7 +7,8 @@ import authConfig from './auth.config';
 
 const LOCAL_TRUSTED_ORIGINS = new Set([
 	'http://localhost:5173',
-	'http://localhost:5178'
+	'http://localhost:5178',
+	'http://localhost:5180'
 ]);
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
@@ -75,6 +76,7 @@ type AuthEnv = {
 	siteUrl: string;
 	authSecret: string;
 	verifierSiteUrl?: string;
+	adminSiteUrl?: string;
 	nodeEnv: string;
 	isProduction: boolean;
 	allowLocalhostOrigins: boolean;
@@ -89,6 +91,7 @@ function readAuthEnv(): AuthEnv {
 	const nodeEnv = process.env.NODE_ENV ?? 'development';
 	const isProduction = nodeEnv === 'production';
 	const verifierSiteUrl = normalizeOptionalUrl(process.env.VERIFIER_SITE_URL, 'VERIFIER_SITE_URL');
+	const adminSiteUrl = normalizeOptionalUrl(process.env.ADMIN_SITE_URL, 'ADMIN_SITE_URL');
 	const allowLocalhostOrigins = parseBooleanEnv('AUTH_ALLOW_LOCALHOST_ORIGINS') ?? !isProduction;
 	const requireEmailVerificationOverride = parseBooleanEnv('AUTH_REQUIRE_EMAIL_VERIFICATION');
 	const allowUnverifiedEmailsInProduction =
@@ -101,6 +104,7 @@ function readAuthEnv(): AuthEnv {
 		siteUrl,
 		authSecret,
 		verifierSiteUrl,
+		adminSiteUrl,
 		nodeEnv,
 		isProduction,
 		allowLocalhostOrigins,
@@ -133,6 +137,9 @@ function buildTrustedOrigins(env: AuthEnv): string[] {
 	candidates.add(env.siteUrl);
 	if (env.verifierSiteUrl) {
 		candidates.add(env.verifierSiteUrl);
+	}
+	if (env.adminSiteUrl) {
+		candidates.add(env.adminSiteUrl);
 	}
 	if (env.allowLocalhostOrigins) {
 		for (const origin of LOCAL_TRUSTED_ORIGINS) {

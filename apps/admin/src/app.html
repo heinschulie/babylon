@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="%lang%">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#f5f5f0" id="theme-color" />
+		<script nonce="%sveltekit.nonce%">
+			(function() {
+				var d = document.documentElement;
+				var t = localStorage.getItem('theme');
+				var s = localStorage.getItem('skin');
+				var mq = matchMedia('(prefers-color-scheme: dark)');
+				function applyDark(dark) {
+					d.classList.toggle('dark', dark);
+					document.getElementById('theme-color').content = dark ? '#171717' : '#f5f5f0';
+				}
+				applyDark(t === 'dark' || (!t && mq.matches));
+				mq.addEventListener('change', function(e) {
+					if (!localStorage.getItem('theme')) applyDark(e.matches);
+				});
+				if (s && s !== 'default') {
+					d.setAttribute('data-skin', s);
+				}
+			})();
+		</script>
+		<link rel="apple-touch-icon" href="/thetha_logo.png" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

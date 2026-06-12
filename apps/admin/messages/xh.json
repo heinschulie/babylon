@@ -1,0 +1,18 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"admin_login_kicker": "[TODO] Admin Access",
+	"admin_login_desc": "[TODO] Sign in to manage the curriculum and admin team.",
+	"admin_register_kicker": "[TODO] Get Started",
+	"admin_register_desc": "[TODO] Create an account, then ask an existing admin to grant you access.",
+	"admin_nav_curriculum": "[TODO] Curriculum",
+	"admin_nav_admins": "[TODO] Admins",
+	"admin_home_kicker": "[TODO] Administration",
+	"admin_home_title": "[TODO] Recall Admin",
+	"admin_home_desc": "[TODO] Manage the curriculum and the admin team.",
+	"admin_not_admin_title": "[TODO] Not an admin",
+	"admin_not_admin_body": "[TODO] Your account doesn't have admin access. Ask an existing admin to grant it.",
+	"admin_curriculum_title": "[TODO] Curriculum",
+	"admin_curriculum_desc": "[TODO] Author and publish courses, units, and phrases.",
+	"admin_admins_title": "[TODO] Admins",
+	"admin_admins_desc": "[TODO] Grant and revoke admin access."
+}
