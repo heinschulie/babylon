@@ -32,6 +32,11 @@ import type * as lib_billingProviders_paystack from "../lib/billingProviders/pay
 import type * as lib_billingProviders_stripe from "../lib/billingProviders/stripe.js";
 import type * as lib_billingProviders_types from "../lib/billingProviders/types.js";
 import type * as lib_fetchWithTimeout from "../lib/fetchWithTimeout.js";
+import type * as lib_humanReviews_assignments from "../lib/humanReviews/assignments.js";
+import type * as lib_humanReviews_calibration from "../lib/humanReviews/calibration.js";
+import type * as lib_humanReviews_constants from "../lib/humanReviews/constants.js";
+import type * as lib_humanReviews_queue from "../lib/humanReviews/queue.js";
+import type * as lib_humanReviews_scoring from "../lib/humanReviews/scoring.js";
 import type * as lib_languages from "../lib/languages.js";
 import type * as lib_phraseCategories from "../lib/phraseCategories.js";
 import type * as lib_publicActionGuards from "../lib/publicActionGuards.js";
@@ -82,6 +87,11 @@ declare const fullApi: ApiFromModules<{
   "lib/billingProviders/stripe": typeof lib_billingProviders_stripe;
   "lib/billingProviders/types": typeof lib_billingProviders_types;
   "lib/fetchWithTimeout": typeof lib_fetchWithTimeout;
+  "lib/humanReviews/assignments": typeof lib_humanReviews_assignments;
+  "lib/humanReviews/calibration": typeof lib_humanReviews_calibration;
+  "lib/humanReviews/constants": typeof lib_humanReviews_constants;
+  "lib/humanReviews/queue": typeof lib_humanReviews_queue;
+  "lib/humanReviews/scoring": typeof lib_humanReviews_scoring;
   "lib/languages": typeof lib_languages;
   "lib/phraseCategories": typeof lib_phraseCategories;
   "lib/publicActionGuards": typeof lib_publicActionGuards;

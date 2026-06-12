@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery } from './_generated/server';
+import { recordAiCalibrationComparison } from './lib/humanReviews/calibration';
 
 export const recordComparison = internalMutation({
 	args: {
@@ -12,39 +13,20 @@ export const recordComparison = internalMutation({
 		humanPhraseAccuracy: v.number()
 	},
 	handler: async (ctx, args) => {
-		const dS = args.aiSoundAccuracy - args.humanSoundAccuracy;
-		const dR = args.aiRhythmIntonation - args.humanRhythmIntonation;
-		const dP = args.aiPhraseAccuracy - args.humanPhraseAccuracy;
-
-		const existing = await ctx.db
-			.query('aiCalibration')
-			.withIndex('by_phrase', (q) => q.eq('phraseId', args.phraseId))
-			.unique();
-
-		if (existing) {
-			await ctx.db.patch(existing._id, {
-				comparisonCount: existing.comparisonCount + 1,
-				sumDeltaSoundAccuracy: existing.sumDeltaSoundAccuracy + dS,
-				sumDeltaRhythmIntonation: existing.sumDeltaRhythmIntonation + dR,
-				sumDeltaPhraseAccuracy: existing.sumDeltaPhraseAccuracy + dP,
-				sumAbsDeltaSoundAccuracy: existing.sumAbsDeltaSoundAccuracy + Math.abs(dS),
-				sumAbsDeltaRhythmIntonation: existing.sumAbsDeltaRhythmIntonation + Math.abs(dR),
-				sumAbsDeltaPhraseAccuracy: existing.sumAbsDeltaPhraseAccuracy + Math.abs(dP),
-				lastUpdatedAt: Date.now()
-			});
-		} else {
-			await ctx.db.insert('aiCalibration', {
-				phraseId: args.phraseId,
-				comparisonCount: 1,
-				sumDeltaSoundAccuracy: dS,
-				sumDeltaRhythmIntonation: dR,
-				sumDeltaPhraseAccuracy: dP,
-				sumAbsDeltaSoundAccuracy: Math.abs(dS),
-				sumAbsDeltaRhythmIntonation: Math.abs(dR),
-				sumAbsDeltaPhraseAccuracy: Math.abs(dP),
-				lastUpdatedAt: Date.now()
-			});
-		}
+		await recordAiCalibrationComparison(
+			ctx,
+			args.phraseId,
+			{
+				soundAccuracy: args.aiSoundAccuracy,
+				rhythmIntonation: args.aiRhythmIntonation,
+				phraseAccuracy: args.aiPhraseAccuracy
+			},
+			{
+				soundAccuracy: args.humanSoundAccuracy,
+				rhythmIntonation: args.humanRhythmIntonation,
+				phraseAccuracy: args.humanPhraseAccuracy
+			}
+		);
 	}
 });
 

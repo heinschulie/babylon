@@ -251,5 +251,6 @@
   "test_sentence_stats_empty": "No sentences yet",
   "test_sentence_stats_words": "{count} words",
   "practice_mic_permission_denied": "Microphone access was denied. Enable the microphone for this site in your browser settings, then try again.",
-  "practice_mic_not_found": "No microphone was found on this device."
+  "practice_mic_not_found": "No microphone was found on this device.",
+  "session_language_not_found": "Session language not found"
 }

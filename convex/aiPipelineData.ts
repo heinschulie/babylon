@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
-import { internalQuery, internalMutation } from './_generated/server';
+import { internalQuery, internalMutation, type MutationCtx } from './_generated/server';
+import type { Id } from './_generated/dataModel';
 
 const DEFAULT_AI_PROCESSING_STALE_AFTER_MS = 5 * 60 * 1000;
 
@@ -34,9 +35,9 @@ function getScoredTuple(row: {
 }
 
 async function applyPracticeSessionAiAggregateDelta(
-	ctx: any,
+	ctx: MutationCtx,
 	args: {
-		attemptId: string;
+		attemptId: Id<'attempts'>;
 		previous: ScoreTuple | null;
 		next: ScoreTuple | null;
 	}

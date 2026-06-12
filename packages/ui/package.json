@@ -48,6 +48,10 @@
 		"./audio": {
 			"svelte": "./src/components/audio/index.ts",
 			"default": "./src/components/audio/index.ts"
+		},
+		"./auth": {
+			"svelte": "./src/components/auth/index.ts",
+			"default": "./src/components/auth/index.ts"
 		}
 	},
 	"dependencies": {

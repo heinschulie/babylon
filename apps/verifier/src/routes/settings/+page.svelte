@@ -10,6 +10,7 @@
 	import { Input } from '@babylon/ui/input';
 	import { Label } from '@babylon/ui/label';
 	import * as m from '$lib/paraglide/messages.js';
+	import { activeLanguageCode, DEFAULT_LANGUAGE_CODE } from '$lib/activeLanguage';
 	import { getLocale, setLocale, locales, isLocale } from '$lib/paraglide/runtime.js';
 
 	const client = useConvexClient();
@@ -18,7 +19,16 @@
 	const verifierStats = useQuery(api.verifierAccess.getMyStats, {});
 	const preferences = useQuery(api.preferences.get, {});
 
-	let selectedLanguage = $state('xh-ZA');
+	let selectedLanguage = $state(DEFAULT_LANGUAGE_CODE);
+
+	// Default the selector to the verifier's active language once state loads.
+	let languageSynced = $state(false);
+	$effect(() => {
+		if (!languageSynced && verifierState.data) {
+			languageSynced = true;
+			selectedLanguage = activeLanguageCode(verifierState.data.languages);
+		}
+	});
 	let onboardingFirstName = $state('');
 	let onboardingImageUrl = $state('');
 	let saving = $state(false);
@@ -170,7 +180,7 @@
 					bind:value={selectedLanguage}
 				>
 					{#if supportedLanguages.data}
-						{#each supportedLanguages.data.filter((l) => l.code === 'xh-ZA') as language}
+						{#each supportedLanguages.data as language}
 							<option value={language.code}>{language.displayName} ({language.code})</option>
 						{/each}
 					{/if}
