@@ -5,9 +5,9 @@ set dotenv-load := true
 default:
   @just --list
 
-# Dev: web app + Convex backend + webhook server + Cloudflare Tunnel
+# Dev: web app + Convex backend + Cloudflare Tunnel
 dev:
-  trap 'kill 0' EXIT; bun run dev & bun run convex:dev & bun run adws/triggers/webhook.ts & cloudflared tunnel run babylon-dev & wait
+  trap 'kill 0' EXIT; bun run dev & bun run convex:dev & cloudflared tunnel run babylon-dev & wait
 
 # Dev: web app only
 web:
@@ -73,39 +73,3 @@ reset:
   rm -rf packages/*/node_modules
   rm -rf apps/web/.svelte-kit apps/verifier/.svelte-kit
   rm -rf .claude/hooks/*.log
-
-# Agentic claude session
-claude:
-  claude --model opus --dangerously-skip-permissions
-
-# Deterministic codebase setup
-cldi:
-  CLAUDE_SETUP=init claude --model opus --dangerously-skip-permissions
-
-# Deterministic codebase maintenance
-cldm:
-  CLAUDE_SETUP=maintenance claude --model opus --dangerously-skip-permissions
-
-# Agentic codebase setup
-cldii:
-  CLAUDE_SETUP=init claude --model opus --dangerously-skip-permissions "/install"
-
-# Agentic codebase setup interactive
-cldit:
-  CLAUDE_SETUP=init claude --model opus --dangerously-skip-permissions "/install true"
-
-# Agentic codebase maintenance
-cldmm:
-  CLAUDE_SETUP=maintenance claude --model opus --dangerously-skip-permissions "/maintenance"
-
-# Generate docs + README from codebase research
-docs adw-id="docs-run":
-  bun run adws/workflows/adw_research-codebase_produce-readme_update-prime.ts --adw-id {{adw-id}}
-
-# Process runtime learnings through expert triage + self-improve
-learn adw-id="learn-run" *args="":
-  bun run adws/workflows/adw_learn.ts --adw-id {{adw-id}} {{args}}
-
-# Classic SDLC workflow (plan → build → test → review → document)
-sdlc adw-id:
-  bun run adws/workflows/classic/adw_sdlc.ts --adw-id {{adw-id}}
