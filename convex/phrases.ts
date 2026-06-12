@@ -187,10 +187,12 @@ export const listAllByUser = query({
 	args: {},
 	handler: async (ctx) => {
 		const userId = await getAuthUserId(ctx);
-		const phrases = await ctx.db
-			.query('phrases')
-			.withIndex('by_user', (q) => q.eq('userId', userId))
-			.collect();
+		const phrases = (
+			await ctx.db
+				.query('phrases')
+				.withIndex('by_user', (q) => q.eq('userId', userId))
+				.collect()
+		).filter((phrase) => phrase.coursePromptId === undefined); // course materializations stay out of the library
 
 		// Fetch legacy session metadata for phrases that still reference sessions.
 		const sessionCache = new Map<string, { targetLanguage: string; targetLanguageCode: string | null }>();
@@ -227,11 +229,13 @@ export const listGroupedByCategory = query({
 	args: {},
 	handler: async (ctx) => {
 		const userId = await getAuthUserId(ctx);
-		const phrases = await ctx.db
-			.query('phrases')
-			.withIndex('by_user', (q) => q.eq('userId', userId))
-			.order('desc')
-			.collect();
+		const phrases = (
+			await ctx.db
+				.query('phrases')
+				.withIndex('by_user', (q) => q.eq('userId', userId))
+				.order('desc')
+				.collect()
+		).filter((phrase) => phrase.coursePromptId === undefined); // course materializations stay out of the library
 
 		const grouped = new Map<
 			string,

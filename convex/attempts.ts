@@ -219,6 +219,7 @@ async function buildAttemptResult(ctx: any, attempt: any, caches?: AttemptResult
 		aiSoundAccuracy: feedback?.soundAccuracy ?? null,
 		aiRhythmIntonation: feedback?.rhythmIntonation ?? null,
 		aiPhraseAccuracy: feedback?.phraseAccuracy ?? null,
+		constructionErrors: feedback?.constructionErrors ?? null,
 		humanReview
 	};
 }
