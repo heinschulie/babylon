@@ -22,6 +22,7 @@
 		"hooks:install": "sh ./scripts/setup-git-hooks.sh",
 		"convex:deploy": "bunx convex deploy",
 		"convex:logs": "bunx convex logs",
+		"cutover:netlify": "bun run scripts/cutover-netlify.ts",
 		"check": "turbo run check",
 		"check:watch": "turbo run check:watch --filter=@babylon/web",
 		"lint": "turbo run lint",

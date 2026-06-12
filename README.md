@@ -118,6 +118,7 @@ bun run build                # all packages
 bun run check                # svelte-check
 bun run test                 # vitest + convex-test
 bun run format               # prettier
+bun run cutover:netlify -- --web-domain https://www.xhosa.academy --verifier-domain https://verifier.xhosa.academy
 ```
 
 **Convex:**
@@ -134,6 +135,7 @@ bun run convex:check-generated  # verify codegen is current
 - **Backend:** Convex Cloud (`disciplined-spider-126`). Manual deploy via `bun run convex:deploy`. HTTP routes for auth (CORS) + PayFast webhook. Daily cron at 06:00 UTC.
 - **CI:** GitHub Actions — PR/push to `main` → Bun 1.3.9 → `bun install --frozen-lockfile` → typecheck → test → build (matrix: web, verifier). Validation only, no automated deploy.
 - **Dev tunneling:** Cloudflare Tunnel (`cloudflared tunnel run babylon-dev`) → `dev.schulie.com` (web), `verifier.schulie.com` (verifier).
+- **Production cutover:** `bun run cutover:netlify -- --web-domain <web-domain> --verifier-domain <verifier-domain> --apply` updates Netlify env for both apps, Convex production env for auth/billing URLs, attaches Netlify custom domains when needed, inspects DNS state, and detaches old Railway custom domains from the linked frontend services. If `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`, and `NAMECHEAP_CLIENT_IP` are present, it can also update Namecheap DNS records automatically.
 
 ## Environment Variables
 
@@ -170,6 +172,7 @@ bun run convex:check-generated  # verify codegen is current
 | `VERIFIER_SITE_URL` | Verifier app origin (cross-origin auth) |
 | `GOOGLE_TRANSLATE_API_KEY` | Translation verification (degrades gracefully) |
 | `UNSPLASH_ACCESS_KEY` | Vocabulary flashcard images (degrades) |
+| `NAMECHEAP_API_USER` / `NAMECHEAP_API_KEY` / `NAMECHEAP_USERNAME` / `NAMECHEAP_CLIENT_IP` | Optional DNS cutover automation for Namecheap-managed domains |
 | `BILLING_DEV_TOGGLE` / `BILLING_DEV_TOGGLE_ALLOWLIST` | Dev tier switching + user allowlist |
 
 **Feature flags:** `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_ALLOW_LOCALHOST_ORIGINS`, `AUTH_ALLOW_UNVERIFIED_EMAILS_PROD`, `AUTH_EXTRA_TRUSTED_ORIGINS`, `BILLING_DEV_TOGGLE_ALLOW_PRODUCTION`
