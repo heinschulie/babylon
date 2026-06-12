@@ -304,43 +304,5 @@ export default defineSchema({
 	})
 		.index('by_phrase', ['phraseId'])
 		.index('by_user_scheduled', ['userId', 'scheduledFor'])
-		.index('by_sent', ['sent']),
-
-	// Test table for emoji functionality
-	testTable: defineTable({
-		emoji: v.string(),
-		sentence: v.string(),
-		mood: v.string(),
-		userId: v.string(),
-		createdAt: v.number(),
-		pollId: v.optional(v.id('testPollTable')),
-		streakDay: v.optional(v.number()),
-		parentId: v.optional(v.id('testTable'))
-	})
-		.index('by_createdAt', ['createdAt'])
-		.index('by_pollId', ['pollId'])
-		.index('by_userId_createdAt', ['userId', 'createdAt'])
-		.index('by_parentId', ['parentId']),
-
-	// Test table for polls
-	testPollTable: defineTable({
-		question: v.string(),
-		options: v.array(v.string()),
-		createdAt: v.number(),
-		closedAt: v.optional(v.number()),
-		tags: v.optional(v.array(v.string()))
-	})
-		.index('by_createdAt', ['createdAt'])
-		.index('by_closedAt', ['closedAt']),
-
-	// Test achievement table for milestone tracking
-	testAchievementTable: defineTable({
-		type: v.string(),       // e.g. 'emoji_starter', 'emoji_pro', 'democracy', 'social_butterfly', 'poll_creator'
-		title: v.string(),      // Human-readable: 'Emoji Starter', 'Emoji Pro', etc.
-		userId: v.string(),
-		unlockedAt: v.number()  // Date.now()
-	})
-		.index('by_userId', ['userId'])
-		.index('by_type_userId', ['type', 'userId'])  // uniqueness check
-		.index('by_unlockedAt', ['unlockedAt']),
+		.index('by_sent', ['sent'])
 });
