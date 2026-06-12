@@ -31,7 +31,7 @@
 	</header>
 
 	{#if !coursePromptId || (!prompt.isLoading && !prompt.data)}
-		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Root class="border border-border/60 bg-card">
 			<Card.Header>
 				<Card.Title>{m.course_review_unavailable()}</Card.Title>
 			</Card.Header>
@@ -44,7 +44,7 @@
 	{:else if prompt.data && !done}
 		<CoursePromptCycle prompt={prompt.data} onComplete={() => (done = true)} />
 	{:else if done}
-		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Root class="border border-border/60 bg-card">
 			<Card.Header class="text-center">
 				<Card.Title class="text-2xl">{m.course_review_done_title()}</Card.Title>
 				<Card.Description>{m.course_review_done_body()}</Card.Description>

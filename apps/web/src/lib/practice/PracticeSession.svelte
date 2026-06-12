@@ -180,13 +180,14 @@
 	<!-- Bottom: controls -->
 	<div class="practice-session__controls">
 		{#if errorMessage}
-			<p class="text-destructive text-sm">{errorMessage}</p>
+			<p class="text-destructive text-sm" role="alert">{errorMessage}</p>
 		{/if}
 
 		{#if recorder.url}
 			<AttemptPlayer
 				src={recorder.url}
 				playingLabel={m.state_playing()}
+				label={m.course_play_your_recording()}
 				fallbackDurationMs={recorder.durationMs}
 			/>
 		{:else if recorder.recording}

@@ -56,7 +56,7 @@
 			</span>
 		</div>
 
-		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Root class="border border-border/60 bg-card">
 			<Card.Content>
 				<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
 					<div class="space-y-2">
@@ -105,7 +105,7 @@
 		</div>
 	{/if}
 
-	<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+	<Card.Root class="border border-border/60 bg-card">
 		<Card.Content>
 			<div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
 				<div class="space-y-2">

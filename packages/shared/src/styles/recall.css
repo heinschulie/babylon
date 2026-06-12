@@ -895,7 +895,7 @@
 	}
 	.streak-display__number {
 		font-family: var(--font-display);
-		font-size: clamp(15rem, 15vw, 10rem);
+		font-size: clamp(5rem, 15vw, 10rem);
 		line-height: 0.85;
 		letter-spacing: -0.02em;
 		width: 100%;

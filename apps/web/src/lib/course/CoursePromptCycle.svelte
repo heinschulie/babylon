@@ -181,7 +181,12 @@
 			{#if exemplar.data}
 				<div>
 					<p class="info-kicker mb-1">{m.course_exemplar_label()}</p>
-					<AttemptPlayer src={exemplar.data} variant="verifier" playingLabel={m.state_playing()} />
+					<AttemptPlayer
+						src={exemplar.data}
+						variant="verifier"
+						playingLabel={m.state_playing()}
+						label={m.course_play_exemplar()}
+					/>
 				</div>
 			{/if}
 
@@ -191,6 +196,7 @@
 					<AttemptPlayer
 						src={recorder.url}
 						playingLabel={m.state_playing()}
+						label={m.course_play_your_recording()}
 						fallbackDurationMs={recorder.durationMs}
 					/>
 				</div>
@@ -202,10 +208,10 @@
 			{:else if aiReady && currentAttempt}
 				<div class="flex items-center gap-3 flex-wrap">
 					{#if currentAttempt.aiSoundAccuracy != null}
-						<div class="practice-review-trigger__scores">
-							<span class="practice-review-score" title={m.practice_score_sound()}>S{currentAttempt.aiSoundAccuracy}</span>
-							<span class="practice-review-score" title={m.practice_score_rhythm()}>R{currentAttempt.aiRhythmIntonation}</span>
-							<span class="practice-review-score" title={m.practice_score_phrase()}>P{currentAttempt.aiPhraseAccuracy}</span>
+						<div class="practice-review-trigger__scores" role="status">
+							<span class="practice-review-score">{m.practice_score_sound()} {currentAttempt.aiSoundAccuracy}</span>
+							<span class="practice-review-score">{m.practice_score_rhythm()} {currentAttempt.aiRhythmIntonation}</span>
+							<span class="practice-review-score">{m.practice_score_phrase()} {currentAttempt.aiPhraseAccuracy}</span>
 						</div>
 					{/if}
 					{#if needsDecomposition}
@@ -216,7 +222,7 @@
 					<p class="text-sm">{currentAttempt.feedbackText}</p>
 				{/if}
 			{:else if attemptId}
-				<p class="meta-text">{m.course_ai_checking()}</p>
+				<p class="meta-text" role="status" aria-live="polite">{m.course_ai_checking()}</p>
 			{/if}
 
 			<div class="flex gap-2">

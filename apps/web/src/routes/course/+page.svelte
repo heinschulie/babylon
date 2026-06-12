@@ -38,7 +38,7 @@
 	{#if courseState.isLoading}
 		<p class="meta-text">{m.state_loading()}</p>
 	{:else if !courseState.data}
-		<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Root class="border border-border/60 bg-card">
 			<Card.Header>
 				<Card.Title>{m.course_none_title()}</Card.Title>
 				<Card.Description>{m.course_none_body()}</Card.Description>

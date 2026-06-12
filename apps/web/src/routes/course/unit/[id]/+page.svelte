@@ -74,7 +74,7 @@
 	</div>
 {:else if !unitData.data}
 	<div class="page-shell page-shell--compact flex min-h-[80vh] items-center justify-center">
-		<Card.Root class="w-full border border-border/60 bg-background/85 backdrop-blur-sm">
+		<Card.Root class="w-full border border-border/60 bg-card">
 			<Card.Header class="text-center">
 				<Card.Title>{m.course_unit_not_found()}</Card.Title>
 			</Card.Header>
@@ -99,7 +99,7 @@
 		</header>
 
 		{#if stage === 'intro'}
-			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+			<Card.Root class="border border-border/60 bg-card">
 				<Card.Content class="page-stack">
 					<div class="flex flex-wrap gap-2">
 						{#each unit.handles as handle (handle.key)}
@@ -128,7 +128,7 @@
 				<p class="meta-text text-center">{m.practice_ending()}</p>
 			{/if}
 		{:else if stage === 'done'}
-			<Card.Root class="border border-border/60 bg-background/85 backdrop-blur-sm">
+			<Card.Root class="border border-border/60 bg-card">
 				<Card.Header class="text-center">
 					<Card.Title class="text-2xl">{m.course_unit_done_title()}</Card.Title>
 					<Card.Description>{m.course_unit_done_body()}</Card.Description>

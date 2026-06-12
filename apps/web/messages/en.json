@@ -296,5 +296,8 @@
   "course_home_view_map": "View the full course",
   "course_home_free_practice_kicker": "Free practice",
   "course_home_free_practice_desc": "Practice your own phrase library, outside the course.",
-  "course_home_library_desc": "Your own phrases and translations."
+  "course_home_library_desc": "Your own phrases and translations.",
+  "course_play_your_recording": "Play your recording",
+  "course_play_exemplar": "Play the native example",
+  "review_new_badge": "New"
 }

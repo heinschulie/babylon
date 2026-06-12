@@ -12,6 +12,12 @@
 			"runtimeExecutable": "bun",
 			"runtimeArgs": ["run", "dev:verifier"],
 			"port": 5178
+		},
+		{
+			"name": "admin",
+			"runtimeExecutable": "bun",
+			"runtimeArgs": ["run", "dev:admin"],
+			"port": 5180
 		}
 	]
 }

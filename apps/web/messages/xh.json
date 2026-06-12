@@ -296,5 +296,8 @@
   "course_home_view_map": "[TODO] View the full course",
   "course_home_free_practice_kicker": "[TODO] Free practice",
   "course_home_free_practice_desc": "[TODO] Practice your own phrase library, outside the course.",
-  "course_home_library_desc": "[TODO] Your own phrases and translations."
+  "course_home_library_desc": "[TODO] Your own phrases and translations.",
+  "course_play_your_recording": "[TODO] Play your recording",
+  "course_play_exemplar": "[TODO] Play the native example",
+  "review_new_badge": "[TODO] New"
 }
