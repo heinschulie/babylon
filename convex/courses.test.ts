@@ -6,6 +6,11 @@ import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
 
+function makeT() {
+	return convexTest(schema, modules);
+}
+type TestHarness = ReturnType<typeof makeT>;
+
 const ADMIN_ID = 'admin_user_1';
 let envBackup: string | undefined;
 
@@ -19,7 +24,7 @@ afterEach(() => {
 	else process.env.ADMIN_USER_IDS = envBackup;
 });
 
-async function seedCourse(t: ReturnType<typeof convexTest>) {
+async function seedCourse(t: TestHarness) {
 	return await t.run(async (ctx) => {
 		const now = Date.now();
 		const courseId = await ctx.db.insert('courses', {
@@ -86,7 +91,7 @@ async function seedCourse(t: ReturnType<typeof convexTest>) {
 
 describe('materialization', () => {
 	it('creates one phrase per user per prompt, idempotently', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId } = await seedCourse(t);
 		const asUser = t.withIdentity({ subject: 'learner1' });
 
@@ -109,7 +114,7 @@ describe('materialization', () => {
 	});
 
 	it('refuses to materialize draft prompts', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { draftPromptId } = await seedCourse(t);
 		const asUser = t.withIdentity({ subject: 'learner1' });
 		await expect(
@@ -120,7 +125,7 @@ describe('materialization', () => {
 
 describe('leak filters', () => {
 	it('keeps materialized course phrases out of the library and free practice', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId } = await seedCourse(t);
 		const asUser = t.withIdentity({ subject: 'learner1' });
 
@@ -145,7 +150,7 @@ describe('leak filters', () => {
 
 describe('admin gating', () => {
 	it('rejects non-admin authoring calls and accepts env-bootstrapped admins', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const asRandom = t.withIdentity({ subject: 'not_admin' });
 		await expect(
 			asRandom.mutation(api.courseAuthoring.createCourse, {
@@ -163,7 +168,7 @@ describe('admin gating', () => {
 	});
 
 	it('grants and revokes table-based admins', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const asAdmin = t.withIdentity({ subject: ADMIN_ID });
 		await asAdmin.mutation(api.admin.grantAdmin, { userId: 'second_admin' });
 
@@ -179,7 +184,7 @@ describe('admin gating', () => {
 
 describe('prompt immutability', () => {
 	it('blocks edits to approved prompts and clones to a new draft', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId } = await seedCourse(t);
 		const asAdmin = t.withIdentity({ subject: ADMIN_ID });
 
@@ -200,7 +205,7 @@ describe('prompt immutability', () => {
 
 describe('handle-state updater', () => {
 	async function makeAttemptWithFeedback(
-		t: ReturnType<typeof convexTest>,
+		t: TestHarness,
 		promptId: Id<'coursePrompts'>,
 		feedback: { phraseAccuracy: number; constructionErrors?: { morpheme: string; issue: string }[] }
 	) {
@@ -239,7 +244,7 @@ describe('handle-state updater', () => {
 	}
 
 	it('climbs the ladder on clean constructions and owns after a streak', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId, courseId } = await seedCourse(t);
 
 		await makeAttemptWithFeedback(t, promptId, { phraseAccuracy: 4 });
@@ -260,7 +265,7 @@ describe('handle-state updater', () => {
 	});
 
 	it('regresses strength and resets streak on construction errors', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId, courseId } = await seedCourse(t);
 
 		await makeAttemptWithFeedback(t, promptId, { phraseAccuracy: 4 });
@@ -285,7 +290,7 @@ describe('handle-state updater', () => {
 
 describe('handle-based notification scheduling', () => {
 	it('schedules construction prompts for due handles instead of legacy recall', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId, courseId } = await seedCourse(t);
 
 		await t.run(async (ctx) => {
@@ -324,7 +329,7 @@ describe('handle-based notification scheduling', () => {
 	});
 
 	it('falls back to legacy phrase recall when nothing is due, excluding course phrases', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId } = await seedCourse(t);
 		const asUser = t.withIdentity({ subject: 'learner1' });
 
@@ -362,7 +367,7 @@ describe('handle-based notification scheduling', () => {
 
 describe('exemplar gating', () => {
 	it('returns null exemplar for prompts without audio and blocks unapproved prompts', async () => {
-		const t = convexTest(schema, modules);
+		const t = makeT();
 		const { promptId, draftPromptId } = await seedCourse(t);
 		const asUser = t.withIdentity({ subject: 'learner1' });
 
