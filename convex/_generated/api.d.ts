@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as aiCalibration from "../aiCalibration.js";
 import type * as aiFeedback from "../aiFeedback.js";
 import type * as aiPipeline from "../aiPipeline.js";
@@ -21,9 +22,15 @@ import type * as billingCheckout from "../billingCheckout.js";
 import type * as billingEvents from "../billingEvents.js";
 import type * as billingSubscriptions from "../billingSubscriptions.js";
 import type * as billingWebhooks from "../billingWebhooks.js";
+import type * as courseAuthoring from "../courseAuthoring.js";
+import type * as courseDrafting from "../courseDrafting.js";
+import type * as courseProgress from "../courseProgress.js";
+import type * as courses from "../courses.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as humanReviews from "../humanReviews.js";
+import type * as lib_admin from "../lib/admin.js";
+import type * as lib_anthropicModel from "../lib/anthropicModel.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_billing from "../lib/billing.js";
 import type * as lib_billingProviders_crypto from "../lib/billingProviders/crypto.js";
@@ -63,6 +70,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   aiCalibration: typeof aiCalibration;
   aiFeedback: typeof aiFeedback;
   aiPipeline: typeof aiPipeline;
@@ -76,9 +84,15 @@ declare const fullApi: ApiFromModules<{
   billingEvents: typeof billingEvents;
   billingSubscriptions: typeof billingSubscriptions;
   billingWebhooks: typeof billingWebhooks;
+  courseAuthoring: typeof courseAuthoring;
+  courseDrafting: typeof courseDrafting;
+  courseProgress: typeof courseProgress;
+  courses: typeof courses;
   crons: typeof crons;
   http: typeof http;
   humanReviews: typeof humanReviews;
+  "lib/admin": typeof lib_admin;
+  "lib/anthropicModel": typeof lib_anthropicModel;
   "lib/auth": typeof lib_auth;
   "lib/billing": typeof lib_billing;
   "lib/billingProviders/crypto": typeof lib_billingProviders_crypto;

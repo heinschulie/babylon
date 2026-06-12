@@ -116,7 +116,10 @@ export const insertAiFeedback = internalMutation({
 		soundAccuracy: v.optional(v.number()),
 		rhythmIntonation: v.optional(v.number()),
 		phraseAccuracy: v.optional(v.number()),
-		feedbackText: v.optional(v.string())
+		feedbackText: v.optional(v.string()),
+		constructionErrors: v.optional(
+			v.array(v.object({ morpheme: v.string(), issue: v.string() }))
+		)
 	},
 	handler: async (ctx, args) => {
 		const existing = await ctx.db
@@ -137,7 +140,8 @@ export const insertAiFeedback = internalMutation({
 			soundAccuracy: args.soundAccuracy,
 			rhythmIntonation: args.rhythmIntonation,
 			phraseAccuracy: args.phraseAccuracy,
-			feedbackText: args.feedbackText
+			feedbackText: args.feedbackText,
+			constructionErrors: args.constructionErrors
 		});
 		const nextScored = getScoredTuple({
 			soundAccuracy:

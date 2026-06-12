@@ -105,6 +105,56 @@ export const scheduleForPhrase = internalMutation({
  */
 const RESCHEDULE_PAGE_SIZE = 25;
 
+type LearnerHandleStateDoc = {
+	courseId: import('./_generated/dataModel').Id<'courses'>;
+	handleKey: string;
+};
+
+/**
+ * Pick an approved construction prompt exercising a due handle, preferring
+ * prompts the learner hasn't attempted recently (novel recombination over
+ * re-testing the same sentence).
+ */
+async function pickConstructionPrompt(
+	ctx: { db: import('./_generated/server').MutationCtx['db'] },
+	userId: string,
+	handleState: LearnerHandleStateDoc,
+	excludeIds: Set<string>
+) {
+	const candidates = await ctx.db
+		.query('coursePrompts')
+		.withIndex('by_handle_status', (q) =>
+			q.eq('primaryHandleKey', handleState.handleKey).eq('status', 'approved')
+		)
+		.collect();
+
+	const scored = [];
+	for (const prompt of candidates) {
+		if (prompt.courseId !== handleState.courseId) continue;
+		if (excludeIds.has(prompt._id)) continue;
+		const materialized = await ctx.db
+			.query('phrases')
+			.withIndex('by_user_course_prompt', (q) =>
+				q.eq('userId', userId).eq('coursePromptId', prompt._id)
+			)
+			.unique();
+		let lastAttemptAt = 0;
+		if (materialized) {
+			const latestAttempt = await ctx.db
+				.query('attempts')
+				.withIndex('by_phrase', (q) => q.eq('phraseId', materialized._id))
+				.order('desc')
+				.first();
+			lastAttemptAt = latestAttempt?._creationTime ?? 0;
+		}
+		scored.push({ prompt, lastAttemptAt });
+	}
+
+	// Never-attempted first, then least recent.
+	scored.sort((a, b) => a.lastAttemptAt - b.lastAttemptAt);
+	return scored[0]?.prompt ?? null;
+}
+
 export const rescheduleDaily = internalMutation({
 	args: { cursor: v.optional(v.string()) },
 	handler: async (ctx, args) => {
@@ -127,11 +177,51 @@ export const rescheduleDaily = internalMutation({
 				}
 			}
 
-			// Get user's phrases
-			const phrases = await ctx.db
-				.query('phrases')
-				.withIndex('by_user', (q) => q.eq('userId', prefs.userId))
-				.collect();
+			const quietStartHour = prefs.quietHoursStart ?? 22;
+			const quietEndHour = prefs.quietHoursEnd ?? 8;
+			const notificationBudget = prefs.notificationsPerPhrase ?? 3;
+
+			// Handle-based construction prompts take priority: due handles get a
+			// novel construction prompt instead of a memory test.
+			const dueHandles = await ctx.db
+				.query('learnerHandleState')
+				.withIndex('by_user_due', (q) =>
+					q.eq('userId', prefs.userId).lte('nextDueAt', Date.now())
+				)
+				.take(notificationBudget);
+
+			let scheduledCount = 0;
+			const usedPromptIds = new Set<string>();
+			for (const handleState of dueHandles) {
+				const prompt = await pickConstructionPrompt(ctx, prefs.userId, handleState, usedPromptIds);
+				if (!prompt) continue;
+				usedPromptIds.add(prompt._id);
+
+				const times = generateRandomTimes(1, quietStartHour, quietEndHour);
+				for (const scheduledFor of times) {
+					const notificationId = await ctx.db.insert('scheduledNotifications', {
+						coursePromptId: prompt._id,
+						userId: prefs.userId,
+						scheduledFor,
+						sent: false
+					});
+					await ctx.scheduler.runAt(scheduledFor, internal.notificationsNode.send, {
+						notificationId
+					});
+					scheduledCount++;
+				}
+			}
+
+			// Legacy phrase-recall branch only for learners with no course activity,
+			// and never for materialized course phrases.
+			if (scheduledCount > 0) continue;
+
+			const phrases = (
+				await ctx.db
+					.query('phrases')
+					.withIndex('by_user', (q) => q.eq('userId', prefs.userId))
+					.collect()
+			).filter((phrase) => phrase.coursePromptId === undefined);
 
 			if (phrases.length === 0) continue;
 
@@ -153,14 +243,10 @@ export const rescheduleDaily = internalMutation({
 			phraseScores.sort((a, b) => a.lastAttemptAt - b.lastAttemptAt);
 
 			// Pick top N phrases to remind about (1 notification each)
-			const count = prefs.notificationsPerPhrase ?? 3;
-			const phrasesToRemind = phraseScores.slice(0, count);
-
-			const quietStart = prefs.quietHoursStart ?? 22;
-			const quietEnd = prefs.quietHoursEnd ?? 8;
+			const phrasesToRemind = phraseScores.slice(0, notificationBudget);
 
 			for (const { phraseId } of phrasesToRemind) {
-				const times = generateRandomTimes(1, quietStart, quietEnd);
+				const times = generateRandomTimes(1, quietStartHour, quietEndHour);
 				for (const scheduledFor of times) {
 					const notificationId = await ctx.db.insert('scheduledNotifications', {
 						phraseId,
@@ -190,6 +276,16 @@ export const getPhraseById = internalQuery({
 	args: { phraseId: v.id('phrases') },
 	handler: async (ctx, { phraseId }) => {
 		return ctx.db.get(phraseId);
+	}
+});
+
+/**
+ * Get a course prompt by ID (internal query for handle-based notifications).
+ */
+export const getCoursePromptById = internalQuery({
+	args: { coursePromptId: v.id('coursePrompts') },
+	handler: async (ctx, { coursePromptId }) => {
+		return ctx.db.get(coursePromptId);
 	}
 });
 

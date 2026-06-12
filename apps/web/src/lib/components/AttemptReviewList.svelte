@@ -38,7 +38,7 @@
 		<Accordion.Item value={attempt._id}>
 			<Accordion.Trigger class="practice-review-trigger">
 				{#if showFire}
-					<img src="/fire.gif" alt="" class="practice-review-fire" />
+					<span class="border border-primary bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-widest">{m.review_new_badge()}</span>
 				{/if}
 				<div class="practice-review-trigger__content">
 					<p class="practice-review-phrase">{attempt.phraseTranslation}</p>
@@ -79,7 +79,11 @@
 						<div class="practice-review-detail__players">
 							<div>
 								<p class="info-kicker mb-1">{m.practice_your_recording()}</p>
-								<AttemptPlayer src={attempt.audioUrl} playingLabel={m.state_playing()} />
+								<AttemptPlayer
+								src={attempt.audioUrl}
+								playingLabel={m.state_playing()}
+								label={m.course_play_your_recording()}
+							/>
 							</div>
 							{#if initialReview?.audioUrl}
 								<div>
@@ -88,6 +92,7 @@
 										src={initialReview.audioUrl}
 										variant="verifier"
 										playingLabel={m.state_playing()}
+										label={m.course_play_exemplar()}
 										onfirstended={() => playedVerifierClips.add(attempt._id)}
 									/>
 								</div>

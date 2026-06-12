@@ -27,12 +27,34 @@ export const send = internalAction({
 			return;
 		}
 
-		// Get the phrase
-		const phrase = await ctx.runQuery(internal.notifications.getPhraseById, {
-			phraseId: notification.phraseId
-		});
-
-		if (!phrase) {
+		// Resolve notification content: handle-based construction prompt (course)
+		// or legacy phrase recall.
+		let body: string;
+		let url: string;
+		let tag: string;
+		if (notification.coursePromptId) {
+			const prompt = await ctx.runQuery(internal.notifications.getCoursePromptById, {
+				coursePromptId: notification.coursePromptId
+			});
+			if (!prompt || prompt.status !== 'approved') {
+				return;
+			}
+			body = prompt.english;
+			url = `/course/review?prompt=${notification.coursePromptId}`;
+			tag = `course-prompt-${notification.coursePromptId}`;
+		} else if (notification.phraseId) {
+			const phrase = await ctx.runQuery(internal.notifications.getPhraseById, {
+				phraseId: notification.phraseId
+			});
+			if (!phrase) {
+				return;
+			}
+			body = phrase.english;
+			// /reveal/[id] is the working single-phrase recall page
+			// (the old /practice?phrase= deep link 301'd to / and dropped the query).
+			url = `/reveal/${phrase._id}`;
+			tag = `phrase-${phrase._id}`;
+		} else {
 			return;
 		}
 
@@ -62,10 +84,10 @@ export const send = internalAction({
 			);
 
 			const payload = JSON.stringify({
-				title: 'Time to Recall!',
-				body: phrase.english,
-				url: `/practice?phrase=${phrase._id}`,
-				tag: `phrase-${phrase._id}`
+				title: notification.coursePromptId ? 'Build it in isiXhosa' : 'Time to Recall!',
+				body,
+				url,
+				tag
 			});
 
 			const subscription = parsePushSubscription(prefs.pushSubscription);

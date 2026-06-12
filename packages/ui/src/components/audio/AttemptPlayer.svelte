@@ -5,6 +5,7 @@
 		src,
 		variant = 'default',
 		playingLabel,
+		label,
 		fallbackDurationMs = 0,
 		onfirstended
 	}: {
@@ -12,6 +13,8 @@
 		variant?: 'default' | 'verifier';
 		/** Localized "Playing…" label — this package has no i18n. */
 		playingLabel: string;
+		/** Localized accessible name, e.g. "Play your recording". */
+		label?: string;
 		/** Shown until the element reports a real duration (blob URLs often don't). */
 		fallbackDurationMs?: number;
 		onfirstended?: () => void;
@@ -55,17 +58,18 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-	class="practice-player {variant === 'verifier' ? 'practice-player--verifier' : ''}"
+<button
+	type="button"
+	class="practice-player w-full border-0 p-0 {variant === 'verifier' ? 'practice-player--verifier' : ''}"
+	aria-label={label ?? playingLabel}
+	aria-pressed={playing}
 	onclick={toggle}
 >
 	<div class="practice-player__fill" style="width: {progress * 100}%"></div>
 	<span class="practice-player__label">
 		{playing ? playingLabel : formatDuration(displayDurationMs)}
 	</span>
-</div>
+</button>
 <audio
 	bind:this={el}
 	{src}

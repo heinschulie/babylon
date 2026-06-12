@@ -5,6 +5,7 @@ import { action } from './_generated/server';
 import { internal } from './_generated/api';
 import { classifyExternalFetchError, fetchWithTimeout } from './lib/fetchWithTimeout';
 import { normalizeLanguage } from './lib/languages';
+import { getAnthropicModel } from './lib/anthropicModel';
 import {
 	classifyAppErrorCode,
 	readSafeErrorBodySnippet,
@@ -16,14 +17,7 @@ const AI_PROCESSING_STALE_AFTER_MS = 5 * 60 * 1000;
 const WHISPER_TIMEOUT_MS = 45_000;
 const CLAUDE_FEEDBACK_TIMEOUT_MS = 35_000;
 
-// claude-sonnet-4-20250514 (the previous hardcoded model) retires 2026-06-15.
-const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
-
-function getAnthropicModel() {
-	return process.env.CONVEX_ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
-}
-
-function buildCoachingPrompt(languageName: string) {
+function buildCoachingPrompt(languageName: string, withConstruction: boolean) {
 	return [
 	`You are a ${languageName} pronunciation coach grading an English speaker's ${languageName} attempt.`,
 	'',
@@ -41,9 +35,33 @@ function buildCoachingPrompt(languageName: string) {
 	'',
 	'Also provide brief coaching feedback: one encouraging summary sentence, then a numbered list of specific corrections needed. Each item should name the word/sound, what was said vs target, and a tip. Spell out syllables e.g. "MA-si". Skip words that were fine. Be encouraging but honest.',
 	'',
-	'Respond with ONLY valid JSON in this exact format:',
-	'{"soundAccuracy": <1-5>, "rhythmIntonation": <1-5>, "phraseAccuracy": <1-5>, "feedback": "<coaching text>"}'
+	...(withConstruction
+		? [
+				'',
+				'A morpheme breakdown of the target phrase is provided. Additionally identify CONSTRUCTION errors: which specific morphemes the learner got wrong, omitted, or replaced (wrong concord, wrong tense marker, missing negation, etc.). Only report morphemes from the breakdown. If the construction is fully correct, return an empty array.',
+				'',
+				'Respond with ONLY valid JSON in this exact format:',
+				'{"soundAccuracy": <1-5>, "rhythmIntonation": <1-5>, "phraseAccuracy": <1-5>, "feedback": "<coaching text>", "constructionErrors": [{"morpheme": "<morpheme from breakdown>", "issue": "<what went wrong>"}]}'
+			]
+		: [
+				'',
+				'Respond with ONLY valid JSON in this exact format:',
+				'{"soundAccuracy": <1-5>, "rhythmIntonation": <1-5>, "phraseAccuracy": <1-5>, "feedback": "<coaching text>"}'
+			])
 	].join('\n');
+}
+
+function parseConstructionErrors(
+	value: unknown
+): Array<{ morpheme: string; issue: string }> | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const errors = value
+		.filter(
+			(item): item is { morpheme: string; issue: string } =>
+				!!item && typeof item.morpheme === 'string' && typeof item.issue === 'string'
+		)
+		.map((item) => ({ morpheme: item.morpheme, issue: item.issue }));
+	return errors;
 }
 
 export const processAttempt = action({
@@ -130,11 +148,22 @@ async function processAudioAttempt(
 	});
 	const languageName = normalizeLanguage(phrase?.languageCode ?? 'xh-ZA')?.displayName ?? 'Xhosa';
 
+	// Course attempts carry a morpheme breakdown, resolved server-side (never
+	// from client args) so construction feedback can't be gamed.
+	let morphemeBreakdown: Array<{ morpheme: string; gloss: string; role: string }> | null = null;
+	if (phrase?.coursePromptId) {
+		const prompt = await ctx.runQuery(internal.notifications.getCoursePromptById, {
+			coursePromptId: phrase.coursePromptId
+		});
+		morphemeBreakdown = prompt?.morphemeBreakdown ?? null;
+	}
+
 	const feedbackResult = await generateFeedbackWithClaude({
 		englishPrompt: args.englishPrompt,
 		targetPhrase: args.targetPhrase,
 		transcript: transcriptResult.transcript,
-		languageName
+		languageName,
+		morphemeBreakdown
 	});
 
 	await ctx.runMutation(internal.aiPipelineData.insertAiFeedback, {
@@ -145,8 +174,16 @@ async function processAudioAttempt(
 		soundAccuracy: feedbackResult.soundAccuracy,
 		rhythmIntonation: feedbackResult.rhythmIntonation,
 		phraseAccuracy: feedbackResult.phraseAccuracy,
-		feedbackText: feedbackResult.feedbackText
+		feedbackText: feedbackResult.feedbackText,
+		constructionErrors: feedbackResult.constructionErrors
 	});
+
+	// Update the spacing engine (handle strengths + unit cursor) for course attempts.
+	if (phrase?.coursePromptId) {
+		await ctx.runMutation(internal.courseProgress.applyConstructionResult, {
+			attemptId: args.attemptId
+		});
+	}
 
 	await ctx.runMutation(internal.aiPipelineData.patchAttemptStatus, {
 		attemptId: args.attemptId,
@@ -249,12 +286,14 @@ async function generateFeedbackWithClaude(input: {
 	targetPhrase: string;
 	transcript: string | null;
 	languageName: string;
+	morphemeBreakdown?: Array<{ morpheme: string; gloss: string; role: string }> | null;
 }): Promise<{
 	feedbackText: string;
 	soundAccuracy?: number;
 	rhythmIntonation?: number;
 	phraseAccuracy?: number;
 	errorTags?: string[];
+	constructionErrors?: Array<{ morpheme: string; issue: string }>;
 }> {
 	const apiKey = process.env.CONVEX_ANTHROPIC_API_KEY;
 	if (!apiKey) {
@@ -273,12 +312,21 @@ async function generateFeedbackWithClaude(input: {
 			},
 			body: JSON.stringify({
 				model: getAnthropicModel(),
-				max_tokens: 500,
-				system: buildCoachingPrompt(input.languageName),
+				max_tokens: 700,
+				system: buildCoachingPrompt(input.languageName, !!input.morphemeBreakdown),
 				messages: [
 					{
 						role: 'user',
-						content: `English prompt: ${input.englishPrompt}\nTarget ${input.languageName}: ${input.targetPhrase}\nUser transcript: ${input.transcript ?? 'N/A'}`
+						content: [
+							`English prompt: ${input.englishPrompt}`,
+							`Target ${input.languageName}: ${input.targetPhrase}`,
+							input.morphemeBreakdown
+								? `Morpheme breakdown of the target: ${JSON.stringify(input.morphemeBreakdown)}`
+								: null,
+							`User transcript: ${input.transcript ?? 'N/A'}`
+						]
+							.filter(Boolean)
+							.join('\n')
 					}
 				]
 			}),
@@ -316,7 +364,8 @@ async function generateFeedbackWithClaude(input: {
 			soundAccuracy: clampScore(parsed.soundAccuracy),
 			rhythmIntonation: clampScore(parsed.rhythmIntonation),
 			phraseAccuracy: clampScore(parsed.phraseAccuracy),
-			feedbackText: parsed.feedback ?? 'Feedback not available.'
+			feedbackText: parsed.feedback ?? 'Feedback not available.',
+			constructionErrors: parseConstructionErrors(parsed.constructionErrors)
 		};
 	} catch {
 		console.warn('Claude feedback returned non-JSON response', {

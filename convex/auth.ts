@@ -7,7 +7,8 @@ import authConfig from './auth.config';
 
 const LOCAL_TRUSTED_ORIGINS = new Set([
 	'http://localhost:5173',
-	'http://localhost:5178'
+	'http://localhost:5178',
+	'http://localhost:5180'
 ]);
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
@@ -67,6 +68,28 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 				}
 			}
 		},
+		emailVerification: {
+			sendOnSignUp: requireEmailVerification,
+			autoSignInAfterVerification: true,
+			sendVerificationEmail: async ({ user, url }) => {
+				const delivery = getPasswordResetDeliveryConfig(env);
+				if (!delivery.canSendEmail) {
+					// Without a sender, requiring verification would strand new users.
+					console.error(
+						'Verification email requested but RESEND_API_KEY/AUTH_EMAIL_FROM are not configured.'
+					);
+					return;
+				}
+				await sendVerificationEmailViaResend({
+					to: normalizeEmail(user.email),
+					verifyUrl: url,
+					siteUrl: env.siteUrl,
+					apiKey: delivery.apiKey!,
+					from: delivery.from!,
+					replyTo: delivery.replyTo
+				});
+			}
+		},
 		plugins: [convex({ authConfig })]
 	});
 };
@@ -75,6 +98,7 @@ type AuthEnv = {
 	siteUrl: string;
 	authSecret: string;
 	verifierSiteUrl?: string;
+	adminSiteUrl?: string;
 	nodeEnv: string;
 	isProduction: boolean;
 	allowLocalhostOrigins: boolean;
@@ -89,6 +113,7 @@ function readAuthEnv(): AuthEnv {
 	const nodeEnv = process.env.NODE_ENV ?? 'development';
 	const isProduction = nodeEnv === 'production';
 	const verifierSiteUrl = normalizeOptionalUrl(process.env.VERIFIER_SITE_URL, 'VERIFIER_SITE_URL');
+	const adminSiteUrl = normalizeOptionalUrl(process.env.ADMIN_SITE_URL, 'ADMIN_SITE_URL');
 	const allowLocalhostOrigins = parseBooleanEnv('AUTH_ALLOW_LOCALHOST_ORIGINS') ?? !isProduction;
 	const requireEmailVerificationOverride = parseBooleanEnv('AUTH_REQUIRE_EMAIL_VERIFICATION');
 	const allowUnverifiedEmailsInProduction =
@@ -101,6 +126,7 @@ function readAuthEnv(): AuthEnv {
 		siteUrl,
 		authSecret,
 		verifierSiteUrl,
+		adminSiteUrl,
 		nodeEnv,
 		isProduction,
 		allowLocalhostOrigins,
@@ -133,6 +159,9 @@ function buildTrustedOrigins(env: AuthEnv): string[] {
 	candidates.add(env.siteUrl);
 	if (env.verifierSiteUrl) {
 		candidates.add(env.verifierSiteUrl);
+	}
+	if (env.adminSiteUrl) {
+		candidates.add(env.adminSiteUrl);
 	}
 	if (env.allowLocalhostOrigins) {
 		for (const origin of LOCAL_TRUSTED_ORIGINS) {
@@ -228,6 +257,37 @@ function getPasswordResetDeliveryConfig(env: AuthEnv) {
 	return { apiKey, from, replyTo, canSendEmail, debugEnabled };
 }
 
+async function sendResendEmail(args: {
+	to: string;
+	subject: string;
+	text: string;
+	html: string;
+	apiKey: string;
+	from: string;
+	replyTo?: string;
+}) {
+	const response = await fetch('https://api.resend.com/emails', {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${args.apiKey}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			from: args.from,
+			to: [args.to],
+			reply_to: args.replyTo ? [args.replyTo] : undefined,
+			subject: args.subject,
+			text: args.text,
+			html: args.html
+		})
+	});
+
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Resend email failed: ${response.status} ${body}`);
+	}
+}
+
 async function sendPasswordResetEmail(args: {
 	to: string;
 	resetUrl: string;
@@ -255,26 +315,49 @@ async function sendPasswordResetEmail(args: {
 		`<p style="color:#666;font-size:12px">Request came from: ${escapeHtml(userAgent)}</p>`
 	].join('');
 
-	const response = await fetch('https://api.resend.com/emails', {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${args.apiKey}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-			from: args.from,
-			to: [args.to],
-			reply_to: args.replyTo ? [args.replyTo] : undefined,
-			subject: 'Reset your password',
-			text,
-			html
-		})
+	await sendResendEmail({
+		to: args.to,
+		subject: 'Reset your password',
+		text,
+		html,
+		apiKey: args.apiKey,
+		from: args.from,
+		replyTo: args.replyTo
 	});
+}
 
-	if (!response.ok) {
-		const body = await response.text();
-		throw new Error(`Resend password reset email failed: ${response.status} ${body}`);
-	}
+async function sendVerificationEmailViaResend(args: {
+	to: string;
+	verifyUrl: string;
+	siteUrl: string;
+	apiKey: string;
+	from: string;
+	replyTo?: string;
+}) {
+	const appHost = new URL(args.siteUrl).hostname;
+	const text = [
+		`Welcome to ${appHost}!`,
+		'',
+		`Confirm your email address to finish setting up your account: ${args.verifyUrl}`,
+		'',
+		`If you did not create this account, you can ignore this email.`
+	].join('\n');
+
+	const html = [
+		`<p>Welcome to <strong>${escapeHtml(appHost)}</strong>!</p>`,
+		`<p><a href="${escapeHtml(args.verifyUrl)}">Confirm your email address</a></p>`,
+		`<p>If you did not create this account, you can ignore this email.</p>`
+	].join('');
+
+	await sendResendEmail({
+		to: args.to,
+		subject: 'Confirm your email',
+		text,
+		html,
+		apiKey: args.apiKey,
+		from: args.from,
+		replyTo: args.replyTo
+	});
 }
 
 function escapeHtml(value: string) {
